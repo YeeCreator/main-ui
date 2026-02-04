@@ -18,3 +18,11 @@
 - 工作流：
   - 推荐：`pnpm dev`（tsup --watch）持续产出 `dist/`，供消费者项目运行时刷新获取。
   - 备选：`pnpm build` 后在消费者项目执行一次 `pnpm install` 刷新 file 依赖。
+
+## 2026-02-04
+
+- 修复：`MatchFrame` 中心区域的 flex 策略调整为 `flex: 1 1 auto`（并设置 `minWidth: 0`），避免中心内容过宽时把右侧栏挤出视口导致“右侧栏看似未加载”。
+- 增强：为 `MatchFrame` 新增 `layout` 参数，支持按需配置：
+  - `heightMode: 'viewport' | 'parent'`
+  - `leftSidebar/rightSidebar` 的 `width` 与 `scroll` 选项
+- 约定：宿主项目如有主界面外壳定制需求，应优先通过 `layout` 参数驱动，不在宿主侧硬编码布局规则。
