@@ -26,3 +26,25 @@
   - `heightMode: 'viewport' | 'parent'`
   - `leftSidebar/rightSidebar` 的 `width` 与 `scroll` 选项
 - 约定：宿主项目如有主界面外壳定制需求，应优先通过 `layout` 参数驱动，不在宿主侧硬编码布局规则。
+
+## 2026-03-10
+
+### 阶段 A：基础设施改造
+
+- 新增：`tokens/` 设计令牌层，统一颜色、间距、圆角、阴影、层级。
+- 新增：`adapters/` 适配层，定义 `DataTableAdapter`、`TreeAdapter`、`FormAdapter` 契约及注册机制。
+- 改造：`tsup` 多入口构建与 `package.json` 子路径导出（`layout/data/form/navigation/tokens/adapters`）。
+
+### 阶段 B：组件迁移
+
+- 迁移：`Sidebar` 内部 `select/radio/segmented` 控件替换为 Radix 原语实现。
+- 新增：`DataTablePanel`（TanStack Table 语义壳层）。
+- 新增：`TreePanel`（react-arborist 语义壳层）。
+- 新增：`InspectorFormPanel`（react-hook-form + zod 语义壳层）。
+- 新增：`adapters` 对应库的轻封装实现（tanstack/arborist/rhf-zod）。
+
+### 阶段 C：稳定化与文档
+
+- 文档：补充 `README.md`、`docs/DEVELOPER_GUIDE.md`、`docs/USER_MANUAL.md` 的分层入口说明与示例。
+- 示例：补充“游戏配置条目管理”与“笔记目录树 + 属性编辑”两类组合示例。
+- 验证：`pnpm typecheck` 与 `pnpm build` 均通过。

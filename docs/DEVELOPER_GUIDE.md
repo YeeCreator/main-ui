@@ -16,6 +16,11 @@
 - ❌ 不依赖 p5
 - ❌ 不包含游戏规则、AI、命令总线（cmdBus）等业务逻辑
 
+补充说明：
+
+- 当前版本已接入 Radix / TanStack Table / react-arborist / react-hook-form + zod 作为可选能力。
+- 为避免强耦合，所有重型能力都通过分层入口与 `adapters/` 契约暴露。
+
 ## 3. 组件与数据模型
 
 ### 3.1 MatchFrame
@@ -68,3 +73,33 @@
 
 1. 在本项目运行 `pnpm build`
 2. 在使用者项目运行一次 `pnpm install` 刷新 file 依赖
+
+## 5. 分层入口与按需加载
+
+推荐导入方式：
+
+- `main-ui-react/layout`
+- `main-ui-react/data`
+- `main-ui-react/navigation`
+- `main-ui-react/form`
+- `main-ui-react/tokens`
+- `main-ui-react/adapters`
+
+不推荐新代码继续从根入口整包导入所有能力，这会降低 tree-shaking 效果。
+
+## 6. 体积与产物分析（2026-03-10）
+
+本次构建（`pnpm build`）关键产物如下：
+
+- `dist/layout/index.js`：布局壳层
+- `dist/data/index.js`：表格壳层
+- `dist/navigation/index.js`：侧栏与树壳层
+- `dist/form/index.js`：表单壳层
+- `dist/adapters/index.js`：适配器契约与实现
+- `dist/tokens/index.js`：设计令牌
+
+实践建议：
+
+1. 宿主只导入所需入口。
+2. 不使用的入口不应出现在 import 语句中。
+3. 通过宿主构建工具（Vite/Webpack/Rspack）验证最终 chunk。

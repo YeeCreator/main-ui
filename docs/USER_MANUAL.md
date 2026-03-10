@@ -8,6 +8,12 @@
 - 左/右侧边栏（Sidebars）
 - 中央内容区（center，通常放棋盘/地图/画布/viewport）
 
+当前版本还提供：
+
+- 数据条目管理面板（`DataTablePanel`）
+- 目录树面板（`TreePanel`）
+- 属性编辑面板（`InspectorFormPanel`）
+
 ## 快速上手
 
 ### 1) 组合一个标准页面
@@ -15,6 +21,12 @@
 - 用 `MatchFrame` 放置整体结构
 - 用 `Toolbar` 放置顶部按钮/状态
 - 用 `Sidebar` 渲染左右侧栏
+
+如需更完整能力，可结合：
+
+- `TreePanel` 作为左侧资源/目录树
+- `DataTablePanel` 作为中间条目列表
+- `InspectorFormPanel` 作为右侧属性编辑
 
 ### 2) 侧边栏内容
 
@@ -31,3 +43,12 @@
 很大概率是 React key 问题：
 
 - 请确保 `SidebarSection.id` 唯一且稳定。
+
+### 如何控制包体？
+
+优先使用子路径导入，而不是根入口整包导入：
+
+- `main-ui-react/layout`
+- `main-ui-react/data`
+- `main-ui-react/navigation`
+- `main-ui-react/form`

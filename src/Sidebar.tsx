@@ -1,31 +1,82 @@
 import React, { useMemo, useState } from 'react';
+import * as RadioGroup from '@radix-ui/react-radio-group';
+import * as Select from '@radix-ui/react-select';
+import * as ToggleGroup from '@radix-ui/react-toggle-group';
 import type { CopyField, ScreenAction, SidebarControl, SidebarModel } from './types';
 
-function copy(text: string) {
+/**
+ * 写入剪贴板。
+ *
+ * @param text 需要复制的文本。
+ */
+async function copy(text: string): Promise<void> {
   try {
-    void navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(text);
   } catch {
     // ignore
   }
 }
 
+/**
+ * 侧栏控件渲染器。
+ *
+ * @param props 控件渲染参数。
+ * @returns 控件视图。
+ */
 function ControlView({ control }: { control: SidebarControl }) {
   if (control.kind === 'select') {
     return (
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ fontWeight: 700, fontSize: 13 }}>{control.label}</div>
-        <select
-          value={control.value}
-          onChange={(e) => control.onChange(e.target.value)}
-          disabled={control.disabled}
-          style={{ height: 28 }}
-        >
-          {control.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <Select.Root value={control.value} onValueChange={control.onChange} disabled={control.disabled}>
+          <Select.Trigger
+            aria-label={control.label}
+            style={{
+              height: 30,
+              border: '1px solid rgba(0,0,0,0.2)',
+              borderRadius: 8,
+              padding: '0 10px',
+              background: '#fff',
+              fontSize: 13,
+              textAlign: 'left',
+            }}
+          >
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Content
+              position="popper"
+              sideOffset={6}
+              style={{
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 8,
+                background: '#fff',
+                padding: 4,
+                boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+                zIndex: 100,
+              }}
+            >
+              <Select.Viewport>
+                {control.options.map((o) => (
+                  <Select.Item
+                    key={o.value}
+                    value={o.value}
+                    style={{
+                      fontSize: 13,
+                      lineHeight: 1,
+                      borderRadius: 6,
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <Select.ItemText>{o.label}</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.Viewport>
+            </Select.Content>
+          </Select.Portal>
+        </Select.Root>
       </label>
     );
   }
@@ -35,24 +86,35 @@ function ControlView({ control }: { control: SidebarControl }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ fontWeight: 700, fontSize: 13 }}>{control.label}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <RadioGroup.Root
+          name={groupName}
+          value={control.value}
+          onValueChange={control.onChange}
+          disabled={control.disabled}
+          style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
           {control.options.map((o) => {
             const checked = o.value === control.value;
             return (
-              <label key={o.value} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
-                <input
-                  type="radio"
-                  name={groupName}
+              <label key={o.value} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+                <RadioGroup.Item
                   value={o.value}
-                  checked={checked}
-                  disabled={control.disabled}
-                  onChange={() => control.onChange(o.value)}
+                  aria-label={o.label}
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 999,
+                    border: '1px solid rgba(0,0,0,0.4)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 />
-                <span>{o.label}</span>
+                <span style={{ fontWeight: checked ? 700 : 500 }}>{o.label}</span>
               </label>
             );
           })}
-        </div>
+        </RadioGroup.Root>
       </div>
     );
   }
@@ -61,30 +123,48 @@ function ControlView({ control }: { control: SidebarControl }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontWeight: 700, fontSize: 13 }}>{control.label}</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <ToggleGroup.Root
+        type="single"
+        value={control.value}
+        onValueChange={(value) => {
+          if (value) {
+            control.onChange(value);
+          }
+        }}
+        disabled={control.disabled}
+        style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}
+      >
         {control.options.map((o) => {
           const selected = o.value === control.value;
           return (
-            <button
+            <ToggleGroup.Item
               key={`${control.id ?? control.label}:${o.value}`}
-              onClick={() => control.onChange(o.value)}
-              disabled={control.disabled}
-              type="button"
+              value={o.value}
+              aria-label={o.label}
               style={{
                 border: selected ? '2px solid rgba(0,0,0,0.6)' : '1px solid rgba(0,0,0,0.3)',
                 padding: '4px 8px',
                 background: selected ? 'rgba(0,0,0,0.05)' : 'transparent',
+                borderRadius: 8,
+                fontSize: 12,
+                cursor: 'pointer',
               }}
             >
               {o.label}
-            </button>
+            </ToggleGroup.Item>
           );
         })}
-      </div>
+      </ToggleGroup.Root>
     </div>
   );
 }
 
+/**
+ * 操作按钮区。
+ *
+ * @param props 操作区参数。
+ * @returns 操作按钮视图。
+ */
 function ActionsView({ actions }: { actions: ScreenAction[] }) {
   return actions.length ? (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -97,6 +177,12 @@ function ActionsView({ actions }: { actions: ScreenAction[] }) {
   ) : null;
 }
 
+/**
+ * 可复制字段区。
+ *
+ * @param props 复制字段参数。
+ * @returns 复制字段视图。
+ */
 function CopyFieldsView({ copyFields }: { copyFields: CopyField[] }) {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -136,8 +222,8 @@ function CopyFieldsView({ copyFields }: { copyFields: CopyField[] }) {
               <button
                 type="button"
                 disabled={!canCopy}
-                onClick={() => {
-                  copy(f.value);
+                onClick={async () => {
+                  await copy(f.value);
                   setCopied(f.label);
                   window.setTimeout(() => setCopied(null), 900);
                 }}
@@ -154,10 +240,18 @@ function CopyFieldsView({ copyFields }: { copyFields: CopyField[] }) {
 }
 
 export type SidebarProps = {
+  /** 侧栏视图模型。 */
   model: SidebarModel;
+  /** 侧栏宽度。 */
   width?: number;
 };
 
+/**
+ * 通用侧栏语义壳层。
+ *
+ * @param props 侧栏属性。
+ * @returns 侧栏组件。
+ */
 export function Sidebar(props: SidebarProps) {
   const { model, width = 300 } = props;
 
