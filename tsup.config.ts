@@ -7,6 +7,7 @@ export default defineConfig({
     'src/data/index.ts',
     'src/form/index.ts',
     'src/navigation/index.ts',
+    'src/command/index.ts',
     'src/tokens/index.ts',
     'src/adapters/index.ts',
   ],

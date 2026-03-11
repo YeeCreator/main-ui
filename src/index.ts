@@ -34,3 +34,8 @@ export * from './tokens';
  * 适配器层分层导出入口。
  */
 export * from './adapters';
+
+/**
+ * 命令面板层分层导出入口。
+ */
+export * from './command';

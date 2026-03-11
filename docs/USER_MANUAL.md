@@ -13,6 +13,7 @@
 - 数据条目管理面板（`DataTablePanel`）
 - 目录树面板（`TreePanel`）
 - 属性编辑面板（`InspectorFormPanel`）
+- 命令面板（`CommandPalette`）
 
 ## 快速上手
 
@@ -27,6 +28,7 @@
 - `TreePanel` 作为左侧资源/目录树
 - `DataTablePanel` 作为中间条目列表
 - `InspectorFormPanel` 作为右侧属性编辑
+- `CommandPalette` 作为命令检索与快速操作入口
 
 ### 2) 侧边栏内容
 
@@ -52,3 +54,12 @@
 - `main-ui-react/data`
 - `main-ui-react/navigation`
 - `main-ui-react/form`
+- `main-ui-react/command`
+
+## 迁移建议
+
+如果你历史上从根入口导入所有组件，建议分步迁移到子路径入口：
+
+1. 先把布局组件迁移到 `main-ui-react/layout`。
+2. 再按需迁移 `data/navigation/form/command`。
+3. 最后将 `tokens/adapters` 也改成子路径导入。

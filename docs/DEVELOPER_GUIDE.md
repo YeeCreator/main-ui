@@ -82,6 +82,7 @@
 - `main-ui-react/data`
 - `main-ui-react/navigation`
 - `main-ui-react/form`
+- `main-ui-react/command`
 - `main-ui-react/tokens`
 - `main-ui-react/adapters`
 
@@ -95,6 +96,7 @@
 - `dist/data/index.js`：表格壳层
 - `dist/navigation/index.js`：侧栏与树壳层
 - `dist/form/index.js`：表单壳层
+- `dist/command/index.js`：命令面板壳层
 - `dist/adapters/index.js`：适配器契约与实现
 - `dist/tokens/index.js`：设计令牌
 
@@ -103,3 +105,26 @@
 1. 宿主只导入所需入口。
 2. 不使用的入口不应出现在 import 语句中。
 3. 通过宿主构建工具（Vite/Webpack/Rspack）验证最终 chunk。
+
+### 6.1 dist 体积报告命令
+
+仓库提供 `scripts/report-dist-size.mjs`，可直接输出 dist 文件大小排行：
+
+1. `pnpm build`
+2. `pnpm analyze:dist`
+
+## 7. 根入口迁移清单
+
+推荐迁移映射：
+
+- `main-ui-react` -> `main-ui-react/layout`（布局壳层）
+- `main-ui-react` -> `main-ui-react/data`（表格壳层）
+- `main-ui-react` -> `main-ui-react/navigation`（导航壳层）
+- `main-ui-react` -> `main-ui-react/form`（表单壳层）
+- `main-ui-react` -> `main-ui-react/command`（命令面板壳层）
+- `main-ui-react` -> `main-ui-react/tokens`（设计令牌）
+- `main-ui-react` -> `main-ui-react/adapters`（契约与注册）
+
+兼容策略：
+
+- 根入口保留用于历史代码，但新增模块一律使用分层入口。

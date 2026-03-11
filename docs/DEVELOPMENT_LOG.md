@@ -48,3 +48,10 @@
 - 文档：补充 `README.md`、`docs/DEVELOPER_GUIDE.md`、`docs/USER_MANUAL.md` 的分层入口说明与示例。
 - 示例：补充“游戏配置条目管理”与“笔记目录树 + 属性编辑”两类组合示例。
 - 验证：`pnpm typecheck` 与 `pnpm build` 均通过。
+
+### 阶段 C 追加：计划尾项补齐（2026-03-10）
+
+- 新增：`CommandPalette`（`cmdk` 语义壳层）与 `main-ui-react/command` 子入口。
+- 改造：`tsup` 与 `package.json exports` 同步增加 `command` 多入口产物与导出。
+- 文档：补充“根入口迁移清单”，明确从扁平导入到分层导入的映射关系。
+- 工具：新增 `pnpm analyze:dist`（`scripts/report-dist-size.mjs`）用于输出 dist 体积排行。

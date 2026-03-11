@@ -20,6 +20,7 @@
 - `main-ui-react/data`：数据层（`DataTablePanel`）
 - `main-ui-react/navigation`：导航层（`Sidebar`、`TreePanel`）
 - `main-ui-react/form`：表单层（`InspectorFormPanel`）
+- `main-ui-react/command`：命令层（`CommandPalette`）
 - `main-ui-react/tokens`：设计令牌
 - `main-ui-react/adapters`：适配器契约与注册实现
 
@@ -35,6 +36,7 @@
 - `DataTablePanel`：基于 TanStack Table 的数据列表语义壳层。
 - `TreePanel`：基于 react-arborist 的树形导航语义壳层。
 - `InspectorFormPanel`：基于 react-hook-form + zod 的属性编辑语义壳层。
+- `CommandPalette`：基于 cmdk 的命令面板语义壳层。
 
 ## 快速示例
 
@@ -99,6 +101,49 @@ export function NoteEditorPage() {
 	);
 }
 ```
+
+### 示例 3：命令面板
+
+```tsx
+import { CommandPalette } from 'main-ui-react/command';
+
+export function CommandDemo() {
+	return (
+		<CommandPalette
+			title="命令"
+			items={[
+				{ id: 'save', label: '保存当前文档', onSelect: () => console.log('save') },
+				{ id: 'open', label: '打开资源目录', onSelect: () => console.log('open') },
+			]}
+		/>
+	);
+}
+```
+
+## 迁移清单（根入口 -> 分层入口）
+
+建议新代码按下面映射迁移导入路径：
+
+- `import { MatchFrame, Toolbar, Panel } from 'main-ui-react'` -> `import { MatchFrame, Toolbar, Panel } from 'main-ui-react/layout'`
+- `import { DataTablePanel } from 'main-ui-react'` -> `import { DataTablePanel } from 'main-ui-react/data'`
+- `import { Sidebar, TreePanel } from 'main-ui-react'` -> `import { Sidebar, TreePanel } from 'main-ui-react/navigation'`
+- `import { InspectorFormPanel } from 'main-ui-react'` -> `import { InspectorFormPanel } from 'main-ui-react/form'`
+- `import { CommandPalette } from 'main-ui-react'` -> `import { CommandPalette } from 'main-ui-react/command'`
+- `import { defaultTokens } from 'main-ui-react'` -> `import { defaultTokens } from 'main-ui-react/tokens'`
+- `import { getAdapterRegistry } from 'main-ui-react'` -> `import { getAdapterRegistry } from 'main-ui-react/adapters'`
+
+兼容说明：
+
+- 根入口不会立即移除；但建议只用于历史代码兼容，新增功能请使用子路径入口。
+
+## 产物体积分析
+
+执行步骤：
+
+- 先构建：`pnpm build`
+- 再分析 dist：`pnpm analyze:dist`
+
+输出会按体积降序列出 `dist/` 下的 `.js` 与 `.d.ts` 文件，便于定位重型入口。
 
 ## 本地开发（作为 `file:` 依赖被其他项目引用时）
 
