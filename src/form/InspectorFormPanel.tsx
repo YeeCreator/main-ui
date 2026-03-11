@@ -2,6 +2,7 @@ import React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { getLayoutPresetStyles, type LayoutPreset } from '../tokens';
 
 /**
  * 检查器字段定义。
@@ -31,6 +32,8 @@ export type InspectorFormPanelProps = {
   onSubmitValues: (values: Record<string, string | number>) => void;
   /** 外层样式。 */
   style?: React.CSSProperties;
+  /** 视觉预设。 */
+  preset?: LayoutPreset;
 };
 
 /**
@@ -40,7 +43,8 @@ export type InspectorFormPanelProps = {
  * @returns 检查器表单组件。
  */
 export function InspectorFormPanel(props: InspectorFormPanelProps): React.JSX.Element {
-  const { title = '属性编辑', fields, initialValues, onSubmitValues, style } = props;
+  const { title = '属性编辑', fields, initialValues, onSubmitValues, style, preset = 'default' } = props;
+  const chromeStyles = getLayoutPresetStyles(preset);
 
   const schemaShape: Record<string, z.ZodType<string | number>> = {};
   for (const field of fields) {
@@ -67,17 +71,18 @@ export function InspectorFormPanel(props: InspectorFormPanelProps): React.JSX.El
   return (
     <section
       style={{
-        border: '1px solid rgba(0,0,0,0.12)',
+        border: `1px solid ${chromeStyles.borderColor}`,
         borderRadius: 10,
         padding: 12,
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        background: '#fff',
+        background: chromeStyles.panelBackground,
+        color: chromeStyles.textPrimary,
         ...style,
       }}
     >
-      <strong style={{ fontSize: 14 }}>{title}</strong>
+      <strong style={{ fontSize: 14, color: chromeStyles.textPrimary }}>{title}</strong>
 
       <form
         onSubmit={handleSubmit((values) => {
@@ -96,7 +101,7 @@ export function InspectorFormPanel(props: InspectorFormPanelProps): React.JSX.El
       >
         {fields.map((field) => (
           <label key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>{field.label}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: chromeStyles.textPrimary }}>{field.label}</span>
             <input
               aria-label={field.label}
               type={field.kind === 'number' ? 'number' : 'text'}
@@ -107,9 +112,11 @@ export function InspectorFormPanel(props: InspectorFormPanelProps): React.JSX.El
               style={{
                 height: 32,
                 borderRadius: 8,
-                border: '1px solid rgba(0,0,0,0.2)',
+                border: `1px solid ${chromeStyles.controlBorder}`,
                 padding: '0 10px',
                 fontSize: 13,
+                background: chromeStyles.controlBackground,
+                color: chromeStyles.controlText,
               }}
             />
             {errors[field.name] ? <span style={{ fontSize: 12, color: '#cc0000' }}>字段校验失败</span> : null}
@@ -117,10 +124,18 @@ export function InspectorFormPanel(props: InspectorFormPanelProps): React.JSX.El
         ))}
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={!isDirty}>
+          <button
+            type="submit"
+            disabled={!isDirty}
+            style={{ border: `1px solid ${chromeStyles.controlSelectedBorder}`, background: chromeStyles.controlSelectedBackground, color: chromeStyles.controlText, borderRadius: 8, padding: '6px 10px' }}
+          >
             保存
           </button>
-          <button type="button" onClick={() => reset(initialValues)}>
+          <button
+            type="button"
+            onClick={() => reset(initialValues)}
+            style={{ border: `1px solid ${chromeStyles.controlBorder}`, background: chromeStyles.controlBackground, color: chromeStyles.controlText, borderRadius: 8, padding: '6px 10px' }}
+          >
             重置
           </button>
         </div>

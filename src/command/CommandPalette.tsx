@@ -1,5 +1,6 @@
 import React from 'react';
 import { Command } from 'cmdk';
+import { getLayoutPresetStyles, type LayoutPreset } from '../tokens';
 
 /**
  * 命令项定义。
@@ -35,6 +36,8 @@ export type CommandPaletteProps = {
   onSelectedIdChange?: (id: string) => void;
   /** 外层样式。 */
   style?: React.CSSProperties;
+  /** 视觉预设。 */
+  preset?: LayoutPreset;
 };
 
 /**
@@ -63,31 +66,35 @@ export function CommandPalette(props: CommandPaletteProps): React.JSX.Element {
     defaultSelectedId,
     onSelectedIdChange,
     style,
+    preset = 'default',
   } = props;
+  const chromeStyles = getLayoutPresetStyles(preset);
 
   const [selectedId, setSelectedId] = React.useState<string | undefined>(defaultSelectedId);
 
   return (
     <section
       style={{
-        border: '1px solid rgba(0,0,0,0.12)',
+        border: `1px solid ${chromeStyles.borderColor}`,
         borderRadius: 10,
         padding: 12,
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        background: '#fff',
+        background: chromeStyles.panelBackground,
+        color: chromeStyles.textPrimary,
         ...style,
       }}
     >
-      <strong style={{ fontSize: 14 }}>{title}</strong>
+      <strong style={{ fontSize: 14, color: chromeStyles.textPrimary }}>{title}</strong>
 
       <Command
         loop
         style={{
-          border: '1px solid rgba(0,0,0,0.08)',
+          border: `1px solid ${chromeStyles.borderColor}`,
           borderRadius: 8,
           overflow: 'hidden',
+          background: chromeStyles.sectionBackground,
         }}
       >
         <Command.Input
@@ -95,15 +102,17 @@ export function CommandPalette(props: CommandPaletteProps): React.JSX.Element {
           style={{
             width: '100%',
             border: 'none',
-            borderBottom: '1px solid rgba(0,0,0,0.08)',
+            borderBottom: `1px solid ${chromeStyles.borderColor}`,
             height: 34,
             padding: '0 10px',
             fontSize: 13,
             outline: 'none',
+            background: chromeStyles.controlBackground,
+            color: chromeStyles.controlText,
           }}
         />
         <Command.List style={{ maxHeight: 240, overflow: 'auto', padding: 6 }}>
-          <Command.Empty style={{ fontSize: 12, color: '#666', padding: '8px 6px' }}>{emptyText}</Command.Empty>
+          <Command.Empty style={{ fontSize: 12, color: chromeStyles.textSecondary, padding: '8px 6px' }}>{emptyText}</Command.Empty>
           {items.map((item) => (
             <Command.Item
               key={item.id}
@@ -120,8 +129,8 @@ export function CommandPalette(props: CommandPaletteProps): React.JSX.Element {
                 padding: '7px 8px',
                 fontSize: 13,
                 cursor: item.disabled ? 'not-allowed' : 'pointer',
-                background: selectedId === item.id ? 'rgba(0,0,0,0.06)' : 'transparent',
-                color: item.disabled ? '#999' : '#111',
+                background: selectedId === item.id ? chromeStyles.controlSelectedBackground : 'transparent',
+                color: item.disabled ? chromeStyles.textSecondary : chromeStyles.textPrimary,
               }}
             >
               {item.label}

@@ -5,6 +5,7 @@
 - 顶部工具条
 - 左/右侧边栏
 - 中央内容区（棋盘/地图/画布/视口）
+- 底部状态栏
 
 本包刻意保持“纯 UI、无业务”的边界：
 
@@ -32,6 +33,8 @@
 
 - `MatchFrame`：顶部工具条 + 左右侧边栏 + 中央内容区 的布局容器。
 - `Toolbar`：插槽式工具条（`left` / `center` / `right`）。
+- `StatusBar`：底部状态栏（`left` / `right` 双区）。
+- `ViewportHost`：中央视口宿主容器，只负责嵌入，不实现视口功能。
 - `Sidebar`：基于 `SidebarModel` 渲染侧边栏（内部控件已升级为 Radix 原语）。
 - `DataTablePanel`：基于 TanStack Table 的数据列表语义壳层。
 - `TreePanel`：基于 react-arborist 的树形导航语义壳层。
@@ -43,28 +46,59 @@
 ### 示例 1：游戏配置条目管理
 
 ```tsx
-import { MatchFrame, Toolbar } from 'main-ui-react/layout';
+import { MatchFrame, StatusBar, Toolbar, ViewportHost } from 'main-ui-react/layout';
 import { DataTablePanel } from 'main-ui-react/data';
 
 export function GameConfigPage() {
 	return (
 		<MatchFrame
-			toolbar={<Toolbar center={<span>配置管理</span>} />}
+			preset="vscodium"
+			toolbar={<Toolbar preset="vscodium" center={<span>配置管理</span>} />}
 			center={
-				<DataTablePanel
-					title="单位配置"
-					data={[{ id: 'u001', name: '步兵', hp: 100 }]}
-					columns={[
-						{ accessorKey: 'id', header: 'ID' },
-						{ accessorKey: 'name', header: '名称' },
-						{ accessorKey: 'hp', header: '生命值' },
-					]}
-				/>
+				<ViewportHost preset="vscodium" style={{ padding: 12 }}>
+					<DataTablePanel
+						title="单位配置"
+						data={[{ id: 'u001', name: '步兵', hp: 100 }]}
+						columns={[
+							{ accessorKey: 'id', header: 'ID' },
+							{ accessorKey: 'name', header: '名称' },
+							{ accessorKey: 'hp', header: '生命值' },
+						]}
+					/>
+				</ViewportHost>
 			}
+			statusbar={<StatusBar preset="vscodium" left={[{ content: 'main-ui-react 工作台' }]} right={[{ content: 'UTF-8' }]} />}
 		/>
 	);
 }
 ```
+
+### 示例 1.5：嵌入外部视口工具包
+
+```tsx
+import { MatchFrame, StatusBar, Toolbar, ViewportHost } from 'main-ui-react/layout';
+
+export function ExternalViewportPage() {
+	return (
+		<MatchFrame
+			preset="konva"
+			toolbar={<Toolbar preset="konva" left={<span>画布工具</span>} />}
+			center={
+				<ViewportHost preset="konva">
+					<div id="external-viewport-mount" style={{ width: '100%', height: '100%' }} />
+				</ViewportHost>
+			}
+			statusbar={<StatusBar preset="konva" left={[{ content: '场景：2D 视口' }]} right={[{ content: '缩放 100%' }]} />}
+		/>
+	);
+}
+```
+
+说明：
+
+- `main-ui-react` 不提供 Konva、Three.js、X6 等视口能力。
+- 推荐把外部视口挂载到 `ViewportHost` 内部稳定的 DOM 容器中。
+- `preset="vscodium"` 与 `preset="konva"` 只表示主界面壳层风格，不代表依赖对应官方产品本体。
 
 ### 示例 2：笔记目录树 + 属性编辑
 

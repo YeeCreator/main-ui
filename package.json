@@ -46,6 +46,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "demo:dev": "vite --config demo/vite.config.ts",
+    "demo:build": "vite build --config demo/vite.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "analyze:dist": "node scripts/report-dist-size.mjs"
   },
@@ -97,13 +99,17 @@
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@tanstack/react-table": "^8.21.3",
+    "@vitejs/plugin-react": "^5.0.0",
     "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
     "cmdk": "^1.1.1",
+    "react": "^19.1.1",
     "react-arborist": "^3.4.3",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
+    "vite": "^7.1.5",
     "zod": "^4.1.8"
   }
 }
