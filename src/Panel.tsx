@@ -1,4 +1,5 @@
 import React from 'react';
+import { getLayoutPresetStyles, type LayoutPreset } from './tokens';
 
 export type PanelProps = {
   /** 面板标题 */
@@ -7,6 +8,8 @@ export type PanelProps = {
   actions?: React.ReactNode;
   children?: React.ReactNode;
   style?: React.CSSProperties;
+  /** 视觉预设。 */
+  preset?: LayoutPreset;
 };
 
 /**
@@ -17,15 +20,17 @@ export type PanelProps = {
  * - 宿主只负责提供内容与交互，不再自己实现 .panel/.panel h3 等样式。
  */
 export function Panel(props: PanelProps) {
-  const { title, actions, children, style } = props;
+  const { title, actions, children, style, preset = 'default' } = props;
+  const chromeStyles = getLayoutPresetStyles(preset);
 
   return (
     <section
       style={{
-        border: '1px solid rgba(0,0,0,0.12)',
+        border: `1px solid ${chromeStyles.borderColor}`,
         borderRadius: 10,
         padding: 12,
-        background: '#fff',
+        background: chromeStyles.panelBackground,
+        color: chromeStyles.textPrimary,
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
@@ -35,7 +40,7 @@ export function Panel(props: PanelProps) {
     >
       {title ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ fontWeight: 800, fontSize: 13 }}>{title}</div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: chromeStyles.textPrimary }}>{title}</div>
           {actions ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{actions}</div> : null}
         </div>
       ) : null}
