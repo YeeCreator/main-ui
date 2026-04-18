@@ -1085,3 +1085,9 @@ rust-project.json
 # End of https://www.toptal.com/developers/gitignore/api/macos,windows,linux,obsidian,visualstudiocode,visualstudio,rider,godot,unity,unrealengine,csharp,swift,swiftpm,swiftpackagemanager,goodsync,rust,rust-analyzer
 
 
+
+# ----------------------- 项目专用 -----------------------
+.vscode/
+.github/
+.idea/
+*.code-workspace

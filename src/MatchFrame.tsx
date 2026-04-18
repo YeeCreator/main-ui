@@ -1,4 +1,5 @@
 import React from 'react';
+import { getLayoutPresetStyles, type LayoutPreset } from './tokens';
 
 export type MatchFrameSidebarOptions = {
   /** 侧栏宽度（px）。不传时使用默认值。 */
@@ -24,16 +25,23 @@ export type MatchFrameLayoutOptions = {
 
 export type MatchFrameProps = {
   toolbar?: React.ReactNode;
+  activityRail?: React.ReactNode;
   leftSidebar?: React.ReactNode;
   rightSidebar?: React.ReactNode;
+  editorTabs?: React.ReactNode;
   center: React.ReactNode;
+  bottomPanel?: React.ReactNode;
+  statusbar?: React.ReactNode;
   style?: React.CSSProperties;
+  /** 主界面视觉预设。 */
+  preset?: LayoutPreset;
   /** 布局参数：用于宿主按需定制主界面壳，而不修改内部实现 */
   layout?: MatchFrameLayoutOptions;
 };
 
 export function MatchFrame(props: MatchFrameProps) {
-  const { toolbar, leftSidebar, rightSidebar, center, style, layout } = props;
+  const { toolbar, activityRail, leftSidebar, rightSidebar, editorTabs, center, bottomPanel, statusbar, style, preset = 'default', layout } = props;
+  const chromeStyles = getLayoutPresetStyles(preset);
 
   const heightMode = layout?.heightMode ?? 'viewport';
 
@@ -46,8 +54,8 @@ export function MatchFrame(props: MatchFrameProps) {
   const leftPadding = layout?.leftSidebar?.padding ?? 12;
   const rightPadding = layout?.rightSidebar?.padding ?? 12;
 
-  const leftBg = layout?.leftSidebar?.background ?? 'rgba(255,255,255,0.92)';
-  const rightBg = layout?.rightSidebar?.background ?? 'rgba(255,255,255,0.92)';
+  const leftBg = layout?.leftSidebar?.background ?? chromeStyles.sidebarBackground;
+  const rightBg = layout?.rightSidebar?.background ?? chromeStyles.sidebarBackground;
 
   const leftBordered = layout?.leftSidebar?.bordered ?? true;
   const rightBordered = layout?.rightSidebar?.bordered ?? true;
@@ -69,8 +77,8 @@ export function MatchFrame(props: MatchFrameProps) {
     padding,
     boxSizing: 'border-box',
     background,
-    borderRight: side === 'left' && bordered ? '1px solid rgba(0,0,0,0.10)' : undefined,
-    borderLeft: side === 'right' && bordered ? '1px solid rgba(0,0,0,0.10)' : undefined,
+    borderRight: side === 'left' && bordered ? `1px solid ${chromeStyles.borderColor}` : undefined,
+    borderLeft: side === 'right' && bordered ? `1px solid ${chromeStyles.borderColor}` : undefined,
   });
 
   return (
@@ -82,12 +90,15 @@ export function MatchFrame(props: MatchFrameProps) {
         gap: 0,
         height: heightMode === 'viewport' ? '100vh' : '100%',
         overflow: 'hidden',
+        background: chromeStyles.appBackground,
         ...style,
       }}
     >
       {toolbar ? <div style={{ flex: '0 0 auto' }}>{toolbar}</div> : null}
 
       <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, flex: '1 1 auto', minHeight: 0, minWidth: 0 }}>
+        {activityRail ? <div style={{ flex: '0 0 auto', minHeight: 0 }}>{activityRail}</div> : null}
+
         {leftSidebar ? (
           <div style={mkSidebarStyle(leftWidth, leftScroll, leftPadding, leftBg, leftBordered, 'left')}>{leftSidebar}</div>
         ) : null}
@@ -96,7 +107,23 @@ export function MatchFrame(props: MatchFrameProps) {
           关键修复：center 必须可以伸缩（flex:1），否则当中心内容比较宽时会把右侧栏挤出视口。
           同时需要 minWidth:0 才能允许内容正常收缩并触发内部 overflow。
         */}
-        <div style={{ flex: '1 1 auto', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>{center}</div>
+        <div style={{ flex: '1 1 auto', minWidth: 0, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {editorTabs ? <div style={{ flex: '0 0 auto' }}>{editorTabs}</div> : null}
+
+          <div
+            style={{
+              flex: '1 1 auto',
+              minWidth: 0,
+              minHeight: 0,
+              overflow: 'hidden',
+              background: chromeStyles.viewportBackground,
+            }}
+          >
+            {center}
+          </div>
+
+          {bottomPanel ? <div style={{ flex: '0 0 auto', minHeight: 0 }}>{bottomPanel}</div> : null}
+        </div>
 
         {rightSidebar ? (
           <div style={mkSidebarStyle(rightWidth, rightScroll, rightPadding, rightBg, rightBordered, 'right')}>
@@ -104,6 +131,8 @@ export function MatchFrame(props: MatchFrameProps) {
           </div>
         ) : null}
       </div>
+
+      {statusbar ? <div style={{ flex: '0 0 auto' }}>{statusbar}</div> : null}
     </div>
   );
 }
