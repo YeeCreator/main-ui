@@ -85,6 +85,7 @@
 1. `DesignTokens`：通用设计令牌。
 2. `LayoutPreset`：主界面风格预设。
 3. `getLayoutPresetStyles()`：预设视觉映射表。
+4. `ThemeProvider` / `useTheme`：三态主题（light/dark/system）运行时能力。
 
 ## 预设联动原则
 
@@ -100,6 +101,25 @@
 1. 不破坏已有公共 API。
 2. 避免一次性把所有语义壳层风格强绑定到单一预设系统。
 3. 为未来的 `WorkbenchShell`、`ActivityRail` 等更细粒度抽象保留空间。
+
+## 主题机制
+
+当前主题系统采用“预设 + 运行时主题模式”的两层结构：
+
+1. 预设层：`default` / `vscodium` / `konva` 提供视觉语义。
+2. 主题层：`light` / `dark` / `system` 决定当前实际颜色分支。
+
+实现要点：
+
+1. `ThemeProvider` 在 `system` 模式下监听 `prefers-color-scheme`。
+2. Provider 会把当前主题写入 CSS 变量，组件通过 `getLayoutPresetStyles()` 自动读取。
+3. 旧代码不接 Provider 时仍可使用预设默认主题回退，不会破坏兼容。
+
+接入建议：
+
+1. 宿主根组件统一包裹 `ThemeProvider`。
+2. 默认建议 `defaultMode='system'`，并设置独立 `storageKey`。
+3. 业务设置面板通过 `useTheme().setThemeMode()` 切换主题。
 
 ## 本地开发与验证
 

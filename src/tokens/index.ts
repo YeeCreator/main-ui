@@ -80,6 +80,11 @@ export type ColorTokens = {
 export type LayoutPreset = 'default' | 'vscodium' | 'konva';
 
 /**
+ * 实际生效主题类型。
+ */
+export type ResolvedTheme = 'light' | 'dark';
+
+/**
  * 主界面壳层视觉样式集合。
  */
 export type LayoutPresetStyles = {
@@ -206,8 +211,9 @@ export function createTokens(overrides?: Partial<DesignTokens>): DesignTokens {
 /**
  * 预设布局视觉映射表。
  */
-const layoutPresetStylesMap: Record<LayoutPreset, LayoutPresetStyles> = {
+const layoutPresetStylesMap: Record<LayoutPreset, Record<ResolvedTheme, LayoutPresetStyles>> = {
   default: {
+    light: {
     appBackground: '#f6f7f9',
     activityRailBackground: '#eef1f4',
     activityRailText: '#1f2328',
@@ -227,8 +233,52 @@ const layoutPresetStylesMap: Record<LayoutPreset, LayoutPresetStyles> = {
     controlSelectedBackground: 'rgba(0,0,0,0.05)',
     controlSelectedBorder: 'rgba(0,0,0,0.60)',
     accentColor: '#0f6cbd',
+    },
+    dark: {
+      appBackground: '#1f232a',
+      activityRailBackground: '#181b20',
+      activityRailText: '#d6dbe1',
+      toolbarBackground: '#242932',
+      sidebarBackground: '#20252d',
+      viewportBackground: '#0f1318',
+      statusbarBackground: '#283142',
+      statusbarText: '#f3f6fa',
+      borderColor: '#343b45',
+      panelBackground: '#242932',
+      sectionBackground: '#20252d',
+      textPrimary: '#e6ebf0',
+      textSecondary: '#a7b0bb',
+      controlBackground: '#2c323c',
+      controlBorder: '#414956',
+      controlText: '#f6f8fa',
+      controlSelectedBackground: 'rgba(56, 139, 253, 0.22)',
+      controlSelectedBorder: '#388bfd',
+      accentColor: '#58a6ff',
+    },
   },
   vscodium: {
+    light: {
+      appBackground: '#f3f3f3',
+      activityRailBackground: '#2c2c2c',
+      activityRailText: '#f3f3f3',
+      toolbarBackground: '#f3f3f3',
+      sidebarBackground: '#f3f3f3',
+      viewportBackground: '#ffffff',
+      statusbarBackground: '#005fb8',
+      statusbarText: '#ffffff',
+      borderColor: '#d4d4d4',
+      panelBackground: '#ffffff',
+      sectionBackground: '#f7f7f7',
+      textPrimary: '#1f1f1f',
+      textSecondary: '#5a5a5a',
+      controlBackground: '#ffffff',
+      controlBorder: '#c8c8c8',
+      controlText: '#1f1f1f',
+      controlSelectedBackground: 'rgba(0, 95, 184, 0.12)',
+      controlSelectedBorder: '#005fb8',
+      accentColor: '#005fb8',
+    },
+    dark: {
     appBackground: '#1e1e1e',
     activityRailBackground: '#181818',
     activityRailText: '#cccccc',
@@ -248,8 +298,10 @@ const layoutPresetStylesMap: Record<LayoutPreset, LayoutPresetStyles> = {
     controlSelectedBackground: 'rgba(14,99,156,0.30)',
     controlSelectedBorder: '#0e639c',
     accentColor: '#3794ff',
+    },
   },
   konva: {
+    light: {
     appBackground: '#f3efe6',
     activityRailBackground: '#ece2cf',
     activityRailText: '#352a1d',
@@ -269,8 +321,105 @@ const layoutPresetStylesMap: Record<LayoutPreset, LayoutPresetStyles> = {
     controlSelectedBackground: 'rgba(191,126,54,0.16)',
     controlSelectedBorder: '#bf7e36',
     accentColor: '#bf7e36',
+    },
+    dark: {
+      appBackground: '#201812',
+      activityRailBackground: '#19120d',
+      activityRailText: '#ead8bb',
+      toolbarBackground: 'linear-gradient(180deg, #302117 0%, #20160f 100%)',
+      sidebarBackground: '#241a13',
+      viewportBackground: '#18110d',
+      statusbarBackground: '#8f5a20',
+      statusbarText: '#fff7eb',
+      borderColor: 'rgba(234,216,187,0.16)',
+      panelBackground: '#2a1f17',
+      sectionBackground: '#241a13',
+      textPrimary: '#f2e4cc',
+      textSecondary: '#c8b28f',
+      controlBackground: '#34271e',
+      controlBorder: 'rgba(234,216,187,0.20)',
+      controlText: '#fff1dc',
+      controlSelectedBackground: 'rgba(191,126,54,0.24)',
+      controlSelectedBorder: '#d7974d',
+      accentColor: '#d7974d',
+    },
   },
 };
+
+/**
+ * 预设字段名集合。
+ */
+const LAYOUT_STYLE_FIELDS: Array<keyof LayoutPresetStyles> = [
+  'appBackground',
+  'activityRailBackground',
+  'activityRailText',
+  'toolbarBackground',
+  'sidebarBackground',
+  'viewportBackground',
+  'statusbarBackground',
+  'statusbarText',
+  'borderColor',
+  'panelBackground',
+  'sectionBackground',
+  'textPrimary',
+  'textSecondary',
+  'controlBackground',
+  'controlBorder',
+  'controlText',
+  'controlSelectedBackground',
+  'controlSelectedBorder',
+  'accentColor',
+];
+
+/**
+ * 预设默认主题映射。
+ */
+const presetDefaultThemeMap: Record<LayoutPreset, ResolvedTheme> = {
+  default: 'light',
+  vscodium: 'dark',
+  konva: 'light',
+};
+
+/**
+ * 生成某个预设字段的 CSS 变量名。
+ *
+ * @param preset 预设名称。
+ * @param field 字段名。
+ * @returns CSS 变量名。
+ */
+function getPresetCssVarName(preset: LayoutPreset, field: keyof LayoutPresetStyles): string {
+  return `--main-ui-react-${preset}-${field}`;
+}
+
+/**
+ * 兼容旧实现：当没有 ThemeProvider 时使用预设默认主题。
+ *
+ * @param preset 预设名称。
+ * @returns 默认主题。
+ */
+export function getDefaultResolvedThemeForPreset(preset: LayoutPreset = 'default'): ResolvedTheme {
+  return presetDefaultThemeMap[preset];
+}
+
+/**
+ * 将当前主题下各预设样式写入 CSS 变量。
+ *
+ * @param theme 当前实际主题。
+ * @param targetStyle 目标 style 对象，默认 document.documentElement.style。
+ */
+export function applyLayoutPresetThemeVariables(theme: ResolvedTheme, targetStyle?: CSSStyleDeclaration): void {
+  const styleObject = targetStyle ?? (typeof document !== 'undefined' ? document.documentElement.style : undefined);
+  if (!styleObject) {
+    return;
+  }
+
+  (['default', 'vscodium', 'konva'] as LayoutPreset[]).forEach((preset) => {
+    const presetStyles = layoutPresetStylesMap[preset][theme];
+    LAYOUT_STYLE_FIELDS.forEach((field) => {
+      styleObject.setProperty(getPresetCssVarName(preset, field), presetStyles[field]);
+    });
+  });
+}
 
 /**
  * 获取主界面布局预设对应的视觉样式。
@@ -278,6 +427,33 @@ const layoutPresetStylesMap: Record<LayoutPreset, LayoutPresetStyles> = {
  * @param preset 预设名称。
  * @returns 对应的样式令牌。
  */
-export function getLayoutPresetStyles(preset: LayoutPreset = 'default'): LayoutPresetStyles {
-  return layoutPresetStylesMap[preset];
+export function getLayoutPresetStyles(preset: LayoutPreset = 'default', theme?: ResolvedTheme): LayoutPresetStyles {
+  if (theme) {
+    return layoutPresetStylesMap[preset][theme];
+  }
+
+  const fallbackTheme = getDefaultResolvedThemeForPreset(preset);
+  const fallbackStyles = layoutPresetStylesMap[preset][fallbackTheme];
+
+  return {
+    appBackground: `var(${getPresetCssVarName(preset, 'appBackground')}, ${fallbackStyles.appBackground})`,
+    activityRailBackground: `var(${getPresetCssVarName(preset, 'activityRailBackground')}, ${fallbackStyles.activityRailBackground})`,
+    activityRailText: `var(${getPresetCssVarName(preset, 'activityRailText')}, ${fallbackStyles.activityRailText})`,
+    toolbarBackground: `var(${getPresetCssVarName(preset, 'toolbarBackground')}, ${fallbackStyles.toolbarBackground})`,
+    sidebarBackground: `var(${getPresetCssVarName(preset, 'sidebarBackground')}, ${fallbackStyles.sidebarBackground})`,
+    viewportBackground: `var(${getPresetCssVarName(preset, 'viewportBackground')}, ${fallbackStyles.viewportBackground})`,
+    statusbarBackground: `var(${getPresetCssVarName(preset, 'statusbarBackground')}, ${fallbackStyles.statusbarBackground})`,
+    statusbarText: `var(${getPresetCssVarName(preset, 'statusbarText')}, ${fallbackStyles.statusbarText})`,
+    borderColor: `var(${getPresetCssVarName(preset, 'borderColor')}, ${fallbackStyles.borderColor})`,
+    panelBackground: `var(${getPresetCssVarName(preset, 'panelBackground')}, ${fallbackStyles.panelBackground})`,
+    sectionBackground: `var(${getPresetCssVarName(preset, 'sectionBackground')}, ${fallbackStyles.sectionBackground})`,
+    textPrimary: `var(${getPresetCssVarName(preset, 'textPrimary')}, ${fallbackStyles.textPrimary})`,
+    textSecondary: `var(${getPresetCssVarName(preset, 'textSecondary')}, ${fallbackStyles.textSecondary})`,
+    controlBackground: `var(${getPresetCssVarName(preset, 'controlBackground')}, ${fallbackStyles.controlBackground})`,
+    controlBorder: `var(${getPresetCssVarName(preset, 'controlBorder')}, ${fallbackStyles.controlBorder})`,
+    controlText: `var(${getPresetCssVarName(preset, 'controlText')}, ${fallbackStyles.controlText})`,
+    controlSelectedBackground: `var(${getPresetCssVarName(preset, 'controlSelectedBackground')}, ${fallbackStyles.controlSelectedBackground})`,
+    controlSelectedBorder: `var(${getPresetCssVarName(preset, 'controlSelectedBorder')}, ${fallbackStyles.controlSelectedBorder})`,
+    accentColor: `var(${getPresetCssVarName(preset, 'accentColor')}, ${fallbackStyles.accentColor})`,
+  };
 }

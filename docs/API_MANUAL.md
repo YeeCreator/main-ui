@@ -12,11 +12,13 @@ import {
   BottomPanel,
   EditorTabs,
   MatchFrame,
+  ThemeProvider,
   Toolbar,
   StatusBar,
   ViewportHost,
   Sidebar,
   Panel,
+  useTheme,
 } from 'main-ui-react/layout';
 ```
 
@@ -257,6 +259,50 @@ type SidebarSection = {
 7. `preset?: LayoutPreset`
 
 ## 预设相关 API
+
+### ThemeProvider
+
+全局主题容器，提供 `light` / `dark` / `system` 三态主题。
+
+关键属性：
+
+1. `children: React.ReactNode`
+2. `mode?: 'light' | 'dark' | 'system'`
+3. `defaultMode?: 'light' | 'dark' | 'system'`
+4. `storageKey?: string`
+5. `onModeChange?: (mode) => void`
+
+推荐用途：
+
+1. 宿主应用在根层包裹一次，统一管理主题。
+2. 使用 `defaultMode='system'` 跟随系统主题。
+
+### useTheme
+
+读取并控制当前主题。
+
+返回字段：
+
+1. `themeMode: 'light' | 'dark' | 'system'`
+2. `resolvedTheme: 'light' | 'dark'`
+3. `hasProvider: boolean`
+4. `setThemeMode: (mode) => void`
+
+### useResolvedTheme
+
+读取当前实际生效主题（`light` 或 `dark`）。
+
+### useLayoutPresetStyles
+
+读取当前主题上下文下的预设样式。
+
+### tokens 扩展
+
+`main-ui-react/tokens` 新增：
+
+1. `ResolvedTheme` 类型。
+2. `getDefaultResolvedThemeForPreset(preset)`。
+3. `applyLayoutPresetThemeVariables(theme, targetStyle?)`。
 
 ### LayoutPreset
 

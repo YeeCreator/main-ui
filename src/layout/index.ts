@@ -10,3 +10,4 @@ export * from '../StatusBar';
 export * from '../ViewportHost';
 export * from '../Panel';
 export * from '../Primitives';
+export * from '../theme';

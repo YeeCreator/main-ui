@@ -9,6 +9,7 @@ export * from './ViewportHost';
 export * from './Sidebar';
 export * from './Panel';
 export * from './Primitives';
+export * from './theme';
 
 /**
  * 布局层分层导出入口。
