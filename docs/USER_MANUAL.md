@@ -1,150 +1,99 @@
-# 用户手册（main-ui-react）
+# USER_MANUAL
 
-`main-ui-react` 是一个面向工作台类应用的 React 主界面组件库。它的职责是提供稳定的主壳层，而不是提供具体的视口渲染能力。
+## 启动 Demo
 
-适合的典型场景包括：
+```bash
+pnpm install
+pnpm run demo:dev
+```
 
-1. 资源编辑器。
-2. 2D 画布编辑器。
-3. 3D 工具软件的外围工作台。
-4. 笔记、绘图、流程、配置管理等需要“左树 + 中央视口 + 右属性”布局的应用。
+访问：`http://127.0.0.1:4173/`
 
-## 核心认识
+## 主界面区域
 
-使用 `main-ui-react` 时，请先记住两个边界：
+1. 左侧 activity bar：切换 workspace / host profile。
+2. 顶部 title bar：显示当前 workspace，提供 split、reset、theme 操作。
+3. 中央 workbench：递归 split layout 与 leaf tab group。
+4. 底部 status bar：显示 workspace、group、tab、theme 状态。
+5. overlay layer：显示设置等临时编辑器。
 
-1. 本库负责主界面壳层：顶部工具条、左右侧栏、中央宿主区、底部状态栏。
-2. 本库不负责视口引擎本体。Konva、Three.js、X6、地图引擎或自研渲染器应由宿主项目自行接入。
+## 基本操作
 
-## 你能得到什么
+1. 点击 activity bar 切换 Demo、Inspector、Autodo、Matheshop、Yeegames。
+2. 点击 tab 切换编辑器。
+3. 点击 tab 右侧 `×` 关闭 tab。
+4. 点击 leaf header 的 `＋` 下拉，在当前区域打开当前 workspace 允许的 editor。
+5. 点击 leaf header 的 `↺` 重新打开最近关闭的 tab。
+6. 点击 `◧` / `◨` / `▤` / `▥` 向左、向右、向上、向下拆分当前区域。
+7. 点击 `□` / `↙` 最大化当前区域或还原。
+8. 空区域保持空白，不会自动补一个推荐 editor。
+9. 需要在空区域打开 editor 时，使用该区域顶部的 `＋` 下拉；`⚙` 可从 activity bar 底部或 status bar 左侧打开 overlay。
+10. overlay 可关闭，也可提升为 tab。
+11. 点击 `↻` 恢复当前 workspace 默认布局。
+12. 点击 `☼` / `☾` / `◐` 切换浅色、深色或系统主题。
 
-当前版本提供以下能力：
+## Demo Workspace
 
-1. `MatchFrame`：完整工作台布局容器。
-2. `ActivityRail`：左侧活动轨道。
-3. `EditorTabs`：中心区顶部编辑器标签栏。
-4. `Toolbar`：顶部工具条。
-5. `BottomPanel`：中心区底部多标签面板。
-6. `StatusBar`：底部状态栏。
-7. `ViewportHost`：中间视口嵌入宿主容器。
-8. `Sidebar`：基于 `SidebarModel` 的通用侧栏。
-9. `Panel`：通用面板容器。
-10. `TreePanel`：目录树与资源树语义壳层。
-11. `DataTablePanel`：数据表格语义壳层。
-12. `InspectorFormPanel`：属性编辑语义壳层。
-13. `CommandPalette`：命令检索与执行面板。
+`Demo` workspace 用于验证最小功能：
 
-## 预设风格
+1. `Welcome`：基础 editor surface。
+2. `Notes`：普通 tab。
+3. `Settings`：可作为 overlay 打开，也可提升为 tab。
+4. `Adapter`：外部 mount adapter 示例。
 
-当前布局层支持三种主界面风格预设：
+验证 `Adapter`：
 
-1. `default`：通用浅色工作台风格。
-2. `vscodium`：更接近 VS Code / VSCodium 的深色工作台风格。
-3. `konva`：偏画布工具台的暖色风格。
+1. 在空区域 launcher 或 workspace 默认 tab 中打开 `Adapter`。
+2. 点击 adapter 内容区域。
+3. 文本从 `Waiting for pointer event` 变为 `Pointer event received by external adapter`。
 
-这里的 `vscodium` 和 `konva` 都是“风格预设”概念，不代表库内部直接依赖它们的产品本体。
+这说明非 Vue 内容可以被 `main-ui` 管理生命周期和 tab 状态。
 
-## 最常见的接入方式
+## Host Profile
 
-### 方式一：作为完整主壳层使用
+- Autodo：模拟资料侧栏、表格、基于 `viewport-2d-kit` 的图谱三栏。
+- Matheshop：模拟工具栏、基于 `viewport-2d-kit` 的公式画布、Inspector 三栏。
+- Yeegames：模拟游戏资源、游戏广场、棋盘视口和参数化 game-session 多实例。
 
-最常见的组合是：
+这些 profile 只用于验证 `main-ui` 抽象，不包含真实业务逻辑。
 
-1. 顶部使用 `Toolbar`。
-2. 最左侧使用 `ActivityRail`。
-3. 左侧使用 `TreePanel` 或 `Sidebar`。
-4. 中心上方使用 `EditorTabs`。
-5. 中间使用 `ViewportHost`。
-6. 中心下方使用 `BottomPanel`。
-7. 右侧使用 `InspectorFormPanel` 或 `Panel`。
-8. 底部使用 `StatusBar`。
+### Autodo Profile
 
-### 方式二：只使用布局层
+操作路径：
 
-如果宿主已经有自己的树、表格、表单和命令系统，也可以只使用：
+1. 点击 activity bar 的 `Autodo`。
+2. 确认左侧资料/导航，中间表格，右侧图谱视口三栏都存在。
+3. 尝试 reset，确认布局恢复到三栏默认状态。
 
-1. `MatchFrame`
-2. `Toolbar`
-3. `StatusBar`
-4. `ViewportHost`
-5. `Panel`
+用途：验证资料管理型宿主能用 split tree 表达。
 
-## 外部视口如何接入
+### Matheshop Profile
 
-推荐流程如下：
+操作路径：
 
-1. 用 `ViewportHost` 作为中心区域容器。
-2. 在 `useEffect` 中通过 `ref` 拿到宿主 DOM。
-3. 在该 DOM 上初始化外部视口实例。
-4. 在组件卸载时销毁视口实例。
+1. 点击 `Matheshop`。
+2. 在 Formula canvas 中拖拽平移。
+3. 使用 Ctrl/⌘+滚轮缩放。
+4. 点击 `Fit`，确认视口恢复到默认边界。
+5. 切换 tab 或 reset 后重复操作，确认画布仍能接收 viewport 交互。
 
-这样可以把视口逻辑完全留在宿主项目中，而 `main-ui-react` 只负责工作台外壳。
+用途：验证强指针编辑器不会被 workbench 外层事件模型干扰。
 
-## 推荐导入方式
+### Yeegames Profile
 
-建议优先使用子路径入口，而不是根入口整包导入。
+操作路径：
 
-推荐入口如下：
+1. 点击 `Yeegames`。
+2. 确认 Board viewport 显示棋盘视口底座。
+3. 在游戏广场中点击 `Open chess`。
+4. 再点击 `Open go`。
+5. 确认出现多个 `game-session` tab，且标题和 payload 对应不同 session。
 
-1. `main-ui-react/layout`
-2. `main-ui-react/data`
-3. `main-ui-react/navigation`
-4. `main-ui-react/form`
-5. `main-ui-react/command`
-6. `main-ui-react/tokens`
-7. `main-ui-react/adapters`
+用途：验证同一种 editor kind 可以根据 payload 打开多个实例。
 
-## 示例索引
+## 常见恢复操作
 
-仓库已补充以下示例代码，可直接参考：
-
-1. [docs/demos/VSCodiumWorkspaceDemo.tsx](docs/demos/VSCodiumWorkspaceDemo.tsx)
-2. [docs/demos/KonvaWorkspaceDemo.tsx](docs/demos/KonvaWorkspaceDemo.tsx)
-3. [docs/demos/EmbeddedViewportHostDemo.tsx](docs/demos/EmbeddedViewportHostDemo.tsx)
-
-## 本地预览
-
-如果你想直接在本仓库预览三套 preset 效果，可以运行：
-
-1. `pnpm install`
-2. `pnpm demo:dev`
-
-默认会启动一个本地 demo 宿主，你可以在浏览器中切换：
-
-1. `VSCodium 预设`
-2. `Konva 预设`
-3. `纯嵌入宿主`
-
-当前 demo 已改为懒加载，首次进入页面只会加载当前激活示例，对比之前更适合继续扩展更多 demo 场景。
-
-同时，demo 构建已加入手动 chunk 策略，会把 React、表单相关依赖、树组件依赖、Radix 依赖等公共部分拆成独立 chunk，便于继续观察不同示例的体积构成。
-
-## 常见问题
-
-### 1. 为什么我切换成 `vscodium` 预设后，视口没有自动变成 VS Code 编辑器？
-
-因为 `preset` 只控制主壳层视觉，不控制中间视口的内容与渲染逻辑。
-
-### 2. 为什么我切换成 `konva` 预设后，没有自动获得 Konva 画布？
-
-同样因为 `preset` 只代表风格。Konva 视口仍需宿主项目自己挂载到 `ViewportHost`。
-
-### 3. 为什么我的 `Sidebar` 内容更新后顺序错乱？
-
-请确保 `SidebarSection.id` 稳定且唯一，不要用标题文案代替 ID。
-
-### 4. 我是否必须使用 `TreePanel`、`DataTablePanel` 和 `InspectorFormPanel`？
-
-不是必须。它们只是语义壳层，你可以换成宿主自己的实现。
-
-### 5. 我是否必须使用深色主题？
-
-不是必须。当前默认预设就是浅色工作台风格。
-
-## 迁移建议
-
-如果你当前历史代码大量从根入口导入，建议按下面顺序迁移：
-
-1. 先把布局组件改为 `main-ui-react/layout`。
-2. 再把树、表格、表单、命令面板迁移到各自子入口。
-3. 最后把设计令牌和适配器也拆到 `tokens` 与 `adapters` 子入口。
+1. 当前 workspace 乱了：点击 `↻`。
+2. 主题不合适：点击 `☼`、`☾` 或 `◐`。
+3. 设置 overlay 挡住内容：点击 overlay 的关闭按钮。
+4. 空白 leaf 没有 tab：使用该 leaf 顶部的 `＋` 下拉打开一个 editor。

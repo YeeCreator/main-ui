@@ -1,109 +1,61 @@
-# 开发日志（Development Log）
+# DEVELOPMENT_LOG
 
-> 记录每一次功能新增/改动/修复的摘要，便于回溯。
+## 2026-04-30
 
-## 2026-02-02
+完成 `main-ui` 从旧 React 壳层组件库到 Vue3 + core 工作台内核的首轮开发。
 
-### 初始化 main-ui-react（通用主界面布局包）
+变更摘要：
 
-- 新增：`MatchFrame` / `Toolbar` / `Sidebar` 的最小可用实现。
-  - `MatchFrame`：提供顶部工具条 + 左右侧边栏 + 中央内容区的布局骨架。
-  - `Toolbar`：提供 left/center/right 插槽。
-  - `Sidebar`：基于 `SidebarModel` schema 渲染可复用侧栏。
-- 关键约定：`SidebarSection.id` 必须唯一，用于 React key，避免同名 section 导致的渲染异常。
+1. 删除旧 React 源码、旧 demo 源码、旧 docs demo 与旧 demo-dist。
+2. 包名改为 `main-ui`，移除 React peer/runtime 依赖。
+3. 新增 `src/core/`：类型模型、layout helpers、reducer、registry、runtime、persistence。
+4. 新增 `src/vue/`：runtime、provider、composables、WorkbenchShell、split renderer、leaf group、overlay layer、样式。
+5. 新增 `src/adapters/` 与 `src/tokens/`。
+6. 新增 Vue demo 与 host profile fixture。
+7. 新增 core 单元测试。
+8. 同步 README、API 手册、开发者指南、用户手册。
 
-### 开发联调：file 依赖 + dist/watch
+阶段 K/L 追加摘要：
 
-- 约定：本包对外只导出 `dist/`（见 `main`/`types`/`exports`）。
-- 工作流：
-  - 推荐：`pnpm dev`（tsup --watch）持续产出 `dist/`，供消费者项目运行时刷新获取。
-  - 备选：`pnpm build` 后在消费者项目执行一次 `pnpm install` 刷新 file 依赖。
+1. 抽离 `demo/src/runtime/hostProfiles.ts`，集中维护 demo 与首批宿主 fixture。
+2. 增加 `external-mount-demo`，通过 `EditorMountAdapter` 验证非 Vue 内容挂载路径。
+3. 为 `matheshop-profile` 的 canvas placeholder 增加 pointer/focus 可观察反馈。
+4. 增加 `tests/core/hostProfiles.test.ts`，校验 workspace/editor/default open request 的一致性。
+5. 新增 [HOST_ADAPTER_GUIDE.md](HOST_ADAPTER_GUIDE.md) 记录 autodo-app、matheshop、yeegames 的接入草案。
+6. 新增 [HOST_PROFILE_VALIDATION.md](HOST_PROFILE_VALIDATION.md) 记录阶段 K 验证范围、步骤和结论。
+7. 扩写 README、API 手册、开发者指南、用户手册，完成阶段 L 文档同步。
 
-## 2026-02-04
+Autodo 承接反馈补齐摘要：
 
-- 修复：`MatchFrame` 中心区域的 flex 策略调整为 `flex: 1 1 auto`（并设置 `minWidth: 0`），避免中心内容过宽时把右侧栏挤出视口导致“右侧栏看似未加载”。
-- 增强：为 `MatchFrame` 新增 `layout` 参数，支持按需配置：
-  - `heightMode: 'viewport' | 'parent'`
-  - `leftSidebar/rightSidebar` 的 `width` 与 `scroll` 选项
-- 约定：宿主项目如有主界面外壳定制需求，应优先通过 `layout` 参数驱动，不在宿主侧硬编码布局规则。
+1. Vue renderer 增加轻量 `IconToken` 渲染层，支持 workspace/editor descriptor 使用 `database`、`table`、`detail`、`graph`、`tex`、`settings` 等稳定图标 token。
+2. Activity bar 增加底部 settings 入口，可把宿主注册的设置 editor 作为 overlay 打开。
+3. Leaf tab group 补齐 `＋` editor selector、`↺` reopen recently closed、四向 split、close leaf 与 maximize/restore controls。
+4. Status bar 改为 VSCode 式蓝色状态栏，显示设置入口、workspace/group/tab/theme 状态以及主题/布局快捷操作。
+5. 默认 CSS 从 demo card 风格调整为更平直紧凑的 workbench 风格。
+6. 空 leaf group 改为真正空白态，不再自动渲染推荐 editor launcher；宿主需通过该 leaf 顶部的 `＋` 明确打开 editor。
 
-## 2026-03-10
+验证记录：
 
-### 阶段 A：基础设施改造
+1. `pnpm typecheck` 通过。
+2. `pnpm test` 通过，覆盖 core reducer 与 host profile fixture。
+3. `pnpm build` 通过。
+4. `pnpm demo:build` 通过。
+5. VS Code 内置浏览器验证通过：Demo、external mount adapter、Matheshop pointer canvas、Settings overlay、Yeegames game-session 多实例均可交互。
+6. VS Code 内置浏览器验证 autodo-app 承接版通过：activity bar `⚙`、status bar `⚙` 与 leaf `＋` selector 均可打开 settings overlay。
 
-- 新增：`tokens/` 设计令牌层，统一颜色、间距、圆角、阴影、层级。
-- 新增：`adapters/` 适配层，定义 `DataTableAdapter`、`TreeAdapter`、`FormAdapter` 契约及注册机制。
-- 改造：`tsup` 多入口构建与 `package.json` 子路径导出（`layout/data/form/navigation/tokens/adapters`）。
+已知说明：
 
-### 阶段 B：组件迁移
+1. 阶段 H 的完整 command palette、菜单和快捷键映射未纳入本轮用户指定阶段。
+2. 阶段 K 的真实宿主适配代码未纳入本轮，只完成中性 fixture 与接入草案验证。
+3. 若 pnpm 对 `demo:dev` 脚本解析异常，可直接用本地 Vite 绝对路径启动 demo。
 
-- 迁移：`Sidebar` 内部 `select/radio/segmented` 控件替换为 Radix 原语实现。
-- 新增：`DataTablePanel`（TanStack Table 语义壳层）。
-- 新增：`TreePanel`（react-arborist 语义壳层）。
-- 新增：`InspectorFormPanel`（react-hook-form + zod 语义壳层）。
-- 新增：`adapters` 对应库的轻封装实现（tanstack/arborist/rhf-zod）。
+## 2026-05-01
 
-### 阶段 C：稳定化与文档
+新增 `viewport-2d-kit` 作为 editor foundation 的 demo 验证路径。
 
-- 文档：补充 `README.md`、`docs/DEVELOPER_GUIDE.md`、`docs/USER_MANUAL.md` 的分层入口说明与示例。
-- 示例：补充“游戏配置条目管理”与“笔记目录树 + 属性编辑”两类组合示例。
-- 验证：`pnpm typecheck` 与 `pnpm build` 均通过。
+变更摘要：
 
-### 阶段 C 追加：计划尾项补齐（2026-03-10）
-
-- 新增：`CommandPalette`（`cmdk` 语义壳层）与 `main-ui-react/command` 子入口。
-- 改造：`tsup` 与 `package.json exports` 同步增加 `command` 多入口产物与导出。
-- 文档：补充“根入口迁移清单”，明确从扁平导入到分层导入的映射关系。
-- 工具：新增 `pnpm analyze:dist`（`scripts/report-dist-size.mjs`）用于输出 dist 体积排行。
-
-## 2026-03-11
-
-### 工作台主壳层第二轮完善
-
-- 新增：`StatusBar`，用于承接底部状态区语义。
-- 新增：`ViewportHost`，用于承接外部视口工具包的嵌入挂载位。
-- 扩展：`MatchFrame` 新增 `statusbar` 插槽与 `preset` 属性。
-- 扩展：`Toolbar` 新增 `preset` 与 `translucent` 属性。
-- 扩展：`tokens` 新增 `LayoutPreset`、`LayoutPresetStyles` 与 `getLayoutPresetStyles()`。
-
-### 预设体系落地
-
-- 新增三种主界面风格预设：
-  - `default`
-  - `vscodium`
-  - `konva`
-- 调整：`Sidebar` 与 `Panel` 已接入完整的 `preset` 联动，覆盖文本、边框、控件、分组块与背景。
-- 结论：`vscodium` 与 `konva` 在本仓库中被正式定义为“工作台视觉预设”，而不是第三方产品本体依赖。
-
-### 示例与文档同步
-
-- 新增示例：
-  - [docs/demos/VSCodiumWorkspaceDemo.tsx](docs/demos/VSCodiumWorkspaceDemo.tsx)
-  - [docs/demos/KonvaWorkspaceDemo.tsx](docs/demos/KonvaWorkspaceDemo.tsx)
-  - [docs/demos/EmbeddedViewportHostDemo.tsx](docs/demos/EmbeddedViewportHostDemo.tsx)
-- 重写：`docs/USER_MANUAL.md`
-- 重写：`docs/DEVELOPER_GUIDE.md`
-- 新增：`docs/API_MANUAL.md`
-- 更新：`docs/DEVELOPMENT_LOG.md`
-
-### 验证
-
-- 验证命令：`pnpm typecheck`
-- 结果：通过。
-
-### 2026-03-11 追加：演示分包与 Activity Rail
-
-- 新增：`ActivityRail` 左侧活动轨道组件。
-- 扩展：`MatchFrame` 新增 `activityRail` 插槽。
-- 更新：`VSCodiumWorkspaceDemo` 接入 `ActivityRail`，工作台结构更接近 VS Code / VSCodium。
-- 优化：本地 demo 宿主改为 `React.lazy + Suspense` 懒加载三个示例，降低首屏单包体积。
-- 新增：任务记录 [task-main-ui-react-radix-table-arborist-20260311-003.md](../.github/docs/tasks/task-main-ui-react-radix-table-arborist-20260311-003.md)
-
-### 2026-03-11 追加：编辑器标签区、底部 Panel 与细粒度分包
-
-- 新增：`EditorTabs`，用于承接中心区顶部编辑器标签栏语义。
-- 新增：`BottomPanel`，用于承接中心区底部“问题 / 输出 / 终端”式多标签区域。
-- 扩展：`MatchFrame` 新增 `editorTabs` 与 `bottomPanel` 插槽，中心区现在可表达更完整的编辑器工作台结构。
-- 更新：`VSCodiumWorkspaceDemo` 接入编辑器标签栏与底部 Panel，工作台结构进一步接近 VS Code / VSCodium。
-- 优化：`demo/vite.config.ts` 新增手动 `manualChunks` 策略，已将 React、Radix、表单相关依赖、树依赖拆成独立共享 chunk。
-- 新增：任务记录 [task-main-ui-react-radix-table-arborist-20260311-005.md](../.github/docs/tasks/task-main-ui-react-radix-table-arborist-20260311-005.md)
+1. `main-ui` demo 增加 `ViewportFoundationEditor.vue`，通过 `viewport-2d-kit/vue` 渲染可平移、缩放和 fit 的中性 2D 视口。
+2. `hostProfiles.ts` 增加 `viewport-foundation` editor kind，并用于 `autodo-profile`、`matheshop-profile`、`yeegames-profile` 的图谱、公式画布与棋盘底座 fixture。
+3. demo Vite 配置增加 `viewport-2d-kit` 源码 alias，保持 `main-ui/core` 不依赖 viewport 包。
+4. README、用户手册、host adapter 草案与 host profile 验证记录同步到 viewport foundation 口径。

@@ -1,196 +1,135 @@
-# main-ui-react
+# main-ui
 
-一个可复用的“主界面布局骨架”（UI Skeleton），适用于需要以下结构的应用：
+`main-ui` 是一套全新的 Vue3 + framework-free core 工作台内核库。它不兼容旧 `main-ui-react`，也不包含任何宿主业务逻辑。
 
-- 顶部工具条
-- 左/右侧边栏
-- 中央内容区（棋盘/地图/画布/视口）
-- 底部状态栏
+当前版本提供：
 
-本包刻意保持“纯 UI、无业务”的边界：
+1. 纯 TypeScript core：工作台文档、split tree、leaf group、tab、editor、overlay、registry、reducer、persistence。
+2. Vue3 官方渲染层：`MainUiProvider`、`WorkbenchShell`、activity bar、title bar、split renderer、leaf tab group、overlay layer。
+3. 中性 demo：覆盖通用工作台、Inspector 布局、`autodo-app`、`matheshop`、`yeegames` 三组 host profile fixture，并提供 `viewport-2d-kit` 编辑器底座示例。
+4. 主题令牌：light / dark / system 基础状态与 CSS variables。
 
-- 不依赖 viewport-kit
-- 不依赖 p5
-- 不包含任何游戏逻辑
+## 当前阶段
 
-## 分层入口（推荐）
+已完成阶段 A/B/C/D/E/F/G/I/J/K/L 的首轮实现：
 
-为了控制包体并支持按需引入，推荐使用子路径入口：
+1. A：旧 React 壳层清点与删除边界确认。
+2. B：Vue3 + core 项目骨架重建。
+3. C/D/E：core 类型、reducer、registry、runtime、persistence。
+4. F/G/I：Vue provider、split renderer、leaf group、overlay、主题样式。
+5. J：中性 demo 与 host profile fixture。
+6. K：三类宿主适配草案、外部 mount adapter 示例与验证记录。
+7. L：README 与 docs 四件套同步到新版口径。
 
-- `main-ui-react/layout`：布局层（`MatchFrame`、`Toolbar`、`Panel`、`Primitives`）
-- `main-ui-react/data`：数据层（`DataTablePanel`）
-- `main-ui-react/navigation`：导航层（`Sidebar`、`TreePanel`）
-- `main-ui-react/form`：表单层（`InspectorFormPanel`）
-- `main-ui-react/command`：命令层（`CommandPalette`）
-- `main-ui-react/tokens`：设计令牌
-- `main-ui-react/adapters`：适配器契约与注册实现
+## 安装与开发
 
-兼容说明：
-
-- 根入口 `main-ui-react` 仍可用，但建议新代码优先使用分层入口。
-
-## 核心概念
-
-- `MatchFrame`：顶部工具条 + 左右侧边栏 + 中央内容区 的布局容器。
-- `Toolbar`：插槽式工具条（`left` / `center` / `right`）。
-- `StatusBar`：底部状态栏（`left` / `right` 双区）。
-- `ViewportHost`：中央视口宿主容器，只负责嵌入，不实现视口功能。
-- `Sidebar`：基于 `SidebarModel` 渲染侧边栏（内部控件已升级为 Radix 原语）。
-- `DataTablePanel`：基于 TanStack Table 的数据列表语义壳层。
-- `TreePanel`：基于 react-arborist 的树形导航语义壳层。
-- `InspectorFormPanel`：基于 react-hook-form + zod 的属性编辑语义壳层。
-- `CommandPalette`：基于 cmdk 的命令面板语义壳层。
-
-## 快速示例
-
-### 示例 1：游戏配置条目管理
-
-```tsx
-import { MatchFrame, StatusBar, Toolbar, ViewportHost } from 'main-ui-react/layout';
-import { DataTablePanel } from 'main-ui-react/data';
-
-export function GameConfigPage() {
-	return (
-		<MatchFrame
-			preset="vscodium"
-			toolbar={<Toolbar preset="vscodium" center={<span>配置管理</span>} />}
-			center={
-				<ViewportHost preset="vscodium" style={{ padding: 12 }}>
-					<DataTablePanel
-						title="单位配置"
-						data={[{ id: 'u001', name: '步兵', hp: 100 }]}
-						columns={[
-							{ accessorKey: 'id', header: 'ID' },
-							{ accessorKey: 'name', header: '名称' },
-							{ accessorKey: 'hp', header: '生命值' },
-						]}
-					/>
-				</ViewportHost>
-			}
-			statusbar={<StatusBar preset="vscodium" left={[{ content: 'main-ui-react 工作台' }]} right={[{ content: 'UTF-8' }]} />}
-		/>
-	);
-}
+```bash
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm demo:build
+pnpm run demo:dev
 ```
 
-### 示例 1.5：嵌入外部视口工具包
+如果本地 pnpm 对带冒号脚本解析异常，可直接运行：
 
-```tsx
-import { MatchFrame, StatusBar, Toolbar, ViewportHost } from 'main-ui-react/layout';
-
-export function ExternalViewportPage() {
-	return (
-		<MatchFrame
-			preset="konva"
-			toolbar={<Toolbar preset="konva" left={<span>画布工具</span>} />}
-			center={
-				<ViewportHost preset="konva">
-					<div id="external-viewport-mount" style={{ width: '100%', height: '100%' }} />
-				</ViewportHost>
-			}
-			statusbar={<StatusBar preset="konva" left={[{ content: '场景：2D 视口' }]} right={[{ content: '缩放 100%' }]} />}
-		/>
-	);
-}
+```bash
+./node_modules/.bin/vite --config demo/vite.config.ts --host 127.0.0.1
 ```
 
-说明：
+## 导出入口
 
-- `main-ui-react` 不提供 Konva、Three.js、X6 等视口能力。
-- 推荐把外部视口挂载到 `ViewportHost` 内部稳定的 DOM 容器中。
-- `preset="vscodium"` 与 `preset="konva"` 只表示主界面壳层风格，不代表依赖对应官方产品本体。
-
-### 示例 2：笔记目录树 + 属性编辑
-
-```tsx
-import { MatchFrame } from 'main-ui-react/layout';
-import { TreePanel } from 'main-ui-react/navigation';
-import { InspectorFormPanel } from 'main-ui-react/form';
-
-export function NoteEditorPage() {
-	return (
-		<MatchFrame
-			leftSidebar={
-				<TreePanel
-					title="目录"
-					nodes={[
-						{ id: 'root', name: '我的笔记', children: [{ id: 'n-1', name: '周报' }] },
-					]}
-				/>
-			}
-			center={
-				<InspectorFormPanel
-					title="笔记属性"
-					fields={[
-						{ name: 'title', label: '标题', kind: 'text' },
-						{ name: 'priority', label: '优先级', kind: 'number' },
-					]}
-					initialValues={{ title: '周报', priority: 1 }}
-					onSubmitValues={(values) => {
-						console.log(values);
-					}}
-				/>
-			}
-		/>
-	);
-}
+```ts
+import { createMainUiCoreRuntime } from 'main-ui/core'
+import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue'
+import { mainUiLightTokens } from 'main-ui/tokens'
 ```
 
-### 示例 3：命令面板
+包导出：
 
-```tsx
-import { CommandPalette } from 'main-ui-react/command';
+1. `main-ui`：一站式入口。
+2. `main-ui/core`：core 类型、reducer、registry、runtime、persistence。
+3. `main-ui/vue`：Vue runtime、provider、components、composables。
+4. `main-ui/adapters`：外部内容挂载适配器契约。
+5. `main-ui/tokens`：主题 token。
+6. `main-ui/styles.css`：默认工作台样式。
 
-export function CommandDemo() {
-	return (
-		<CommandPalette
-			title="命令"
-			items={[
-				{ id: 'save', label: '保存当前文档', onSelect: () => console.log('save') },
-				{ id: 'open', label: '打开资源目录', onSelect: () => console.log('open') },
-			]}
-		/>
-	);
-}
+## Host Profile
+
+Demo 内置五个 workspace：
+
+1. `workspace-demo`：基础工作台 smoke test。
+2. `inspector-demo`：三栏 Inspector 布局。
+3. `autodo-profile`：资料管理型宿主 fixture。
+4. `matheshop-profile`：强指针画布型宿主 fixture。
+5. `yeegames-profile`：游戏广场与多对局宿主 fixture。
+
+适配草案见 [docs/HOST_ADAPTER_GUIDE.md](docs/HOST_ADAPTER_GUIDE.md)。验证记录见 [docs/HOST_PROFILE_VALIDATION.md](docs/HOST_PROFILE_VALIDATION.md)。
+
+## 最小接入
+
+```ts
+import { createLocalStoragePersistenceAdapter, createSingleGroupLayout, defaultEditorCapability, defaultTabPresentation } from 'main-ui/core'
+import { createMainUiRuntime } from 'main-ui/vue'
+
+const runtime = createMainUiRuntime({
+  persistence: createLocalStoragePersistenceAdapter('example-workbench'),
+})
+
+runtime.core.registerEditor({
+  kind: 'welcome',
+  title: 'Welcome',
+  rendererKey: 'welcome-editor',
+  capability: defaultEditorCapability,
+  presentation: defaultTabPresentation,
+  availability: { allowedWorkspaceIds: ['workspace-demo'] },
+})
+
+runtime.core.registerWorkspace({
+  id: 'workspace-demo',
+  title: 'Demo',
+  allowedEditorKinds: ['welcome'],
+  recommendedEditorKinds: ['welcome'],
+  defaultOpenRequests: [{ editorKind: 'welcome' }],
+  createDefaultLayout: () => createSingleGroupLayout(),
+  allowUserReset: true,
+})
 ```
 
-## 迁移清单（根入口 -> 分层入口）
+Vue 入口：
 
-建议新代码按下面映射迁移导入路径：
+```vue
+<script setup lang="ts">
+import { MainUiProvider, WorkbenchShell } from 'main-ui/vue'
+import 'main-ui/styles.css'
+</script>
 
-- `import { MatchFrame, Toolbar, Panel } from 'main-ui-react'` -> `import { MatchFrame, Toolbar, Panel } from 'main-ui-react/layout'`
-- `import { DataTablePanel } from 'main-ui-react'` -> `import { DataTablePanel } from 'main-ui-react/data'`
-- `import { Sidebar, TreePanel } from 'main-ui-react'` -> `import { Sidebar, TreePanel } from 'main-ui-react/navigation'`
-- `import { InspectorFormPanel } from 'main-ui-react'` -> `import { InspectorFormPanel } from 'main-ui-react/form'`
-- `import { CommandPalette } from 'main-ui-react'` -> `import { CommandPalette } from 'main-ui-react/command'`
-- `import { defaultTokens } from 'main-ui-react'` -> `import { defaultTokens } from 'main-ui-react/tokens'`
-- `import { getAdapterRegistry } from 'main-ui-react'` -> `import { getAdapterRegistry } from 'main-ui-react/adapters'`
+<template>
+  <MainUiProvider :runtime="runtime">
+    <WorkbenchShell />
+  </MainUiProvider>
+</template>
+```
 
-兼容说明：
+## 边界
 
-- 根入口不会立即移除；但建议只用于历史代码兼容，新增功能请使用子路径入口。
+`main-ui` 不内置文献、数学引擎、游戏规则、数据库桥接或 React 兼容层。Demo 可以组合 `viewport-2d-kit` 验证 2D editor foundation，但 `main-ui/core` 不把任何 Canvas/viewport 库作为必需依赖。宿主应用只注册 workspace、editor、renderer、command、persistence 与业务 payload。
 
-## 产物体积分析
+## 验证
 
-执行步骤：
+当前主路径验证：
 
-- 先构建：`pnpm build`
-- 再分析 dist：`pnpm analyze:dist`
+```bash
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm demo:build
+```
 
-输出会按体积降序列出 `dist/` 下的 `.js` 与 `.d.ts` 文件，便于定位重型入口。
+VS Code 内置浏览器验证路径：
 
-## 本地开发（作为 `file:` 依赖被其他项目引用时）
-
-本包对外**只导出** `dist/`（见 `main` / `types` / `exports`），因此：
-
-- 使用者项目只有在 `dist/` 更新后，才会看到改动。
-
-推荐工作流：
-
-- 在本仓库运行 `pnpm dev`（tsup --watch），保持 `dist/` 持续更新。
-- 在使用者项目运行其 dev server，需要时刷新页面即可看到变更。
-
-备选工作流：
-
-- 在本仓库运行 `pnpm build` 生成最新 `dist/`。
-- 在使用者项目运行 `pnpm install`（某些 package manager 在 Windows + file 依赖场景下需要刷新链接/类型）。
+1. 打开 demo。
+2. 切换 `Matheshop`，点击 Formula canvas，确认 pointer 状态变化。
+3. 切换 `Yeegames`，连续打开多个 game session。
+4. 在 `Demo` workspace 中打开 `Adapter`，确认 external mount adapter 渲染和 pointer 状态变化。
