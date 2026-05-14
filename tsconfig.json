@@ -2,15 +2,15 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "jsx": "react-jsx",
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": false,
     "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
-    "types": ["react"],
+    "forceConsistentCasingInFileNames": true,
+    "types": [],
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src"]
+  "include": ["src", "tests", "vitest.config.ts"]
 }
