@@ -129,12 +129,16 @@ import {
   createMainUiRuntime,
   MainUiProvider,
   WorkbenchShell,
+  ToolbarEditor,
+  TreeEditor,
   useWorkbench,
   useActiveWorkspace,
   useActiveGroup,
   useActiveEditor,
 } from 'main-ui/vue'
 ```
+
+宿主若需要快速构建“顶部工具栏窗口”或“树状导航窗口”，可直接复用 `ToolbarEditor` 与 `TreeEditor`。其中 `ToolbarEditor` 默认按横向滚动工具栏条带渲染，并带基础点击激活态；宿主再在 wrapper 中补点击后的业务跳转。
 
 Renderer 注册：
 
