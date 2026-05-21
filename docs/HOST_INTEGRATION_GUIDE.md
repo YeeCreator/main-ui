@@ -185,20 +185,33 @@ runtime.vue.registerEditorMountAdapter('react-canvas-editor', {
 import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue'
 ```
 
-## 4. `viewport-2d-kit` 在 `main-ui` 中的位置
+## 4. `main-ui`、`viewport-2d-kit`、`flow-graph-kit` 的分层协同
 
-`viewport-2d-kit` 不属于 `main-ui/core`。
+在画布型宿主中，建议固定使用以下四层协同模型：
 
-推荐位置是：
+1. `main-ui`：workbench shell，负责 workspace、layout tree、tab、overlay、renderer registry 与工作台持久化。
+2. `viewport-2d-kit`：viewport engine，负责平移/缩放、坐标换算、视口壳层与 host bridge。
+3. `flow-graph-kit`（含 `flow-graph-kit-vue`）：graph canvas editor kit，负责图文档、节点/连边语义、选择状态、图编辑交互 surface。
+4. 宿主画布 editor renderer：负责把宿主业务状态映射到图文档，组合工具栏、检查器与业务命令。
 
-1. 宿主 renderer 内部。
-2. `main-ui` demo 级验证 fixture。
-3. 宿主通过 `rendererKey` 或 `mount adapter` 接入的 editor surface。
+职责边界：
 
-不推荐位置是：
+1. `main-ui` 不理解节点、连边、公式块等业务语义。
+2. `viewport-2d-kit` 不承载流程图语义与业务命令。
+3. `flow-graph-kit` 不接管宿主业务数据源和领域规则。
+4. 宿主 renderer 不重写通用视口底层与通用图编辑契约。
 
-1. `main-ui/core` 直接依赖 `viewport-2d-kit`。
-2. 把 `viewport-2d-kit` 写成 `main-ui` 的强制业务语义层。
+推荐放置位置：
+
+1. `viewport-2d-kit` 与 `flow-graph-kit-vue` 放在宿主 renderer 内部组合使用。
+2. `main-ui` 只通过 `rendererKey` 或 `mount adapter` 承载宿主 editor。
+3. demo fixture 用于验证分层协同，不用于沉淀宿主业务逻辑。
+
+不推荐：
+
+1. `main-ui/core` 直接依赖 `viewport-2d-kit` 或 `flow-graph-kit`。
+2. 把 `viewport-2d-kit` 或 `flow-graph-kit` 上升为 `main-ui` 内置业务层。
+3. 在宿主 renderer 中复制一套平移/缩放或图编辑核心状态机。
 
 ## 5. 三类宿主的标准接法
 
@@ -214,11 +227,18 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 
 推荐 editor：
 
-1. 文献目录与表格。
-2. 条目详情。
-3. 知识图谱。
-4. TeX DAG。
+1. 顶部工具栏 editor，可直接基于 `ToolbarEditor` 包装；该组件默认按横向滚动工具栏条带渲染。
+2. 左侧资源 / 事务树 editor，可直接基于 `TreeEditor` 包装。
+3. 中心矩阵、表格、关系图或 graph editor。
+4. 右侧详情 editor。
 5. 设置页。
+
+推荐结构：
+
+1. 顶部一条工具栏窗口承接高频动作。
+2. 左侧窄窗口承接树状导航。
+3. 中央主窗口承接矩阵、表格、graph 或关系视图。
+4. 右侧窗口承接详情或第二棵工具树。
 
 应留在宿主侧的内容：
 
@@ -233,22 +253,48 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 
 推荐 workspace：
 
-1. `math-canvas-workspace`
+1. `math-canvas-workspace`：计算白板主工作区。
+2. `math-assets-workspace`：公式模板、片段、符号资源与素材管理。
+3. `math-analysis-workspace`：求值历史、推导轨迹、结果比对与诊断。
 
 推荐 editor：
 
-1. `formula-canvas`
-2. `math-tools`
-3. `formula-inspector`
-4. `engine-settings`
-5. `layer-list`
+1. `formula-canvas`：计算白板画布 editor。
+2. `math-tools`：工具与绘制策略面板。
+3. `formula-inspector`：选中对象属性与编辑面板。
+4. `engine-settings`：引擎与求值策略设置。
+5. `layer-list`：图层与对象结构列表。
+6. `calc-history`：计算历史与重放入口。
+
+计算白板文件与标签页模型：
+
+1. 一个计算白板文件对应一个独立文档标识（建议 `whiteboardFileId`）。
+2. `formula-canvas` payload 只保存轻量恢复参数，至少包含：`whiteboardFileId`、`sessionId`、`activeTool`、`engineProfileId`。
+3. 每个标签页绑定一个 `whiteboardFileId`，不同标签页可以是不同白板文件。
+4. 同一白板文件允许多标签页实例时，所有实例共享同一文件源并同步到宿主文档层。
+5. 若同一白板文件不允许多实例，则以 `restoreKey = whiteboardFileId` 实现“激活既有标签页而非重复打开”。
+6. `main-ui` 仅管理标签页与恢复参数，白板文件正文与版本历史由宿主持久化层管理。
+
+建议的打开策略：
+
+1. 默认打开白板文件时，优先定位到当前工作区的中心组。
+2. 支持“新建白板文件并打开新标签页”。
+3. 支持“从文件列表打开既有白板文件到新标签页或激活既有标签页”。
+4. 支持“最近打开白板文件”恢复，但恢复内容仍以宿主文件层为准。
+
+推荐的能力策略（`formula-canvas`）：
+
+1. 允许创建、关闭、跨组移动与分栏拖放。
+2. 是否允许同文件多标签页实例，由宿主按白板协作策略决定。
+3. 默认 surface 为 tab，不建议把主白板设为 modal overlay。
 
 应留在宿主侧的内容：
 
-1. `CanvasBoard` 业务行为。
-2. Inspector 逻辑。
-3. 符号计算引擎。
-4. React 过渡壳层。
+1. 计算白板文件读写、版本化与冲突处理。
+2. `CanvasBoard` 或等价业务状态机。
+3. Inspector 业务逻辑与领域命令。
+4. 符号计算引擎路由与执行策略。
+5. 数学表达式块、公式渲染与领域校验。
 
 ### 5.3 `yeegames`
 

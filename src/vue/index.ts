@@ -9,6 +9,8 @@ export * from './components/ExternalMountHost';
 export * from './components/LeafGroupRenderer';
 export * from './components/OverlayLayer';
 export * from './components/StatusBar';
+export * from './components/ToolbarEditor';
+export * from './components/TreeEditor';
 export * from './components/TitleBar';
 export * from './components/WorkbenchLayoutRenderer';
 export * from './components/WorkbenchShell';

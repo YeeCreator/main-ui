@@ -6,8 +6,9 @@
 
 1. 纯 TypeScript core：工作台文档、split tree、leaf group、tab、editor、overlay、registry、reducer、persistence。
 2. Vue3 官方渲染层：`MainUiProvider`、`WorkbenchShell`、activity bar、title bar、split renderer、leaf tab group、overlay layer。
-3. 中性 demo：覆盖通用工作台、Inspector 布局、`autodo-app`、`matheshop`、`yeegames` 三组 host profile fixture，并提供 `viewport-2d-kit` 编辑器底座示例。
-4. 主题令牌：light / dark / system 基础状态与 CSS variables。
+3. 原生宿主编辑器组件：`ToolbarEditor` 与 `TreeEditor`，用于宿主快速搭建横向滚动工具栏窗口和树状窗口。
+4. 中性 demo：覆盖通用工作台、Inspector 布局、`autodo-app`、`matheshop`、`yeegames` 三组 host profile fixture，并提供 `viewport-2d-kit` 编辑器底座示例。
+5. 主题令牌：light / dark / system 基础状态与 CSS variables。
 
 ## 当前阶段
 
@@ -42,7 +43,7 @@ pnpm run demo:dev
 
 ```ts
 import { createMainUiCoreRuntime } from 'main-ui/core'
-import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue'
+import { createMainUiRuntime, MainUiProvider, WorkbenchShell, ToolbarEditor, TreeEditor } from 'main-ui/vue'
 import { mainUiLightTokens } from 'main-ui/tokens'
 ```
 
@@ -115,6 +116,8 @@ import 'main-ui/styles.css'
 ## 边界
 
 `main-ui` 不内置文献、数学引擎、游戏规则、数据库桥接或 React 兼容层。Demo 可以组合 `viewport-2d-kit` 验证 2D editor foundation，但 `main-ui/core` 不把任何 Canvas/viewport 库作为必需依赖。宿主应用只注册 workspace、editor、renderer、command、persistence 与业务 payload。
+
+如果宿主只缺“顶部工具栏窗口”或“左/右树状窗口”，优先复用 `ToolbarEditor` 与 `TreeEditor`。其中 `ToolbarEditor` 默认渲染为横向滚动工具栏条带，宿主再在 wrapper 中补动作跳转和业务详情逻辑。
 
 ## 验证
 

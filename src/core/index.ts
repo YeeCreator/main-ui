@@ -2,6 +2,7 @@ export * from './actions';
 export * from './command/types';
 export * from './documentFactory';
 export * from './editor/types';
+export * from './editor/viewModels';
 export * from './layout/createLayout';
 export * from './layout/operations';
 export * from './layout/types';
