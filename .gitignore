@@ -1091,3 +1091,10 @@ rust-project.json
 .github/
 .idea/
 *.code-workspace
+
+# 反馈通道 — 运行时状态与归档（不入库）
+.channel/
+docs/反馈通道/archive/
+
+# Codebuddy 本地索引缓存（不入库）
+.codebuddy/
