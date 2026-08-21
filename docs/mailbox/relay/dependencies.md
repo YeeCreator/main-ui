@@ -1,0 +1,5 @@
+# mailbox/relay dependencies: main-ui
+
+This project depends on the following governed local projects.
+
+No governed local dependencies detected.
