@@ -31,10 +31,15 @@ export const ExternalMountHost = defineComponent({
       unmount(); status.value = 'loading'; errorMessage.value = null;
       if (!container.value) return;
       try {
+        timeout = setTimeout(() => { if (status.value === 'loading') { status.value = 'error'; errorMessage.value = 'Adapter mount timed out.'; unmount(); } }, props.adapter.timeoutMs ?? 10000);
         const result = props.adapter.mount(container.value, props.context);
-        cleanup = result;
-        status.value = 'ready';
-        timeout = setTimeout(() => { if (status.value === 'loading') { status.value = 'error'; errorMessage.value = 'Adapter mount timed out.'; } }, props.adapter.timeoutMs ?? 10000);
+        if (result instanceof Promise) {
+          void result.then((resolved) => { if (status.value === 'loading') { cleanup = resolved; status.value = 'ready'; if (timeout) clearTimeout(timeout); } }).catch((error: unknown) => { status.value = 'error'; errorMessage.value = error instanceof Error ? error.message : String(error); if (timeout) clearTimeout(timeout); });
+        } else {
+          cleanup = result;
+          status.value = 'ready';
+          if (timeout) clearTimeout(timeout);
+        }
       } catch (error) { status.value = 'error'; errorMessage.value = error instanceof Error ? error.message : String(error); }
     };
 
@@ -49,7 +54,7 @@ export const ExternalMountHost = defineComponent({
       if (!container.value) {
         return;
       }
-      props.adapter.update?.(container.value, context);
+      try { props.adapter.update?.(container.value, context); } catch (error) { status.value = 'error'; errorMessage.value = error instanceof Error ? error.message : String(error); }
     });
 
     onBeforeUnmount(() => {

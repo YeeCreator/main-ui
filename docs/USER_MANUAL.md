@@ -2,12 +2,12 @@
 
 ## 当前版本
 
-当前文档对应 `main-ui 0.0.2`。本版本以本地版本包 `main-ui-0.0.2.tgz` 形式提供；下游可按升级通知显式安装。当前不是 npm registry 发布版本。
+当前文档对应 `main-ui 0.1.0`。本版本以本地版本包 `main-ui-0.1.0.tgz` 形式提供；下游可按升级通知显式安装。当前不是 npm registry 发布版本。
 
 本地包安装示例：
 
 ```bash
-pnpm add ../main-ui/main-ui-0.0.2.tgz
+pnpm add ../main-ui/main-ui-0.1.0.tgz
 ```
 
 ## 启动 Demo
