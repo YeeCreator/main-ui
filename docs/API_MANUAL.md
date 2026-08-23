@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.0.2`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.0.3`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
 
 ## 入口
 
@@ -41,7 +41,11 @@ type WorkbenchDocument = {
 runtime.core.registerWorkspace(descriptor)
 runtime.core.registerEditor(descriptor)
 runtime.core.registerCommand(descriptor)
+runtime.core.registerKeybinding({ commandId: 'demo.open', keybinding: 'Ctrl+Shift+P' })
+await runtime.core.executeCommand('demo.open')
 ```
+
+Command descriptor 的旧 `run(context)` 形式保持兼容。运行时会统一检查 `when`/`enablement`，记录最近执行命令，并将代码调用与快捷键调用归一到 `executeCommand`。`KeybindingRegistry` 支持组合键解析、macOS 平台映射、权重覆盖和冲突查询；宿主可以调用 `unregisterKeybinding` 覆盖默认绑定。
 
 `EditorDescriptor` 的关键字段：
 

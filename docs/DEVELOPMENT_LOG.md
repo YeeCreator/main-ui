@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-24 · 0.0.3 Core Command 与快捷键
+
+1. 为 `CommandRegistry` 增加统一 `executeCommand`、`when`/`enablement` 判断、异常结果和最近使用记录。
+2. 新增 `KeybindingRegistry`，支持组合键解析、macOS 映射、权重覆盖和冲突检测。
+3. Vue `MainUiProvider` 接入全局键盘监听与输入 focus scope；旧 command descriptor 无需修改。
+4. 通过 `pnpm typecheck`、`pnpm test` 验证。
+
 ## 2026-08-23 · 0.0.2 本地版本包
 
 1. 将 package version 从 `0.0.1` 更新为 `0.0.2`。

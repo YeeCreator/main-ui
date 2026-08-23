@@ -2,7 +2,7 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.0.2`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.2.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
+当前工程版本为 `main-ui 0.0.3`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.3.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
 
 下游升级时使用 `pnpm add ../main-ui/main-ui-0.0.2.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时仍可保留 `file:../main-ui`。
 
@@ -72,6 +72,10 @@ pnpm run demo:dev
 7. editor host 只读取 renderer registry，不导入业务 editor。
 8. 真实业务设置页等大尺寸 overlay 应通过 `presentation.modalWidth` / `presentation.modalHeight` 声明建议尺寸，不在 renderer CSS 中硬编码全局弹窗宽度。
 9. shell 字号由 `main-ui` 默认样式固定，宿主业务字号应限制在 editor renderer 内，避免污染 workbench chrome。
+
+### Command 与快捷键
+
+命令统一通过 `runtime.core.executeCommand(id, payload)` 执行。`when` 可以继续使用旧的函数形式，也可以使用简单的 context-key 表达式；快捷键通过 `registerKeybinding` 注册，权重更高的宿主绑定会优先解析。Vue provider 会安装全局 keydown 监听，并依据最近的 `data-main-ui-scope` 或输入控件自动设置 focus scope。
 
 ## Mount Adapter 开发规则
 
