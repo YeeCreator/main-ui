@@ -13,7 +13,9 @@ export const migrateWorkbenchDocument = (input: unknown): WorkbenchDocument | nu
   if (!input || typeof input !== 'object') return null;
   const source = input as Partial<WorkbenchDocument> & { version?: number };
   if (!source.workspaceStates || !source.activeWorkspaceId) return null;
-  const workspaceStates = Object.fromEntries(Object.entries(source.workspaceStates).map(([id, workspace]) => [id, migrateWorkspace({ ...workspace, workspaceId: workspace.workspaceId ?? id })]));
+  const entries = Object.entries(source.workspaceStates);
+  if (entries.some(([, workspace]) => !workspace?.layout)) return null;
+  const workspaceStates = Object.fromEntries(entries.map(([id, workspace]) => [id, migrateWorkspace({ ...workspace, workspaceId: workspace.workspaceId ?? id })]));
   const activeWorkspaceId = workspaceStates[source.activeWorkspaceId] ? source.activeWorkspaceId : Object.keys(workspaceStates)[0];
   if (!activeWorkspaceId) return null;
   const recentWorkspaces = source.recentWorkspaces?.filter((id) => Boolean(workspaceStates[id])) ?? [activeWorkspaceId];

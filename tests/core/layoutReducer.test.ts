@@ -90,4 +90,15 @@ describe('main-ui core reducer', () => {
     expect(Object.values(layout.nodes).filter((node) => node.type === 'leaf')).toHaveLength(3);
     expect(layout.activeGroupId).toBe('profile-group-center');
   });
+
+  test('closing a leaf does not leave orphan tabs', async () => {
+    const runtime = await createRuntime();
+    await runtime.dispatch({ type: 'layout/splitLeaf', leafNodeId: 'root-leaf', direction: 'right' });
+    const snapshot = runtime.getSnapshot();
+    const sourceTabId = snapshot.workspaceStates.demo.layout.groups['root-group'].activeTabId;
+    expect(sourceTabId).toBeTruthy();
+    const result = await runtime.dispatch({ type: 'layout/closeLeaf', leafNodeId: 'root-leaf' });
+    expect(result.ok).toBe(true);
+    expect(sourceTabId ? runtime.getSnapshot().workspaceStates.demo.tabs[sourceTabId] : undefined).toBeUndefined();
+  });
 });
