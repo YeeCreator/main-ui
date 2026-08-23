@@ -60,6 +60,7 @@ const activateTabInGroup = (workspace: WorkspaceState, groupId: GroupId, tabId: 
   group.lastActiveTabId = tabId;
   workspace.layout.activeGroupId = groupId;
   workspace.focusHistory.push({ groupId, tabId, focusedAt: now() });
+  if (tabId) workspace.tabHistory = [tabId, ...(workspace.tabHistory ?? []).filter((id) => id !== tabId)].slice(0, 50);
   return ok(undefined);
 };
 
@@ -307,7 +308,10 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
     if (!document.workspaceStates[action.workspaceId]) {
       return fail('workspace.notFound', `Workspace ${action.workspaceId} was not found.`);
     }
-    return ok({ ...cloneDocument(document), activeWorkspaceId: action.workspaceId });
+    const next = cloneDocument(document);
+    next.activeWorkspaceId = action.workspaceId;
+    next.recentWorkspaces = [action.workspaceId, ...next.recentWorkspaces.filter((id) => id !== action.workspaceId)].slice(0, 20);
+    return ok(next);
   }
 
   if (action.type === 'layout/resetWorkspace') {
@@ -322,6 +326,15 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
       createId: context.createId,
       now: context.now,
     });
+    return ok(next);
+  }
+
+  if (action.type === 'layout/setChromeState') {
+    const next = cloneDocument(document);
+    const target = next.workspaceStates[action.workspaceId];
+    if (!target) return fail('workspace.notFound', `Workspace ${action.workspaceId} was not found.`);
+    target.chrome = { ...target.chrome, ...action.patch };
+    touchWorkspace(target, context.now);
     return ok(next);
   }
 
@@ -372,6 +385,23 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
     case 'editor/activateTab': {
       const result = activateTabInGroup(workspace, action.groupId, action.tabId, context.now);
       if (!result.ok) return result as Result<WorkbenchDocument>;
+      touchWorkspace(workspace, context.now);
+      return ok(next);
+    }
+    case 'editor/setTabState': {
+      const tab = workspace.tabs[action.tabId];
+      if (!tab || !workspace.layout.groups[action.groupId]?.tabIds.includes(action.tabId)) return fail('editor.tabNotFound', `Tab ${action.tabId} was not found.`);
+      if (action.pinned !== undefined) tab.pinned = action.pinned;
+      if (action.preview !== undefined) tab.preview = action.preview;
+      if (action.dirty !== undefined) tab.dirty = action.dirty;
+      touchWorkspace(workspace, context.now);
+      return ok(next);
+    }
+    case 'editor/reorderTab': {
+      const group = workspace.layout.groups[action.groupId];
+      if (!group || !group.tabIds.includes(action.tabId)) return fail('editor.tabNotFound', `Tab ${action.tabId} was not found.`);
+      group.tabIds = group.tabIds.filter((id) => id !== action.tabId);
+      group.tabIds.splice(Math.max(0, Math.min(action.index, group.tabIds.length)), 0, action.tabId);
       touchWorkspace(workspace, context.now);
       return ok(next);
     }
