@@ -1,5 +1,6 @@
 export * from './actions';
 export * from './command/types';
+export * from './command/keybindings';
 export * from './documentFactory';
 export * from './editor/types';
 export * from './editor/viewModels';
