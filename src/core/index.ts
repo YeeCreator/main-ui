@@ -4,6 +4,8 @@ export * from './command/keybindings';
 export * from './menu/types';
 export * from './menu/registry';
 export * from './quickOpen';
+export * from './settings/types';
+export * from './settings/store';
 export * from './documentFactory';
 export * from './editor/types';
 export * from './editor/viewModels';

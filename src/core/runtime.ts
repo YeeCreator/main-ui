@@ -3,6 +3,8 @@ import type { CommandDescriptor, CommandInvocation, CommandRunContext, CommandEx
 import { evaluateWhen, KeybindingRegistry } from './command/keybindings';
 import { MenuRegistry } from './menu/registry';
 import type { MenuContribution } from './menu/types';
+import { SettingsStore } from './settings/store';
+import type { SettingsPersistenceAdapter, SettingsMigration, SettingSchema } from './settings/types';
 import type { EditorDescriptor } from './editor/types';
 import { createWorkbenchDocument } from './documentFactory';
 import type { PersistenceAdapter } from './persistence/types';
@@ -17,6 +19,8 @@ export type CoreRuntimeOptions = {
   activeWorkspaceId?: string;
   createId?: IdFactory;
   now?: () => string;
+  settingsPersistence?: SettingsPersistenceAdapter;
+  settingsMigrations?: Record<number, SettingsMigration>;
 };
 
 export type RuntimeListener = (document: WorkbenchDocument) => void;
@@ -36,6 +40,7 @@ export class MainUiCoreRuntime {
   readonly commands = new CommandRegistry();
   readonly keybindings: KeybindingRegistry;
   readonly menus = new MenuRegistry();
+  readonly settings: SettingsStore;
 
   private document: WorkbenchDocument | null = null;
   private readonly listeners = new Set<RuntimeListener>();
@@ -52,6 +57,7 @@ export class MainUiCoreRuntime {
     this.createId = options.createId ?? createDefaultId;
     this.now = options.now ?? defaultNow;
     this.keybindings = new KeybindingRegistry();
+    this.settings = new SettingsStore({ persistence: options.settingsPersistence, migrations: options.settingsMigrations });
   }
 
   registerEditor(descriptor: EditorDescriptor): void {
@@ -73,6 +79,8 @@ export class MainUiCoreRuntime {
   registerMenu(contribution: MenuContribution): void {
     this.menus.register(contribution);
   }
+
+  registerSettingSchema(schema: SettingSchema): void { this.settings.registerSchema(schema); }
 
   unregisterMenu(id: string): void {
     this.menus.unregister(id);
@@ -133,6 +141,7 @@ export class MainUiCoreRuntime {
   }
 
   async boot(): Promise<WorkbenchDocument> {
+    await this.settings.load();
     const loaded = await this.persistence?.load();
     if (loaded && loaded.version === 1) {
       this.document = this.ensureRegisteredWorkspaces(loaded);

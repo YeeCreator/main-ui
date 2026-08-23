@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-24 · 0.0.5 Schema-driven Settings
+
+1. 新增独立版本化 `SettingsStore`、schema、scope 合并、校验、搜索、重置和 persistence adapter。
+2. `MainUiCoreRuntime` 支持 `settingsPersistence`、迁移函数与 `registerSettingSchema`，旧 `WorkbenchDocument` 结构保持兼容。
+3. 新增通用 Vue `SettingsEditor`，支持 string/number/boolean/enum/color 控件与错误提示。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
 ## 2026-08-24 · 0.0.4 Menu、Command Palette 与 Quick Open
 
 1. 新增 `MenuRegistry` 与 menu contribution 类型，支持一级菜单、子菜单、分隔符、排序和 `when`。
