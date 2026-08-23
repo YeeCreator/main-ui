@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.0.4`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.0.5`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
 
 ## 入口
 
@@ -190,6 +190,10 @@ export type EditorMountAdapter = {
 ## Menu、Command Palette 与 Quick Open
 
 通过 `registerMenu` 注册 `menubar`、`editor/tab`、`workspace`、`view`、`panel` 或 `context` 入口；菜单项的 `when` 和 command enablement 与快捷键共享同一上下文。Vue 层导出 `MenuBar`、`CommandPalette`、`QuickOpen` 和 `ContextMenu`，`WorkbenchShell` 默认提供 `Ctrl/Cmd+Shift+P` 命令面板与 `Ctrl/Cmd+P` Quick Open。宿主只需注册 command/menu contribution 即可获得入口。
+
+## Settings schema
+
+`runtime.core.registerSettingSchema({ id, title, type, defaultValue, scope })` 注册通用设置。`runtime.core.settings` 提供 `get`、`set`、`reset`、`search`、`validate`、独立版本化 snapshot 和可选 `SettingsPersistenceAdapter`；user/workspace/profile 按 profile > workspace > user > default 合并。Vue 导出 `SettingsEditor`，没有 schema 时不会改变旧的宿主设置 editor。
 
 ## Demo Fixture
 

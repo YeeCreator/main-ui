@@ -18,3 +18,4 @@ export * from './components/MenuBar';
 export * from './components/CommandPalette';
 export * from './components/QuickOpen';
 export * from './components/ContextMenu';
+export * from './components/SettingsEditor';
