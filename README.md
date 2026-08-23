@@ -1,5 +1,7 @@
 # main-ui
 
+当前版本：`0.0.2`。本版本已生成本地版本包 `main-ui-0.0.2.tgz`，适合下游通过 pnpm 显式安装和维护；当前尚未发布到 npm registry。
+
 `main-ui` 是一套全新的 Vue3 + framework-free core 工作台内核库。它不兼容旧 `main-ui-react`，也不包含任何宿主业务逻辑。
 
 当前版本提供：

@@ -1,5 +1,11 @@
 # DEVELOPER_GUIDE
 
+## 当前版本与分发方式
+
+当前工程版本为 `main-ui 0.0.2`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.2.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
+
+下游升级时使用 `pnpm add ../main-ui/main-ui-0.0.2.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时仍可保留 `file:../main-ui`。
+
 ## 架构边界
 
 `main-ui` 分为四层：
