@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-24 · 0.0.4 Menu、Command Palette 与 Quick Open
+
+1. 新增 `MenuRegistry` 与 menu contribution 类型，支持一级菜单、子菜单、分隔符、排序和 `when`。
+2. 新增 `CommandPalette`、`QuickOpen`、`ContextMenu` Vue 组件，统一调用 command。
+3. `WorkbenchShell` 接入 `MenuBar` 与 `Ctrl/Cmd+Shift+P`、`Ctrl/Cmd+P` 快捷入口；无贡献时不渲染空菜单栏。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
 ## 2026-08-24 · 0.0.3 Core Command 与快捷键
 
 1. 为 `CommandRegistry` 增加统一 `executeCommand`、`when`/`enablement` 判断、异常结果和最近使用记录。

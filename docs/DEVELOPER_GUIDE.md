@@ -2,7 +2,7 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.0.3`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.3.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
+当前工程版本为 `main-ui 0.0.4`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.4.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
 
 下游升级时使用 `pnpm add ../main-ui/main-ui-0.0.2.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时仍可保留 `file:../main-ui`。
 
@@ -76,6 +76,8 @@ pnpm run demo:dev
 ### Command 与快捷键
 
 命令统一通过 `runtime.core.executeCommand(id, payload)` 执行。`when` 可以继续使用旧的函数形式，也可以使用简单的 context-key 表达式；快捷键通过 `registerKeybinding` 注册，权重更高的宿主绑定会优先解析。Vue provider 会安装全局 keydown 监听，并依据最近的 `data-main-ui-scope` 或输入控件自动设置 focus scope。
+
+菜单通过 `registerMenu` 贡献，命令面板、Quick Open 和 context menu 都复用同一 command registry。菜单贡献是 opt-in 的；没有菜单注册时 shell 不显示空菜单栏。
 
 ## Mount Adapter 开发规则
 

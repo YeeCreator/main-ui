@@ -1,6 +1,8 @@
 import type { WorkbenchAction } from './actions';
 import type { CommandDescriptor, CommandInvocation, CommandRunContext, CommandExecutionResult, KeybindingDescriptor } from './command/types';
 import { evaluateWhen, KeybindingRegistry } from './command/keybindings';
+import { MenuRegistry } from './menu/registry';
+import type { MenuContribution } from './menu/types';
 import type { EditorDescriptor } from './editor/types';
 import { createWorkbenchDocument } from './documentFactory';
 import type { PersistenceAdapter } from './persistence/types';
@@ -33,6 +35,7 @@ export class MainUiCoreRuntime {
   readonly workspaces = new WorkspaceRegistry();
   readonly commands = new CommandRegistry();
   readonly keybindings: KeybindingRegistry;
+  readonly menus = new MenuRegistry();
 
   private document: WorkbenchDocument | null = null;
   private readonly listeners = new Set<RuntimeListener>();
@@ -65,6 +68,14 @@ export class MainUiCoreRuntime {
 
   registerKeybinding(descriptor: KeybindingDescriptor): void {
     this.keybindings.register(descriptor);
+  }
+
+  registerMenu(contribution: MenuContribution): void {
+    this.menus.register(contribution);
+  }
+
+  unregisterMenu(id: string): void {
+    this.menus.unregister(id);
   }
 
   unregisterKeybinding(commandId: string, keybinding?: string): void {
