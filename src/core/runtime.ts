@@ -1,5 +1,6 @@
 import type { WorkbenchAction } from './actions';
-import type { CommandDescriptor } from './command/types';
+import type { CommandDescriptor, CommandInvocation, CommandRunContext, CommandExecutionResult, KeybindingDescriptor } from './command/types';
+import { evaluateWhen, KeybindingRegistry } from './command/keybindings';
 import type { EditorDescriptor } from './editor/types';
 import { createWorkbenchDocument } from './documentFactory';
 import type { PersistenceAdapter } from './persistence/types';
@@ -31,6 +32,7 @@ export class MainUiCoreRuntime {
   readonly editors = new EditorRegistry();
   readonly workspaces = new WorkspaceRegistry();
   readonly commands = new CommandRegistry();
+  readonly keybindings: KeybindingRegistry;
 
   private document: WorkbenchDocument | null = null;
   private readonly listeners = new Set<RuntimeListener>();
@@ -38,12 +40,15 @@ export class MainUiCoreRuntime {
   private readonly activeWorkspaceId?: string;
   private readonly createId: IdFactory;
   private readonly now: () => string;
+  private readonly recentCommands: CommandInvocation[] = [];
+  private focusScope = 'workbench';
 
   constructor(options: CoreRuntimeOptions = {}) {
     this.persistence = options.persistence;
     this.activeWorkspaceId = options.activeWorkspaceId;
     this.createId = options.createId ?? createDefaultId;
     this.now = options.now ?? defaultNow;
+    this.keybindings = new KeybindingRegistry();
   }
 
   registerEditor(descriptor: EditorDescriptor): void {
@@ -56,6 +61,64 @@ export class MainUiCoreRuntime {
 
   registerCommand(descriptor: CommandDescriptor): void {
     this.commands.register(descriptor);
+  }
+
+  registerKeybinding(descriptor: KeybindingDescriptor): void {
+    this.keybindings.register(descriptor);
+  }
+
+  unregisterKeybinding(commandId: string, keybinding?: string): void {
+    this.keybindings.unregister(commandId, keybinding);
+  }
+
+  setFocusScope(scope: string): void {
+    this.focusScope = scope || 'workbench';
+  }
+
+  getFocusScope(): string {
+    return this.focusScope;
+  }
+
+  listRecentlyUsedCommands(): CommandInvocation[] {
+    return this.recentCommands.map((entry) => ({ ...entry, context: { ...entry.context }, result: { ...entry.result } }));
+  }
+
+  isCommandEnabled(commandId: string, payload?: CommandRunContext['payload']): boolean {
+    const descriptor = this.commands.get(commandId);
+    if (!descriptor) return false;
+    const context = this.createCommandContext(payload);
+    return evaluateWhen(descriptor.when, context) && (descriptor.enablement ? descriptor.enablement(context) : true);
+  }
+
+  async executeCommand(commandId: string, payload?: CommandRunContext['payload'], overrides: Partial<CommandRunContext> = {}): Promise<Result<CommandExecutionResult>> {
+    const descriptor = this.commands.get(commandId);
+    if (!descriptor) return fail('command.notFound', `Command ${commandId} is not registered.`);
+    const context = { ...this.createCommandContext(payload), ...overrides };
+    if (!evaluateWhen(descriptor.when, context) || (descriptor.enablement && !descriptor.enablement(context))) {
+      return fail('command.disabled', `Command ${commandId} is disabled in the current context.`);
+    }
+    const started = Date.now();
+    try {
+      const returned = await descriptor.run(context);
+      const result: CommandExecutionResult = returned && typeof returned === 'object' && 'commandId' in returned
+        ? returned as CommandExecutionResult
+        : { commandId, executed: true, durationMs: Date.now() - started };
+      const invocation = { commandId, context, result, invokedAt: this.now() };
+      this.recentCommands.unshift(invocation);
+      this.recentCommands.splice(30);
+      return ok(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return fail('command.executionFailed', message);
+    }
+  }
+
+  async handleKeydown(event: KeyboardEvent): Promise<Result<CommandExecutionResult> | null> {
+    const context = this.createCommandContext(undefined);
+    const binding = this.keybindings.resolve(event, context);
+    if (!binding) return null;
+    event.preventDefault();
+    return this.executeCommand(binding.commandId, undefined, context);
   }
 
   async boot(): Promise<WorkbenchDocument> {
@@ -130,6 +193,17 @@ export class MainUiCoreRuntime {
       this.createId,
       this.now,
     );
+  }
+
+  private createCommandContext(payload?: CommandRunContext['payload']): CommandRunContext {
+    const snapshot = this.getSnapshot();
+    const workspace = snapshot.workspaceStates[snapshot.activeWorkspaceId];
+    return {
+      workspaceId: snapshot.activeWorkspaceId,
+      activeGroupId: workspace?.layout.activeGroupId ?? null,
+      payload,
+      scope: this.focusScope,
+    };
   }
 
   private ensureRegisteredWorkspaces(document: WorkbenchDocument): WorkbenchDocument {

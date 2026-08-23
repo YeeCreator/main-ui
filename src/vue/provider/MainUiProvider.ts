@@ -14,6 +14,7 @@ export const MainUiProvider = defineComponent({
   setup(props, { slots }) {
     const document = shallowRef<WorkbenchDocument>(props.runtime.core.getSnapshot());
     let unsubscribe: (() => void) | undefined;
+    let disposeKeyboardListener: (() => void) | undefined;
 
     const dispatch = async (action: Parameters<MainUiRuntime['core']['dispatch']>[0]) => {
       const result = await props.runtime.core.dispatch(action);
@@ -34,10 +35,18 @@ export const MainUiProvider = defineComponent({
         document.value = snapshot;
       });
       void props.runtime.core.boot();
+      const onKeydown = (event: KeyboardEvent) => {
+        const target = event.target as HTMLElement | null;
+        props.runtime.core.setFocusScope(target?.closest('[data-main-ui-scope]')?.getAttribute('data-main-ui-scope') ?? (target?.matches('input,textarea,select,[contenteditable="true"]') ? 'input' : 'workbench'));
+        void props.runtime.core.handleKeydown(event);
+      };
+      window.addEventListener('keydown', onKeydown);
+      disposeKeyboardListener = () => window.removeEventListener('keydown', onKeydown);
     });
 
     onBeforeUnmount(() => {
       unsubscribe?.();
+      disposeKeyboardListener?.();
     });
 
     return () => h('div', { class: 'main-ui-provider' }, slots.default?.());
