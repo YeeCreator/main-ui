@@ -8,6 +8,8 @@ import { WorkbenchLayoutRenderer } from './WorkbenchLayoutRenderer';
 import { MenuBar } from './MenuBar';
 import { CommandPalette } from './CommandPalette';
 import { QuickOpen } from './QuickOpen';
+import { Sidebar } from './Sidebar';
+import { BottomPanel } from './BottomPanel';
 
 export const WorkbenchShell = defineComponent({
   name: 'WorkbenchShell',
@@ -27,10 +29,12 @@ export const WorkbenchShell = defineComponent({
 
     return () => h('div', { class: ['main-ui-shell', themeClass.value] }, [
       h(ActivityBar),
+      h(Sidebar),
       h('div', { class: 'main-ui-shell__body' }, [
         h(TitleBar),
         h(MenuBar),
         h(WorkbenchLayoutRenderer),
+        h(BottomPanel),
         h(StatusBar),
       ]),
       h(OverlayLayer),
