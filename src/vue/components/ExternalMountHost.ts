@@ -16,13 +16,33 @@ export const ExternalMountHost = defineComponent({
   },
   setup(props) {
     const container = ref<HTMLElement | null>(null);
+    const status = ref<'loading' | 'ready' | 'error'>('loading');
+    const errorMessage = ref<string | null>(null);
     let cleanup: void | (() => void);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const unmount = () => {
+      if (timeout) clearTimeout(timeout);
+      try { cleanup?.(); } catch { /* isolate adapter cleanup */ }
+      try { if (container.value) props.adapter.unmount?.(container.value); } catch { /* isolate adapter cleanup */ }
+      cleanup = undefined;
+    };
+    const mount = () => {
+      unmount(); status.value = 'loading'; errorMessage.value = null;
+      if (!container.value) return;
+      try {
+        const result = props.adapter.mount(container.value, props.context);
+        cleanup = result;
+        status.value = 'ready';
+        timeout = setTimeout(() => { if (status.value === 'loading') { status.value = 'error'; errorMessage.value = 'Adapter mount timed out.'; } }, props.adapter.timeoutMs ?? 10000);
+      } catch (error) { status.value = 'error'; errorMessage.value = error instanceof Error ? error.message : String(error); }
+    };
 
     onMounted(() => {
       if (!container.value) {
         return;
       }
-      cleanup = props.adapter.mount(container.value, props.context);
+      mount();
     });
 
     watch(() => props.context, (context) => {
@@ -33,12 +53,9 @@ export const ExternalMountHost = defineComponent({
     });
 
     onBeforeUnmount(() => {
-      cleanup?.();
-      if (container.value) {
-        props.adapter.unmount?.(container.value);
-      }
+      unmount();
     });
 
-    return () => h('div', { ref: container, class: 'main-ui-external-mount-host' });
+    return () => h('div', { ref: container, class: ['main-ui-external-mount-host', `is-${status.value}`], role: 'region', 'aria-live': 'polite' }, status.value === 'error' ? [h('p', `Editor failed to load: ${errorMessage.value}`), h('button', { type: 'button', onClick: mount }, 'Retry')] : status.value === 'loading' ? [h('span', 'Loading…')] : []);
   },
 });

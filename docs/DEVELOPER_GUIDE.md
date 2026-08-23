@@ -2,7 +2,7 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.0.7`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.7.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
+当前工程版本为 `main-ui 0.0.8`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.8.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
 
 下游升级时使用 `pnpm add ../main-ui/main-ui-0.0.2.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时仍可保留 `file:../main-ui`。
 
@@ -90,6 +90,10 @@ View/panel descriptor 只声明 `rendererKey`/`providerKey`，不把 Vue 或业�
 ### Persistence 与 Tab
 
 不要直接假设 `WorkbenchDocument.version === 1`；使用导出的 `migrateWorkbenchDocument` 或 runtime persistence 流程读取。新 tab 字段均为可选兼容字段，拖拽最终通过 reducer action 更新，宿主无需直接修改 layout tree。
+
+### Accessibility 与 resilience
+
+所有 renderer/adapter 都应允许错误边界接管；adapter 的 cleanup 必须幂等。需要将自定义焦点区标记为 `data-main-ui-scope`，并为 provider surface 提供 label。高对比度主题只覆盖语义 token，不要求宿主重写业务 editor 样式。
 
 ## Mount Adapter 开发规则
 

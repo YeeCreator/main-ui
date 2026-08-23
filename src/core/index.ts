@@ -8,6 +8,7 @@ export * from './settings/types';
 export * from './settings/store';
 export * from './contribution/types';
 export * from './contribution/registry';
+export * from './feedback';
 export * from './documentFactory';
 export * from './editor/types';
 export * from './editor/viewModels';
