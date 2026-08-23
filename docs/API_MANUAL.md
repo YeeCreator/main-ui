@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.0.8`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.1.0`。API 以本地 `.tgz` 版本包交付；本次为兼容式能力扩展，旧的 workspace/editor/renderer 注册方式继续有效。
 
 ## 入口
 
@@ -18,7 +18,7 @@
 
 ```ts
 type WorkbenchDocument = {
-  version: 1
+  version: 1 | 2
   activeWorkspaceId: string
   workspaceStates: Record<string, WorkspaceState>
   theme: ThemeState
