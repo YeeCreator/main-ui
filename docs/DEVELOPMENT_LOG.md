@@ -1,5 +1,13 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-23 · 0.0.2 本地版本包
+
+1. 将 package version 从 `0.0.1` 更新为 `0.0.2`。
+2. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build` 验证。
+3. 使用 `pnpm pack` 生成 `main-ui-0.0.2.tgz`，用于下游本地版本化安装。
+4. 通过 relay updates outbox 向 autodo、complex-system-gallery、matheshop、scene-studio、yeegames 发布升级通知。
+5. 本次采用本地 `.tgz` 分发，不等同于 npm registry 发布；下游升级为自愿、显式操作。
+
 ## 2026-04-30
 
 完成 `main-ui` 从旧 React 壳层组件库到 Vue3 + core 工作台内核的首轮开发。

@@ -1,5 +1,9 @@
 # HOST_INTEGRATION_GUIDE
 
+## 当前版本与升级方式
+
+当前接入基线为 `main-ui 0.0.2`，对应本地包 `main-ui-0.0.2.tgz`。本次升级不要求重写现有 editor renderer；下游应显式选择是否安装该包。源码联调可继续使用 `file:../main-ui`，版本验收使用 `.tgz` 包。
+
 本文档面向宿主项目维护者，说明 `main-ui` 作为工作台内核时，宿主应如何注册 workspace、editor、renderer、mount adapter，以及哪些职责必须继续留在宿主侧。
 
 本文不是 API 手册的重复版本，而是宿主接入顺序与边界说明。
