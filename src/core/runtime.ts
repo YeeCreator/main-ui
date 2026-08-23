@@ -5,6 +5,8 @@ import { MenuRegistry } from './menu/registry';
 import type { MenuContribution } from './menu/types';
 import { SettingsStore } from './settings/store';
 import type { SettingsPersistenceAdapter, SettingsMigration, SettingSchema } from './settings/types';
+import { ContributionRegistry } from './contribution/registry';
+import type { ActivityContribution, PanelContribution, StatusContribution, ViewContribution } from './contribution/types';
 import type { EditorDescriptor } from './editor/types';
 import { createWorkbenchDocument } from './documentFactory';
 import type { PersistenceAdapter } from './persistence/types';
@@ -41,6 +43,7 @@ export class MainUiCoreRuntime {
   readonly keybindings: KeybindingRegistry;
   readonly menus = new MenuRegistry();
   readonly settings: SettingsStore;
+  readonly contributions = new ContributionRegistry();
 
   private document: WorkbenchDocument | null = null;
   private readonly listeners = new Set<RuntimeListener>();
@@ -81,6 +84,11 @@ export class MainUiCoreRuntime {
   }
 
   registerSettingSchema(schema: SettingSchema): void { this.settings.registerSchema(schema); }
+
+  registerViewContribution(view: ViewContribution): void { this.contributions.registerView(view); }
+  registerPanelContribution(panel: PanelContribution): void { this.contributions.registerPanel(panel); }
+  registerActivityContribution(item: ActivityContribution): void { this.contributions.registerActivity(item); }
+  registerStatusContribution(item: StatusContribution): void { this.contributions.registerStatus(item); }
 
   unregisterMenu(id: string): void {
     this.menus.unregister(id);

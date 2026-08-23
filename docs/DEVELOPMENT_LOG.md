@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-24 · 0.0.6 Sidebar、Panel 与 Contribution Registry
+
+1. 新增 view/panel/activity/status contribution 类型与 `ContributionRegistry`。
+2. 新增 `Sidebar`、`BottomPanel`、`ContributionSurface`，支持默认可见、折叠、尺寸调节和 provider 缺失空态。
+3. `WorkbenchShell` 自动承载 contribution 容器，2D/3D editor 仍通过原有 renderer/adapter 接入。
+4. 通过 `pnpm typecheck`、`pnpm test` 验证。
+
 ## 2026-08-24 · 0.0.5 Schema-driven Settings
 
 1. 新增独立版本化 `SettingsStore`、schema、scope 合并、校验、搜索、重置和 persistence adapter。
