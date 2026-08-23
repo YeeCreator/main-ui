@@ -71,8 +71,24 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 34px minmax(0, 1fr) 24px;
+  grid-template-rows: 34px auto minmax(0, 1fr) 24px;
 }
+
+.main-ui-menu-bar { display: flex; align-items: center; gap: 2px; min-height: 24px; padding: 0 8px; border-bottom: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
+.main-ui-menu { position: relative; }
+.main-ui-menu-trigger, .main-ui-menu-item, .main-ui-context-menu button { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 3px 8px; text-align: left; }
+.main-ui-menu-trigger:hover, .main-ui-menu-item:hover, .main-ui-context-menu button:hover, .main-ui-menu-item.is-selected { background: var(--main-ui-accent); color: white; }
+.main-ui-menu-popup, .main-ui-context-menu { position: absolute; z-index: 30; min-width: 180px; padding: 4px; border: 1px solid var(--main-ui-border); border-radius: var(--main-ui-radius); background: var(--main-ui-panel); box-shadow: 0 8px 24px rgb(0 0 0 / 18%); }
+.main-ui-menu-popup { top: calc(100% + 2px); left: 0; }
+.main-ui-menu-item, .main-ui-context-menu button { display: block; width: 100%; }
+.main-ui-menu-separator { height: 1px; margin: 4px 0; background: var(--main-ui-border); }
+.main-ui-quick-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: start center; padding-top: 12vh; background: rgb(0 0 0 / 25%); }
+.main-ui-quick-panel { width: min(620px, calc(100vw - 32px)); max-height: 60vh; overflow: auto; border: 1px solid var(--main-ui-border); border-radius: 6px; background: var(--main-ui-panel); box-shadow: 0 16px 40px rgb(0 0 0 / 28%); }
+.main-ui-quick-panel input { width: 100%; border: 0; border-bottom: 1px solid var(--main-ui-border); padding: 12px; outline: none; background: transparent; color: inherit; }
+.main-ui-quick-panel ul { list-style: none; margin: 0; padding: 4px; }
+.main-ui-quick-panel li button { display: flex; justify-content: space-between; width: 100%; border: 0; padding: 8px 10px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.main-ui-quick-panel li button:hover, .main-ui-quick-panel li button.is-selected { background: var(--main-ui-accent); color: white; }
+.main-ui-quick-panel small { color: var(--main-ui-text-muted); }
 
 .main-ui-activity-bar {
   min-height: 0;

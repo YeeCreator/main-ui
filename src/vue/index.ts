@@ -14,3 +14,7 @@ export * from './components/TreeEditor';
 export * from './components/TitleBar';
 export * from './components/WorkbenchLayoutRenderer';
 export * from './components/WorkbenchShell';
+export * from './components/MenuBar';
+export * from './components/CommandPalette';
+export * from './components/QuickOpen';
+export * from './components/ContextMenu';

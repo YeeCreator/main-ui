@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.0.3`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.0.4`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
 
 ## 入口
 
@@ -43,6 +43,7 @@ runtime.core.registerEditor(descriptor)
 runtime.core.registerCommand(descriptor)
 runtime.core.registerKeybinding({ commandId: 'demo.open', keybinding: 'Ctrl+Shift+P' })
 await runtime.core.executeCommand('demo.open')
+runtime.core.registerMenu({ id: 'file.open', location: 'menubar', label: 'Open', commandId: 'demo.open' })
 ```
 
 Command descriptor 的旧 `run(context)` 形式保持兼容。运行时会统一检查 `when`/`enablement`，记录最近执行命令，并将代码调用与快捷键调用归一到 `executeCommand`。`KeybindingRegistry` 支持组合键解析、macOS 平台映射、权重覆盖和冲突查询；宿主可以调用 `unregisterKeybinding` 覆盖默认绑定。
@@ -185,6 +186,10 @@ export type EditorMountAdapter = {
 默认 persistence 是 localStorage adapter。宿主可以替换为自己的持久化层，只要实现 snapshot 的加载与保存。
 
 `WorkbenchDocument` 是可序列化对象，适合写入 localStorage、IndexedDB、SQLite bridge 或云同步文档。宿主业务数据应只保存引用，例如 `documentId`、`sessionId`、`projectId`。
+
+## Menu、Command Palette 与 Quick Open
+
+通过 `registerMenu` 注册 `menubar`、`editor/tab`、`workspace`、`view`、`panel` 或 `context` 入口；菜单项的 `when` 和 command enablement 与快捷键共享同一上下文。Vue 层导出 `MenuBar`、`CommandPalette`、`QuickOpen` 和 `ContextMenu`，`WorkbenchShell` 默认提供 `Ctrl/Cmd+Shift+P` 命令面板与 `Ctrl/Cmd+P` Quick Open。宿主只需注册 command/menu contribution 即可获得入口。
 
 ## Demo Fixture
 
