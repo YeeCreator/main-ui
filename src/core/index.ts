@@ -17,6 +17,7 @@ export * from './layout/types';
 export * from './overlay/types';
 export * from './persistence/adapters';
 export * from './persistence/types';
+export * from './persistence/migrations';
 export * from './reducer';
 export * from './registry';
 export * from './runtime';

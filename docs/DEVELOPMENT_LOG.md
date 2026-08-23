@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-24 · 0.0.7 Layout Persistence 与 Tab Experience
+
+1. 新增 WorkbenchDocument v1→v2 迁移，补齐 chrome、tab history、recent workspace/editor。
+2. 新增 pinned/preview/dirty/reorder tab action，Vue tab strip 支持拖拽排序与跨 group 移动。
+3. 新增 `layout/setChromeState`，为 Sidebar/Bottom Panel 尺寸与显隐恢复提供持久化入口。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
 ## 2026-08-24 · 0.0.6 Sidebar、Panel 与 Contribution Registry
 
 1. 新增 view/panel/activity/status contribution 类型与 `ContributionRegistry`。
