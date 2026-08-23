@@ -1,7 +1,7 @@
 import type { EditorOpenRequest } from './editor/types';
 import type { GroupId, LayoutNodeId, OverlayDismissReason, OverlaySessionId, SplitDirection, ThemeId, WorkspaceId } from './types';
 
-export type WorkbenchAction = LayoutAction | EditorAction | OverlayAction | WorkspaceAction | ThemeAction;
+export type WorkbenchAction = LayoutAction | EditorAction | TabStateAction | OverlayAction | WorkspaceAction | ThemeAction;
 
 export type LayoutAction =
   | { type: 'layout/splitLeaf'; leafNodeId: LayoutNodeId; direction: SplitDirection; ratio?: number }
@@ -9,6 +9,7 @@ export type LayoutAction =
   | { type: 'layout/closeLeaf'; leafNodeId: LayoutNodeId }
   | { type: 'layout/toggleMaximize'; nodeId: LayoutNodeId }
   | { type: 'layout/setActiveGroup'; groupId: GroupId }
+  | { type: 'layout/setChromeState'; workspaceId: WorkspaceId; patch: Partial<{ sidebarVisible: boolean; sidebarWidth: number; bottomPanelVisible: boolean; bottomPanelHeight: number; activeViewId?: string; activePanelId?: string }> }
   | { type: 'layout/resetWorkspace'; workspaceId: WorkspaceId };
 
 export type EditorAction =
@@ -19,6 +20,10 @@ export type EditorAction =
   | { type: 'editor/moveTabToGroup'; fromGroupId: GroupId; toGroupId: GroupId; tabId: string; index?: number }
   | { type: 'editor/moveTabToNewSplit'; fromGroupId: GroupId; targetLeafNodeId: LayoutNodeId; tabId: string; direction: SplitDirection }
   | { type: 'editor/duplicateInstance'; groupId: GroupId; tabId: string; payloadOverride?: Record<string, unknown> };
+
+export type TabStateAction =
+  | { type: 'editor/setTabState'; groupId: GroupId; tabId: string; pinned?: boolean; preview?: boolean; dirty?: boolean }
+  | { type: 'editor/reorderTab'; groupId: GroupId; tabId: string; index: number };
 
 export type OverlayAction =
   | { type: 'overlay/open'; request: EditorOpenRequest }

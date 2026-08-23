@@ -15,6 +15,7 @@ import { workbenchReducer } from './reducer';
 import type { IdFactory, Result } from './types';
 import { fail, ok } from './types';
 import type { WorkbenchDocument, WorkspaceDescriptor } from './workspace/types';
+import { migrateWorkbenchDocument } from './persistence/migrations';
 
 export type CoreRuntimeOptions = {
   persistence?: PersistenceAdapter;
@@ -151,8 +152,9 @@ export class MainUiCoreRuntime {
   async boot(): Promise<WorkbenchDocument> {
     await this.settings.load();
     const loaded = await this.persistence?.load();
-    if (loaded && loaded.version === 1) {
-      this.document = this.ensureRegisteredWorkspaces(loaded);
+    const migrated = migrateWorkbenchDocument(loaded);
+    if (migrated) {
+      this.document = this.ensureRegisteredWorkspaces(migrated);
     } else {
       this.document = this.createFreshDocument();
     }

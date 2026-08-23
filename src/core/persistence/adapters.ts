@@ -1,5 +1,6 @@
 import type { WorkbenchDocument } from '../workspace/types';
 import type { PersistenceAdapter } from './types';
+import { migrateWorkbenchDocument } from './migrations';
 
 export const createMemoryPersistenceAdapter = (initialDocument: WorkbenchDocument | null = null): PersistenceAdapter => {
   let storedDocument = initialDocument;
@@ -29,7 +30,7 @@ export const createLocalStoragePersistenceAdapter = (storageKey: string): Persis
     }
 
     try {
-      return JSON.parse(raw) as WorkbenchDocument;
+      return migrateWorkbenchDocument(JSON.parse(raw));
     } catch {
       return null;
     }

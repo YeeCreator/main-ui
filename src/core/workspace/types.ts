@@ -18,6 +18,15 @@ export type WorkspaceState = {
   focusHistory: FocusEntry[];
   dirtyFromPreset: boolean;
   updatedAt: string;
+  tabHistory: string[];
+  chrome: {
+    sidebarVisible: boolean;
+    sidebarWidth: number;
+    bottomPanelVisible: boolean;
+    bottomPanelHeight: number;
+    activeViewId?: string;
+    activePanelId?: string;
+  };
 };
 
 export type WorkspaceDescriptor = {
@@ -33,9 +42,11 @@ export type WorkspaceDescriptor = {
 };
 
 export type WorkbenchDocument = {
-  version: 1;
+  version: 1 | 2;
   activeWorkspaceId: WorkspaceId;
   workspaceStates: Record<WorkspaceId, WorkspaceState>;
   theme: ThemeState;
   settings: WorkbenchSettings;
+  recentWorkspaces: WorkspaceId[];
+  recentEditors: Array<{ editorKind: EditorKind; restoreKey?: string; openedAt: string }>;
 };
