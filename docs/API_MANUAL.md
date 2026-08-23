@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.0.5`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.0.6`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
 
 ## 入口
 
@@ -194,6 +194,10 @@ export type EditorMountAdapter = {
 ## Settings schema
 
 `runtime.core.registerSettingSchema({ id, title, type, defaultValue, scope })` 注册通用设置。`runtime.core.settings` 提供 `get`、`set`、`reset`、`search`、`validate`、独立版本化 snapshot 和可选 `SettingsPersistenceAdapter`；user/workspace/profile 按 profile > workspace > user > default 合并。Vue 导出 `SettingsEditor`，没有 schema 时不会改变旧的宿主设置 editor。
+
+## Sidebar、Panel 与 Contributions
+
+宿主可通过 `registerViewContribution`、`registerPanelContribution`、`registerActivityContribution` 和 `registerStatusContribution` 声明工作区辅助视图。Vue `WorkbenchShell` 自动提供 `Sidebar` 与 `BottomPanel` 容器；视图没有注册 renderer/provider 时显示稳定空态，不会让 shell 崩溃。Sidebar/BottomPanel 支持折叠、默认可见、尺寸调节和宿主在 workspace 切换时恢复自己的 active 状态。
 
 ## Demo Fixture
 

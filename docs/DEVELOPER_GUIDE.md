@@ -2,7 +2,7 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.0.5`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.5.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
+当前工程版本为 `main-ui 0.0.6`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.0.6.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
 
 下游升级时使用 `pnpm add ../main-ui/main-ui-0.0.2.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时仍可保留 `file:../main-ui`。
 
@@ -82,6 +82,10 @@ pnpm run demo:dev
 ### Settings
 
 设置 schema 与业务状态隔离，持久化通过 `settingsPersistence` 单独注入。迁移函数接收独立 `SettingsSnapshot`，设置控件不得把业务实体写入 `WorkbenchDocument`；宿主可注册自己的 `SettingsEditor` 或 provider。
+
+### Contributions
+
+View/panel descriptor 只声明 `rendererKey`/`providerKey`，不把 Vue 或业务服务引入 core。`ContributionSurface` 会优先解析 Vue renderer，缺失时渲染明确空态。宿主可在自己的 renderer 中接入文件、搜索、终端、调试等 provider。
 
 ## Mount Adapter 开发规则
 
