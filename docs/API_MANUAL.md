@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.0.7`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.0.8`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
 
 ## 入口
 
@@ -202,6 +202,10 @@ export type EditorMountAdapter = {
 ## Layout persistence 与 tabs
 
 持久化读取会自动将 `WorkbenchDocument.version: 1` 迁移到 v2，保留原 layout、tabs、editor payload，并补齐 chrome 状态、tab history、recent workspace/editor。新增 `editor/setTabState`（pinned/preview/dirty）、`editor/reorderTab` 和 `layout/setChromeState` action；tab 支持原生拖拽排序与跨 group 移动。
+
+## Accessibility 与 resilience
+
+Editor surface 具备 loading/error/retry boundary；`EditorMountAdapter` 的 mount/update/unmount 异常会被隔离并执行 cleanup，支持 `timeoutMs`。Overlay 使用 dialog/aria-modal、Escape dismiss 和 focus trap；tab strip 使用 roving tabindex 与方向键导航。`FeedbackHost` 提供 notification、confirm、progress 的可访问交互，样式包含 high-contrast token。
 
 ## Demo Fixture
 

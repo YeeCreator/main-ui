@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-24 · 0.0.8 Accessibility 与 Runtime Resilience
+
+1. 增加 EditorErrorBoundary、adapter timeout/异常隔离/cleanup 与 retry。
+2. Overlay 增加 dialog ARIA、Escape dismiss、focus trap；tab strip 增加 roving tabindex/方向键导航。
+3. 新增 `FeedbackHost` notification/confirm/progress 组件和 high-contrast token。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
 ## 2026-08-24 · 0.0.7 Layout Persistence 与 Tab Experience
 
 1. 新增 WorkbenchDocument v1→v2 迁移，补齐 chrome、tab history、recent workspace/editor。

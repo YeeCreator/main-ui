@@ -27,7 +27,7 @@ export const WorkbenchShell = defineComponent({
     onMounted(() => window.addEventListener('keydown', onKeydown));
     onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
-    return () => h('div', { class: ['main-ui-shell', themeClass.value] }, [
+    return () => h('div', { class: ['main-ui-shell', themeClass.value], role: 'application', 'aria-label': 'main-ui workbench' }, [
       h(ActivityBar),
       h(Sidebar),
       h('div', { class: 'main-ui-shell__body' }, [

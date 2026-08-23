@@ -22,3 +22,5 @@ export * from './components/SettingsEditor';
 export * from './components/ContributionSurface';
 export * from './components/Sidebar';
 export * from './components/BottomPanel';
+export * from './components/EditorErrorBoundary';
+export * from './components/FeedbackHost';
