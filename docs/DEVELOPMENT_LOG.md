@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-24 · 0.1.0 Compatibility Release
+
+1. 汇总 command/keybinding、Menu/Palette/Quick Open、schema settings、Sidebar/Panel contributions、layout v2 migration、tab drag/drop、accessibility/resilience 能力。
+2. 更新 public exports、API/developer/user/host 文档，新增 migration guide、host example 与 upgrade checklist 基线。
+3. 旧接入 API 与 persistence v1 自动迁移保持兼容；新能力全部 opt-in。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 与 e2e 验证。
+
 ## 2026-08-24 · 0.0.8 Accessibility 与 Runtime Resilience
 
 1. 增加 EditorErrorBoundary、adapter timeout/异常隔离/cleanup 与 retry。

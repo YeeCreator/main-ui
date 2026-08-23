@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-当前适配基线为 `main-ui 0.0.2`。外部 mount adapter、rendererKey 和宿主 editor 契约保持兼容；下游可通过 `main-ui-0.0.2.tgz` 做隔离升级验证。
+当前适配基线为 `main-ui 0.1.0`。外部 mount adapter、rendererKey 和宿主 editor 契约保持兼容；下游可通过 `main-ui-0.1.0.tgz` 做隔离升级验证。
 
 本文说明 `main-ui` 如何作为通用工作台内核接入首批宿主：`autodo-app`、`matheshop`、`yeegames`。这些内容是适配草案，不迁移宿主业务代码。
 

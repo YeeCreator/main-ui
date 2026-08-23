@@ -362,9 +362,24 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
       return ok(next);
     }
     case 'layout/closeLeaf': {
+      const sourceNode = workspace.layout.nodes[action.leafNodeId];
+      const sourceGroupId = sourceNode?.type === 'leaf' ? sourceNode.groupId : undefined;
+      const sourceGroup = sourceGroupId ? workspace.layout.groups[sourceGroupId] : undefined;
+      const orphanTabIds = sourceGroup ? [...sourceGroup.tabIds] : [];
       const result = closeLeaf(workspace.layout, action.leafNodeId);
       if (!result.ok) return result as Result<WorkbenchDocument>;
       workspace.layout = result.value;
+      for (const tabId of orphanTabIds) {
+        const tab = workspace.tabs[tabId];
+        if (tab) {
+          const editor = workspace.editors[tab.editorInstanceId];
+          if (editor) workspace.recentlyClosed.unshift({ tab, editor, closedAt: context.now() });
+          delete workspace.tabs[tabId];
+          workspace.tabHistory = (workspace.tabHistory ?? []).filter((id) => id !== tabId);
+          if (editor) removeEditorIfUnused(workspace, editor.id);
+        }
+      }
+      workspace.recentlyClosed = workspace.recentlyClosed.slice(0, 20);
       touchWorkspace(workspace, context.now);
       return ok(next);
     }
