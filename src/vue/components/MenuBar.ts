@@ -20,7 +20,7 @@ export const MenuBar = defineComponent({
       ? h('div', { class: 'main-ui-menu-separator', role: 'separator', key: item.id })
       : h('button', { class: 'main-ui-menu-item', type: 'button', disabled: !item.enabled, onClick: () => void run(item), key: item.id }, [item.label]);
     return () => items.value.length === 0 ? null : h('nav', { class: 'main-ui-menu-bar', 'aria-label': 'Application menu' }, items.value.map((item) => h('div', { class: 'main-ui-menu', key: item.id }, [
-      h('button', { class: 'main-ui-menu-trigger', type: 'button', 'aria-expanded': openMenu.value === item.id, onClick: () => { openMenu.value = openMenu.value === item.id ? null : item.id; } }, item.label),
+      h('button', { class: 'main-ui-menu-trigger', type: 'button', 'aria-expanded': openMenu.value === item.id, onClick: () => { if (item.children?.length) { openMenu.value = openMenu.value === item.id ? null : item.id; } else if (item.commandId) { void run(item); } } }, item.label),
       openMenu.value === item.id && item.children?.length ? h('div', { class: 'main-ui-menu-popup', role: 'menu' }, item.children.map(renderItem)) : null,
     ])));
   },

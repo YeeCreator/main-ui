@@ -1,6 +1,6 @@
 # main-ui
 
-当前版本：`0.1.0`。本版本已生成本地版本包 `main-ui-0.1.0.tgz`，适合下游通过 pnpm 显式安装和维护；当前尚未发布到 npm registry。安装包内含 `docs/` 文档目录，可直接查看用户手册、API 手册和迁移指南。
+当前版本：`0.1.1`。本版本已生成本地版本包 `main-ui-0.1.1.tgz`，适合下游通过 pnpm 显式安装和维护；当前尚未发布到 npm registry。安装包内含 `docs/` 文档目录，可直接查看用户手册、API 手册和迁移指南。
 
 `main-ui` 是一套全新的 Vue3 + framework-free core 工作台内核库。它不兼容旧 `main-ui-react`，也不包含任何宿主业务逻辑。
 
@@ -24,6 +24,7 @@
 6. K：三类宿主适配草案、外部 mount adapter 示例与验证记录。
 7. L：README 与 docs 四件套同步到新版口径。
 8. 0.1.0：command/keybinding、菜单/面板/设置 schema、布局迁移/tab 体验、可访问性与韧性边界。
+9. 0.1.1：修复 MenuBar 扁平命令项点击不执行的问题（无 `submenu`、直接挂 `commandId` 的 menubar 项现在点击即执行命令）。
 
 ## 安装与开发
 

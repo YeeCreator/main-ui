@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-25 · 0.1.1 MenuBar Flat Command Fix
+
+1. 修复 `MenuBar` 顶层扁平命令项（无 `submenu`、直接挂 `commandId`）点击仅切换展开、不执行命令的问题；改为无子菜单时直接执行命令。
+2. 新增 `menuRegistry` 单元测试，锁定「扁平 menubar 命令项是可执行命令项」契约。
+3. 更新 README、API/developer/user/migration 文档与版本号到 0.1.1。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build` 验证，并生成 `main-ui-0.1.1.tgz`。
+
 ## 2026-08-24 · 0.1.0 Compatibility Release
 
 1. 汇总 command/keybinding、Menu/Palette/Quick Open、schema settings、Sidebar/Panel contributions、layout v2 migration、tab drag/drop、accessibility/resilience 能力。
