@@ -6,6 +6,7 @@
 - [API_MANUAL.md](API_MANUAL.md)：Core、Vue、adapter 与 contribution API。
 - [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)：开发约定、调试与测试。
 - [MIGRATION_GUIDE_0.1.0.md](MIGRATION_GUIDE_0.1.0.md)：从旧版本升级到 0.1.0。
+- [MIGRATION_GUIDE_0.1.1.md](MIGRATION_GUIDE_0.1.1.md)：从 0.1.0 升级到 0.1.1（MenuBar 扁平命令项修复，无 breaking change）。
 - [HOST_INTEGRATION_GUIDE.md](HOST_INTEGRATION_GUIDE.md)：宿主项目接入指南。
 - [HOST_ADAPTER_GUIDE.md](HOST_ADAPTER_GUIDE.md)：外部 renderer/adapter 契约。
 - [HOST_UPGRADE_CHECKLIST_TEMPLATE.md](HOST_UPGRADE_CHECKLIST_TEMPLATE.md)：下游升级检查清单模板。
