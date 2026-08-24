@@ -29,6 +29,8 @@
 
 安装后文档位置：`node_modules/main-ui/docs/`。本地 `.tgz` 安装包也包含同一目录。
 
+旧版 `0.0.2` 的原始包未携带 docs；如需保持旧编译内容并补齐旧版手册，可使用仓库中的 `main-ui-0.0.2-with-docs.tgz`，详情见 [docs/RELEASE_ARCHIVE.md](docs/RELEASE_ARCHIVE.md)。
+
 ```bash
 pnpm install
 pnpm typecheck
