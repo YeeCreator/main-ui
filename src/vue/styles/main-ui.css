@@ -63,6 +63,13 @@
   overflow: hidden;
 }
 
+/* 显式 grid 列定位：Sidebar / 子区域在无内容时返回 null（不产生 grid item），
+   若不显式定位，grid 自动放置会把后续区域放到错误的列（如 shellBody 落入 auto 列），
+   导致布局错位、编辑器区域无法撑满。 */
+.main-ui-activity-bar { grid-column: 1; }
+.main-ui-sidebar { grid-column: 2; }
+.main-ui-shell__body { grid-column: 3; }
+
 .main-ui-sidebar { display: flex; min-width: 34px; max-width: 320px; border-right: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
 .main-ui-sidebar.is-collapsed { width: 34px; }
 .main-ui-sidebar__rail { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }
