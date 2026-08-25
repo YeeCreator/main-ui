@@ -110,6 +110,15 @@
   grid-template-rows: 34px auto minmax(0, 1fr) auto 24px;
 }
 
+/* 显式 grid 行定位：MenuBar / BottomPanel 在无内容时返回 null（不产生 grid item），
+   若不显式定位，后续区域（如 StatusBar）会被 grid 自动放置到错误的行（落入 1fr 编辑器行），
+   导致状态栏被撑高、编辑器区域错位。 */
+.main-ui-title-bar { grid-row: 1; }
+.main-ui-menu-bar { grid-row: 2; }
+.main-ui-layout-renderer { grid-row: 3; min-height: 0; }
+.main-ui-bottom-panel { grid-row: 4; }
+.main-ui-status-bar { grid-row: 5; height: 24px; flex-shrink: 0; min-height: 0; }
+
 .main-ui-menu-bar { display: flex; align-items: center; gap: 2px; min-height: 24px; padding: 0 8px; border-bottom: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
 .main-ui-menu { position: relative; }
 .main-ui-menu-trigger, .main-ui-menu-item, .main-ui-context-menu button { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 3px 8px; text-align: left; }
