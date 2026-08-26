@@ -39,7 +39,7 @@ function collectFiles(dir) {
   return files;
 }
 
-const distDir = 'dist';
+const distDir = process.argv[2] ?? 'dist';
 let files;
 
 try {

@@ -1,5 +1,5 @@
-import { createLocalStoragePersistenceAdapter } from '../../../src/core';
-import { createMainUiRuntime } from '../../../src/vue';
+import { createLocalStoragePersistenceAdapter } from 'main-ui/core';
+import { createMainUiRuntime } from 'main-ui/vue';
 import CanvasPlaceholderEditor from '../editors/CanvasPlaceholderEditor.vue';
 import GameGalleryEditor from '../editors/GameGalleryEditor.vue';
 import GameSessionEditor from '../editors/GameSessionEditor.vue';
@@ -10,7 +10,7 @@ import SettingsEditor from '../editors/SettingsEditor.vue';
 import TableDemoEditor from '../editors/TableDemoEditor.vue';
 import WelcomeEditor from '../editors/WelcomeEditor.vue';
 import { hostProfileEditors, hostProfileWorkspaces } from './hostProfiles';
-import { ViewportMainUiEditor } from 'viewport-2d-kit/main-ui';
+import { ViewportMainUiEditor } from '@main-ui/viewport-2d-kit/main-ui';
 
 export const createDemoRuntime = () => {
   const runtime = createMainUiRuntime({

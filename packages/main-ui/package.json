@@ -1,0 +1,63 @@
+{
+  "name": "main-ui",
+  "version": "0.2.0",
+  "private": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/main-ui"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/index.d.ts",
+      "import": "./dist/tokens/index.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters/index.js"
+    },
+    "./styles.css": "./src/vue/styles/main-ui.css"
+  },
+  "files": [
+    "dist",
+    "src/vue/styles/main-ui.css",
+    "docs/*.md"
+  ],
+  "sideEffects": [
+    "./src/vue/styles/main-ui.css"
+  ],
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.0"
+  }
+}
