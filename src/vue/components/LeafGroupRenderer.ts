@@ -51,13 +51,30 @@ export const LeafGroupRenderer = defineComponent({
             return null;
           }
           return h('button', {
-            class: ['main-ui-tab', tabId === group.value.activeTabId ? 'is-active' : '', tab.dirty ? 'is-dirty' : ''],
+            class: ['main-ui-tab', tabId === group.value.activeTabId ? 'is-active' : '', tab.dirty ? 'is-dirty' : '', tab.pinned ? 'is-pinned' : ''],
             type: 'button',
+            tabindex: tabId === group.value.activeTabId ? 0 : -1,
+            draggable: true,
             title: tab.title,
             onClick: () => void dispatch({ type: 'editor/activateTab', groupId: props.groupId, tabId }),
+            onDragstart: (event: DragEvent) => event.dataTransfer?.setData('text/main-ui-tab', JSON.stringify({ groupId: props.groupId, tabId })),
+            onDragover: (event: DragEvent) => event.preventDefault(),
+            onDrop: (event: DragEvent) => {
+              event.preventDefault();
+              const raw = event.dataTransfer?.getData('text/main-ui-tab');
+              if (!raw) return;
+              try { const source = JSON.parse(raw) as { groupId: string; tabId: string }; const index = group.value.tabIds.indexOf(tabId); void dispatch(source.groupId === props.groupId ? { type: 'editor/reorderTab', groupId: props.groupId, tabId: source.tabId, index } : { type: 'editor/moveTabToGroup', fromGroupId: source.groupId, toGroupId: props.groupId, tabId: source.tabId, index }); } catch { /* ignore malformed drag payload */ }
+            },
+            onKeydown: (event: KeyboardEvent) => {
+              if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                const ids = group.value.tabIds; const current = ids.indexOf(tabId); const next = ids[Math.max(0, Math.min(ids.length - 1, current + (event.key === 'ArrowRight' ? 1 : -1)))];
+                if (next) { event.preventDefault(); void dispatch({ type: 'editor/activateTab', groupId: props.groupId, tabId: next }); }
+              }
+            },
           }, [
             h('span', { class: 'main-ui-tab__icon' }, [renderIconToken(tab.icon)]),
             h('span', { class: 'main-ui-tab__title' }, tab.title),
+            tab.pinned ? h('span', { class: 'main-ui-tab__pin', title: 'Pinned' }, '•') : null,
             tab.closable ? h('span', {
               class: 'main-ui-tab__close',
               title: 'Close tab',

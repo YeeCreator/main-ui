@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.0.2`。API 以本地 `.tgz` 版本包交付；本次为兼容式小版本升级，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.1.1`。API 以本地 `.tgz` 版本包交付；本次为兼容式能力扩展，旧的 workspace/editor/renderer 注册方式继续有效。
 
 ## 入口
 
@@ -18,7 +18,7 @@
 
 ```ts
 type WorkbenchDocument = {
-  version: 1
+  version: 1 | 2
   activeWorkspaceId: string
   workspaceStates: Record<string, WorkspaceState>
   theme: ThemeState
@@ -41,7 +41,12 @@ type WorkbenchDocument = {
 runtime.core.registerWorkspace(descriptor)
 runtime.core.registerEditor(descriptor)
 runtime.core.registerCommand(descriptor)
+runtime.core.registerKeybinding({ commandId: 'demo.open', keybinding: 'Ctrl+Shift+P' })
+await runtime.core.executeCommand('demo.open')
+runtime.core.registerMenu({ id: 'file.open', location: 'menubar', label: 'Open', commandId: 'demo.open' })
 ```
+
+Command descriptor 的旧 `run(context)` 形式保持兼容。运行时会统一检查 `when`/`enablement`，记录最近执行命令，并将代码调用与快捷键调用归一到 `executeCommand`。`KeybindingRegistry` 支持组合键解析、macOS 平台映射、权重覆盖和冲突查询；宿主可以调用 `unregisterKeybinding` 覆盖默认绑定。
 
 `EditorDescriptor` 的关键字段：
 
@@ -181,6 +186,26 @@ export type EditorMountAdapter = {
 默认 persistence 是 localStorage adapter。宿主可以替换为自己的持久化层，只要实现 snapshot 的加载与保存。
 
 `WorkbenchDocument` 是可序列化对象，适合写入 localStorage、IndexedDB、SQLite bridge 或云同步文档。宿主业务数据应只保存引用，例如 `documentId`、`sessionId`、`projectId`。
+
+## Menu、Command Palette 与 Quick Open
+
+通过 `registerMenu` 注册 `menubar`、`editor/tab`、`workspace`、`view`、`panel` 或 `context` 入口；菜单项的 `when` 和 command enablement 与快捷键共享同一上下文。Vue 层导出 `MenuBar`、`CommandPalette`、`QuickOpen` 和 `ContextMenu`，`WorkbenchShell` 默认提供 `Ctrl/Cmd+Shift+P` 命令面板与 `Ctrl/Cmd+P` Quick Open。宿主只需注册 command/menu contribution 即可获得入口。`menubar` 顶层项若未配置 `submenu` 而是直接挂 `commandId`，会渲染为可直接点击执行的命令按钮（点击即触发命令）；配置 `submenu` 的项则展开为下拉子菜单。
+
+## Settings schema
+
+`runtime.core.registerSettingSchema({ id, title, type, defaultValue, scope })` 注册通用设置。`runtime.core.settings` 提供 `get`、`set`、`reset`、`search`、`validate`、独立版本化 snapshot 和可选 `SettingsPersistenceAdapter`；user/workspace/profile 按 profile > workspace > user > default 合并。Vue 导出 `SettingsEditor`，没有 schema 时不会改变旧的宿主设置 editor。
+
+## Sidebar、Panel 与 Contributions
+
+宿主可通过 `registerViewContribution`、`registerPanelContribution`、`registerActivityContribution` 和 `registerStatusContribution` 声明工作区辅助视图。Vue `WorkbenchShell` 自动提供 `Sidebar` 与 `BottomPanel` 容器；视图没有注册 renderer/provider 时显示稳定空态，不会让 shell 崩溃。Sidebar/BottomPanel 支持折叠、默认可见、尺寸调节和宿主在 workspace 切换时恢复自己的 active 状态。
+
+## Layout persistence 与 tabs
+
+持久化读取会自动将 `WorkbenchDocument.version: 1` 迁移到 v2，保留原 layout、tabs、editor payload，并补齐 chrome 状态、tab history、recent workspace/editor。新增 `editor/setTabState`（pinned/preview/dirty）、`editor/reorderTab` 和 `layout/setChromeState` action；tab 支持原生拖拽排序与跨 group 移动。
+
+## Accessibility 与 resilience
+
+Editor surface 具备 loading/error/retry boundary；`EditorMountAdapter` 的 mount/update/unmount 异常会被隔离并执行 cleanup，支持 `timeoutMs`。Overlay 使用 dialog/aria-modal、Escape dismiss 和 focus trap；tab strip 使用 roving tabindex 与方向键导航。`FeedbackHost` 提供 notification、confirm、progress 的可访问交互，样式包含 high-contrast token。
 
 ## Demo Fixture
 
