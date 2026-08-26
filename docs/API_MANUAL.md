@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.1.1`。API 以本地 `.tgz` 版本包交付；本次为兼容式能力扩展，旧的 workspace/editor/renderer 注册方式继续有效。
+本文档对应 `main-ui 0.2.0`。API 以本地 `.tgz` 版本包交付；本版本为契约先行扩展（仓库已转 monorepo），旧的 workspace/editor/renderer 注册方式继续有效，新增 Slot、视图生命周期与插件预埋契约均为 opt-in。
 
 ## 入口
 
@@ -40,6 +40,7 @@ type WorkbenchDocument = {
 ```ts
 runtime.core.registerWorkspace(descriptor)
 runtime.core.registerEditor(descriptor)
+runtime.core.registerSlot({ viewType, constraints }) // 纯视图插槽登记（可选，editor 注册时自动叠加登记）
 runtime.core.registerCommand(descriptor)
 runtime.core.registerKeybinding({ commandId: 'demo.open', keybinding: 'Ctrl+Shift+P' })
 await runtime.core.executeCommand('demo.open')
@@ -186,6 +187,17 @@ export type EditorMountAdapter = {
 默认 persistence 是 localStorage adapter。宿主可以替换为自己的持久化层，只要实现 snapshot 的加载与保存。
 
 `WorkbenchDocument` 是可序列化对象，适合写入 localStorage、IndexedDB、SQLite bridge 或云同步文档。宿主业务数据应只保存引用，例如 `documentId`、`sessionId`、`projectId`。
+
+## 纯 UI 边界与数据契约
+
+`main-ui` 是纯 UI 层：内核与视图模板不持有业务状态、不发起网络请求。与宿主/后端的边界规则：
+
+1. **editor payload 为纯 JSON**：`EditorInstance.payload` 只存轻量引用与展示参数（如 `documentId`、`viewMode`），必须可被 `structuredClone` 与 JSON 序列化；禁止放入函数、DOM 节点、大对象。
+2. **视图数据经 Props 进**：视图所需的业务数据由宿主适配层取数后经 Props/上下文注入，视图自身需声明式处理 `loading / error / data` 三态；`main-ui` 内置的 `EditorErrorBoundary` 与 `MissingViewSurface` 只兜底渲染层异常，不兜底业务数据。
+3. **意图经 Emits 出**：视图内的业务操作（保存、提交、跳转）以事件/回调形式向外声明意图，由宿主适配层执行；视图不直接调用后端接口。
+4. **禁止视图内网络请求**：`packages/main-ui/src` 对 `fetch(` / `axios` / `XMLHttpRequest` / `WebSocket` 的扫描必须零命中，该扫描列入发布检查项。
+5. **Slot 契约**：叶子插槽经 `runtime.core.slots`（`SlotRegistry`）类型化管理，`resolve(viewType)` 永不抛错，未注册类型返回显式 `{ status: 'missing' }`，由 `MissingViewSurface` 渲染「视图不可用（类型缺失）」占位，保留原标题、payload 与 restoreKey，类型重新注册后可恢复。
+6. **视图状态收集**：模板库视图可自愿实现 `MainUiViewLifecycle`（`getViewState` / `restoreViewState` / `onDestroy`），经 `runtime.core.viewLifecycles` 登记；布局保存时宿主可经收集槽统一收集视图内部状态（相机、展开节点、滚动等）。
 
 ## Menu、Command Palette 与 Quick Open
 
