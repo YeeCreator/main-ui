@@ -355,3 +355,32 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 3. `HOST_ADAPTER_GUIDE.md`：查适配草案与早期宿主示例。
 
 本文件作为正式宿主接入指南，应优先用于后续宿主项目实施。
+
+## 附录 A：对接后端（宿主适配层分层）
+
+`main-ui` 自身不发起任何网络请求（发布检查项：`grep -rE "fetch\(|axios|XMLHttpRequest|WebSocket" packages/main-ui/src` 零命中）。所有后端交互由宿主适配层承担，推荐四层分工：
+
+1. **main-ui 内核**：只管布局、插槽、持久化快照；不认识任何业务模型。
+2. **视图模板**（`@main-ui/view-*` 或宿主自绘视图）：声明式消费 Props 数据（含 `loading / error / data` 三态），业务意图经 Emits 向外声明；模板包零网络请求。
+3. **宿主适配层**：宿主项目内的业务层，负责取数、缓存、乐观更新、错误归一化；向下调后端接口，向上把数据注入视图 Props、把视图意图翻译为后端调用。
+4. **后端**：REST/HTTP 提供查询与命令，WebSocket 提供推送。
+
+HTTP 与 WebSocket 分工：
+
+1. 一次性查询、提交、增删改走 HTTP（请求-响应语义清晰，便于重试与缓存）。
+2. 实时性推送（协作变更、任务进度、服务状态）走 WebSocket；适配层维护单一连接并做断线重连，视图不感知连接细节。
+3. 视图模板永不直连 WebSocket；适配层把推送归一为普通数据更新后经 Props 下发。
+
+长任务范式：
+
+1. 提交长任务时后端立即返回 `taskId`，不同步阻塞等待结果。
+2. 适配层以 `taskId` 订阅进度（WebSocket 推送优先，轮询兜底），把 `{ status, progress, result?, error? }` 归一后下发给视图。
+3. 视图按三态渲染：进行中显示进度，失败显示可重试错误，成功显示结果；任务本身的重试与取消由适配层负责。
+4. `main-ui` 的 editor payload 只存 `taskId` 等引用，不存任务结果大对象。
+
+类型对齐建议（Pydantic → OpenAPI → TypeScript）：
+
+1. 后端用 Pydantic 定义接口模型，作为唯一事实来源。
+2. 由 FastAPI/类似框架导出 OpenAPI schema，用 `openapi-typescript` 等工具生成 TS 类型，纳入宿主适配层构建流程。
+3. 视图模板消费的 Props 类型从生成的类型收窄而来；避免手写与后端模型漂移的接口定义。
+4. 分页、错误体、时间戳等公共结构建议在后端统一定义，前端生成后全局复用。
