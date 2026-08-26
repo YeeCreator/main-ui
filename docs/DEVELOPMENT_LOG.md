@@ -1,5 +1,27 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-27 · 0.2.0 契约先行 + 工程底座（monorepo）
+
+仓库结构变更（包名映射）：
+
+1. 仓库根转 pnpm workspace：`src/` + 构建/测试配置迁入 `packages/main-ui/`，包名保持 `main-ui`，导出面与产物结构不变；`demo/` 转 workspace 成员 `main-ui-demo`。
+2. 迁入外部生态项目：`viewport-2d-kit` → `packages/viewport-2d-kit`（包名 `@main-ui/viewport-2d-kit`，入口面不变）；`viewport-3d-kit` → `packages/viewport-3d-kit`（包名 `@main-ui/viewport-3d-kit`，React 依赖转 optional，README 标注 React 层为兼容层、非主线）。
+3. 预留 `packages/view-*`、`packages/theme`、`packages/preset-views` 空位（v0.3 交付）。
+4. demo 端口改 4183（4173 与其他项目冲突），Playwright 同步；新增 `scripts/copy-release-docs.mjs` 供发布前复制 docs。
+
+功能交付：
+
+1. P0-1 Slot 正名与类型化：新增 `core/editor/slot.ts`（`SlotDescriptor` / `SlotLookup` / `slotCan` / `SlotRegistry`），editor 注册时自动叠加登记插槽，`resolve` 永不抛错、缺失返回显式 `missing`；既有 `rendererKey` 契约不变。
+2. P0-2 快照降级占位：新增 `MissingViewSurface`，`EditorSurfaceHost` 接入 Slot 查找，未注册视图类型/缺失 renderer 时渲染「视图不可用（类型缺失）」占位，保留原标题、payload 与 restoreKey，提供关闭命令。
+3. P0-3 Tab 溢出收纳：`LeafGroupRenderer` 重写，提供左右滚动按钮、溢出下拉菜单（点击切换隐藏 tab）、活动 tab 自动滚动，ResizeObserver 响应宽度变化。
+4. P1-2 视图生命周期契约：新增 `core/editor/lifecycle.ts`（`MainUiViewLifecycle` 四成员契约 + `ViewLifecycleRegistry` 状态收集槽），runtime 暴露 `viewLifecycles`；完整串联随 v0.3 浮动窗口落地。
+5. P2-1 前后端边界成文：API_MANUAL 新增「纯 UI 边界与数据契约」章节；HOST_INTEGRATION_GUIDE 新增「附录 A：对接后端」（四层分工、HTTP/WS 分工、长任务范式、Pydantic→OpenAPI→TS）；网络扫描基线零命中并列入发布检查项。
+6. P3-1 主题变量规范：`main-ui.css` 重构为 `--mui-*` 规范令牌（`--main-ui-*` 与 `main-ui-theme--*` 保留兼容），`WorkbenchShell` 输出 `data-mui-theme` 根属性，`MainUiProvider` 以 matchMedia 监听作为 system 模式唯一解析来源；DEVELOPER_GUIDE 成文强制规范。
+7. P4-1 插件契约预埋：`contribution/types.ts` 新增 `DockingViewContribution` / `PluginContributes` 纯类型，无任何运行时调度。
+8. 新增 `slotLifecycle.test.ts`（9 项），测试总量 22→31。
+
+验证：`pnpm typecheck`、`pnpm test`（31 passed）、`pnpm build`、`pnpm demo:build`、`pnpm test:e2e` 全部通过；网络依赖扫描（`fetch(` / `axios` / `XMLHttpRequest` / `WebSocket`）零命中；硬编码色值仅存于令牌定义区。
+
 ## 2026-08-25 · 0.1.1 MenuBar Flat Command Fix
 
 1. 修复 `MenuBar` 顶层扁平命令项（无 `submenu`、直接挂 `commandId`）点击仅切换展开、不执行命令的问题；改为无子菜单时直接执行命令。
