@@ -1,9 +1,17 @@
 import type { EditorRenderContext } from '../core/editor/types';
 
 export type EditorMountAdapter = {
-  mount: (container: HTMLElement, context: EditorRenderContext) => void | (() => void);
+  mount: (container: HTMLElement, context: EditorRenderContext) => void | (() => void) | Promise<void | (() => void)>;
   update?: (container: HTMLElement, context: EditorRenderContext) => void;
   unmount?: (container: HTMLElement) => void;
+  timeoutMs?: number;
+};
+
+export type ContributionProvider<TContext = unknown> = {
+  mount: (container: HTMLElement, context: TContext) => void | (() => void) | Promise<void | (() => void)>;
+  update?: (container: HTMLElement, context: TContext) => void;
+  unmount?: (container: HTMLElement) => void;
+  timeoutMs?: number;
 };
 
 export type IconResolver = (icon: string | undefined) => string | undefined;

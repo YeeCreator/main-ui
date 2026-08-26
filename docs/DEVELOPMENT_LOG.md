@@ -1,5 +1,62 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-25 · 0.1.1 MenuBar Flat Command Fix
+
+1. 修复 `MenuBar` 顶层扁平命令项（无 `submenu`、直接挂 `commandId`）点击仅切换展开、不执行命令的问题；改为无子菜单时直接执行命令。
+2. 新增 `menuRegistry` 单元测试，锁定「扁平 menubar 命令项是可执行命令项」契约。
+3. 更新 README、API/developer/user/migration 文档与版本号到 0.1.1。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build` 验证，并生成 `main-ui-0.1.1.tgz`。
+
+## 2026-08-24 · 0.1.0 Compatibility Release
+
+1. 汇总 command/keybinding、Menu/Palette/Quick Open、schema settings、Sidebar/Panel contributions、layout v2 migration、tab drag/drop、accessibility/resilience 能力。
+2. 更新 public exports、API/developer/user/host 文档，新增 migration guide、host example 与 upgrade checklist 基线。
+3. 旧接入 API 与 persistence v1 自动迁移保持兼容；新能力全部 opt-in。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 与 e2e 验证。
+5. 发布包补充完整 `docs/` 目录与文档入口，安装后可从 `node_modules/main-ui/docs/README.md` 直接阅读。
+
+## 2026-08-24 · 0.0.8 Accessibility 与 Runtime Resilience
+
+1. 增加 EditorErrorBoundary、adapter timeout/异常隔离/cleanup 与 retry。
+2. Overlay 增加 dialog ARIA、Escape dismiss、focus trap；tab strip 增加 roving tabindex/方向键导航。
+3. 新增 `FeedbackHost` notification/confirm/progress 组件和 high-contrast token。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
+## 2026-08-24 · 0.0.7 Layout Persistence 与 Tab Experience
+
+1. 新增 WorkbenchDocument v1→v2 迁移，补齐 chrome、tab history、recent workspace/editor。
+2. 新增 pinned/preview/dirty/reorder tab action，Vue tab strip 支持拖拽排序与跨 group 移动。
+3. 新增 `layout/setChromeState`，为 Sidebar/Bottom Panel 尺寸与显隐恢复提供持久化入口。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
+## 2026-08-24 · 0.0.6 Sidebar、Panel 与 Contribution Registry
+
+1. 新增 view/panel/activity/status contribution 类型与 `ContributionRegistry`。
+2. 新增 `Sidebar`、`BottomPanel`、`ContributionSurface`，支持默认可见、折叠、尺寸调节和 provider 缺失空态。
+3. `WorkbenchShell` 自动承载 contribution 容器，2D/3D editor 仍通过原有 renderer/adapter 接入。
+4. 通过 `pnpm typecheck`、`pnpm test` 验证。
+
+## 2026-08-24 · 0.0.5 Schema-driven Settings
+
+1. 新增独立版本化 `SettingsStore`、schema、scope 合并、校验、搜索、重置和 persistence adapter。
+2. `MainUiCoreRuntime` 支持 `settingsPersistence`、迁移函数与 `registerSettingSchema`，旧 `WorkbenchDocument` 结构保持兼容。
+3. 新增通用 Vue `SettingsEditor`，支持 string/number/boolean/enum/color 控件与错误提示。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
+## 2026-08-24 · 0.0.4 Menu、Command Palette 与 Quick Open
+
+1. 新增 `MenuRegistry` 与 menu contribution 类型，支持一级菜单、子菜单、分隔符、排序和 `when`。
+2. 新增 `CommandPalette`、`QuickOpen`、`ContextMenu` Vue 组件，统一调用 command。
+3. `WorkbenchShell` 接入 `MenuBar` 与 `Ctrl/Cmd+Shift+P`、`Ctrl/Cmd+P` 快捷入口；无贡献时不渲染空菜单栏。
+4. 通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm demo:build` 验证。
+
+## 2026-08-24 · 0.0.3 Core Command 与快捷键
+
+1. 为 `CommandRegistry` 增加统一 `executeCommand`、`when`/`enablement` 判断、异常结果和最近使用记录。
+2. 新增 `KeybindingRegistry`，支持组合键解析、macOS 映射、权重覆盖和冲突检测。
+3. Vue `MainUiProvider` 接入全局键盘监听与输入 focus scope；旧 command descriptor 无需修改。
+4. 通过 `pnpm typecheck`、`pnpm test` 验证。
+
 ## 2026-08-23 · 0.0.2 本地版本包
 
 1. 将 package version 从 `0.0.1` 更新为 `0.0.2`。

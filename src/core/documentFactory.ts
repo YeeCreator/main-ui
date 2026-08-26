@@ -22,6 +22,8 @@ export const createWorkspaceState = ({ descriptor, editorDescriptors, createId, 
     focusHistory: [],
     dirtyFromPreset: false,
     updatedAt: now(),
+    tabHistory: [],
+    chrome: { sidebarVisible: true, sidebarWidth: 240, bottomPanelVisible: false, bottomPanelHeight: 220 },
   };
 
   for (const request of descriptor.defaultOpenRequests) {
@@ -89,10 +91,12 @@ export const createWorkbenchDocument = (
   );
 
   return {
-    version: 1,
+    version: 2,
     activeWorkspaceId: firstWorkspaceId,
     workspaceStates,
     theme: createDefaultThemeState(),
     settings: createDefaultWorkbenchSettings(),
+    recentWorkspaces: [firstWorkspaceId],
+    recentEditors: [],
   };
 };

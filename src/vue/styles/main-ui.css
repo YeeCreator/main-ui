@@ -30,6 +30,20 @@
   --main-ui-status-text: #ffffff;
 }
 
+.main-ui-theme--high-contrast {
+  --main-ui-bg: #000;
+  --main-ui-panel: #000;
+  --main-ui-panel-muted: #111;
+  --main-ui-border: #fff;
+  --main-ui-text: #fff;
+  --main-ui-text-muted: #fff;
+  --main-ui-accent: #ffeb3b;
+  --main-ui-accent-strong: #ffeb3b;
+  --main-ui-focus-ring: #ffeb3b;
+}
+
+.main-ui-shell :focus-visible { outline: 2px solid var(--main-ui-focus-ring); outline-offset: 1px; }
+
 .main-ui-provider,
 .main-ui-shell {
   min-width: 0;
@@ -40,7 +54,7 @@
 
 .main-ui-shell {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 48px auto minmax(0, 1fr);
   color: var(--main-ui-text);
   background: var(--main-ui-bg);
   font-family: var(--main-ui-font);
@@ -48,6 +62,35 @@
   line-height: 1.4;
   overflow: hidden;
 }
+
+/* 显式 grid 列定位：Sidebar / 子区域在无内容时返回 null（不产生 grid item），
+   若不显式定位，grid 自动放置会把后续区域放到错误的列（如 shellBody 落入 auto 列），
+   导致布局错位、编辑器区域无法撑满。 */
+.main-ui-activity-bar { grid-column: 1; }
+.main-ui-sidebar { grid-column: 2; }
+.main-ui-shell__body { grid-column: 3; }
+
+.main-ui-sidebar { display: flex; min-width: 34px; max-width: 320px; border-right: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
+.main-ui-sidebar.is-collapsed { width: 34px; }
+.main-ui-sidebar__rail { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }
+.main-ui-sidebar__rail button, .main-ui-sidebar__collapse { width: 28px; min-height: 28px; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.main-ui-sidebar__rail button.is-active, .main-ui-sidebar__rail button:hover { background: var(--main-ui-accent); color: white; }
+.main-ui-sidebar__collapse { align-self: flex-start; margin: 6px 3px; }
+.main-ui-sidebar__resize { writing-mode: vertical-lr; direction: rtl; width: 100%; max-width: 8px; margin: auto 0; }
+.main-ui-contribution-surface { min-width: 0; min-height: 0; display: flex; flex-direction: column; flex: 1; overflow: auto; background: var(--main-ui-panel); }
+.main-ui-contribution-surface__header { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-bottom: 1px solid var(--main-ui-border); }
+.main-ui-contribution-surface__header small, .main-ui-contribution-empty span { color: var(--main-ui-text-muted); }
+.main-ui-contribution-empty { display: grid; gap: 6px; place-items: center; padding: 24px 12px; text-align: center; color: var(--main-ui-text-muted); }
+.main-ui-editor-error, .main-ui-external-mount-host.is-error { display: grid; gap: 8px; place-items: center; padding: 24px; color: var(--main-ui-danger); text-align: center; }
+.main-ui-editor-error button, .main-ui-external-mount-host button, .main-ui-feedback button { cursor: pointer; }
+.main-ui-feedback-host { position: fixed; right: 16px; bottom: 32px; z-index: 60; display: grid; gap: 8px; width: min(360px, calc(100vw - 32px)); }
+.main-ui-feedback { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--main-ui-border); border-radius: 4px; background: var(--main-ui-panel); box-shadow: 0 8px 24px rgb(0 0 0 / 18%); }
+.main-ui-bottom-panel { grid-column: 1 / -1; border-top: 1px solid var(--main-ui-border); background: var(--main-ui-panel); }
+.main-ui-bottom-panel__tabs { display: flex; gap: 2px; min-height: 26px; padding: 2px 6px; }
+.main-ui-bottom-panel__tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: inherit; cursor: pointer; padding: 3px 8px; }
+.main-ui-bottom-panel__tabs button.is-active { border-bottom-color: var(--main-ui-accent); color: var(--main-ui-accent-strong); }
+.main-ui-bottom-panel > .main-ui-contribution-surface { min-height: 0; }
+.main-ui-bottom-panel > input[type='range'] { width: 100%; }
 
 .main-ui-shell * {
   box-sizing: border-box;
@@ -71,8 +114,33 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 34px minmax(0, 1fr) 24px;
+  grid-template-rows: 34px auto minmax(0, 1fr) auto 24px;
 }
+
+/* 显式 grid 行定位：MenuBar / BottomPanel 在无内容时返回 null（不产生 grid item），
+   若不显式定位，后续区域（如 StatusBar）会被 grid 自动放置到错误的行（落入 1fr 编辑器行），
+   导致状态栏被撑高、编辑器区域错位。 */
+.main-ui-title-bar { grid-row: 1; }
+.main-ui-menu-bar { grid-row: 2; }
+.main-ui-layout-renderer { grid-row: 3; min-height: 0; }
+.main-ui-bottom-panel { grid-row: 4; }
+.main-ui-status-bar { grid-row: 5; height: 24px; flex-shrink: 0; min-height: 0; }
+
+.main-ui-menu-bar { display: flex; align-items: center; gap: 2px; min-height: 24px; padding: 0 8px; border-bottom: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
+.main-ui-menu { position: relative; }
+.main-ui-menu-trigger, .main-ui-menu-item, .main-ui-context-menu button { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 3px 8px; text-align: left; }
+.main-ui-menu-trigger:hover, .main-ui-menu-item:hover, .main-ui-context-menu button:hover, .main-ui-menu-item.is-selected { background: var(--main-ui-accent); color: white; }
+.main-ui-menu-popup, .main-ui-context-menu { position: absolute; z-index: 30; min-width: 180px; padding: 4px; border: 1px solid var(--main-ui-border); border-radius: var(--main-ui-radius); background: var(--main-ui-panel); box-shadow: 0 8px 24px rgb(0 0 0 / 18%); }
+.main-ui-menu-popup { top: calc(100% + 2px); left: 0; }
+.main-ui-menu-item, .main-ui-context-menu button { display: block; width: 100%; }
+.main-ui-menu-separator { height: 1px; margin: 4px 0; background: var(--main-ui-border); }
+.main-ui-quick-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: start center; padding-top: 12vh; background: rgb(0 0 0 / 25%); }
+.main-ui-quick-panel { width: min(620px, calc(100vw - 32px)); max-height: 60vh; overflow: auto; border: 1px solid var(--main-ui-border); border-radius: 6px; background: var(--main-ui-panel); box-shadow: 0 16px 40px rgb(0 0 0 / 28%); }
+.main-ui-quick-panel input { width: 100%; border: 0; border-bottom: 1px solid var(--main-ui-border); padding: 12px; outline: none; background: transparent; color: inherit; }
+.main-ui-quick-panel ul { list-style: none; margin: 0; padding: 4px; }
+.main-ui-quick-panel li button { display: flex; justify-content: space-between; width: 100%; border: 0; padding: 8px 10px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.main-ui-quick-panel li button:hover, .main-ui-quick-panel li button.is-selected { background: var(--main-ui-accent); color: white; }
+.main-ui-quick-panel small { color: var(--main-ui-text-muted); }
 
 .main-ui-activity-bar {
   min-height: 0;
