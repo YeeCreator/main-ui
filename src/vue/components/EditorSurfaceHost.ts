@@ -2,6 +2,7 @@ import { computed, defineComponent, h, type PropType } from 'vue';
 import type { EditorRenderContext, GroupId, TabId } from '../../core';
 import { useWorkbench } from '../composables/useWorkbench';
 import { ExternalMountHost } from './ExternalMountHost';
+import { EditorErrorBoundary } from './EditorErrorBoundary';
 
 export const EditorSurfaceHost = defineComponent({
   name: 'EditorSurfaceHost',
@@ -43,12 +44,12 @@ export const EditorSurfaceHost = defineComponent({
 
       const renderer = runtime.vue.resolveEditorRenderer(descriptor.rendererKey);
       if (renderer) {
-        return h('div', { class: 'main-ui-editor-surface' }, [h(renderer, { context: context.value })]);
+        return h('div', { class: 'main-ui-editor-surface', role: 'region', 'aria-label': descriptor.title }, [h(EditorErrorBoundary, { content: () => h(renderer, { context: context.value! }) })]);
       }
 
       const adapter = runtime.vue.resolveEditorMountAdapter(descriptor.rendererKey);
       if (adapter) {
-        return h('div', { class: 'main-ui-editor-surface' }, [h(ExternalMountHost, { adapter, context: context.value })]);
+        return h('div', { class: 'main-ui-editor-surface', role: 'region', 'aria-label': descriptor.title }, [h(ExternalMountHost, { adapter, context: context.value })]);
       }
 
       return h('div', { class: 'main-ui-editor-surface main-ui-editor-surface--missing' }, `Renderer missing: ${descriptor.rendererKey}`);
