@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { EditorRenderContext } from '../../../src/core';
-import { useWorkbench } from '../../../src/vue';
+import type { EditorRenderContext } from 'main-ui/core';
+import { useWorkbench } from 'main-ui/vue';
 
 defineProps<{ context: EditorRenderContext }>();
 

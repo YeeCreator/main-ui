@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { EditorRenderContext } from '../../../src/core';
+import type { EditorRenderContext } from 'main-ui/core';
 
 defineProps<{ context: EditorRenderContext }>();
 

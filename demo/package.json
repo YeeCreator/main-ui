@@ -1,0 +1,20 @@
+{
+  "name": "main-ui-demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "vite build --config vite.config.ts"
+  },
+  "dependencies": {
+    "@main-ui/viewport-2d-kit": "workspace:*",
+    "main-ui": "workspace:*",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.6",
+    "typescript": "~5.7.2",
+    "vite": "^7.1.5"
+  }
+}

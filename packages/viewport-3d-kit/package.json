@@ -1,0 +1,75 @@
+{
+  "name": "@main-ui/viewport-3d-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "框架无关的 3D 视口能力层（Three.js 内核）：相机、坐标换算、交互与视口导航；Vue 为主线，React 为兼容层。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/viewport-3d-kit"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/lib/vue/index.ts",
+    "./core": "./src/lib/core/index.ts",
+    "./vue": "./src/lib/vue/index.ts",
+    "./react": "./src/lib/react/index.ts",
+    "./ui": "./src/lib/ui/index.ts"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "peerDependencies": {
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-toolbar": "^1.1.11",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.17.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "peerDependenciesMeta": {
+    "@radix-ui/react-context-menu": {
+      "optional": true
+    },
+    "@radix-ui/react-toolbar": {
+      "optional": true
+    },
+    "@react-three/drei": {
+      "optional": true
+    },
+    "@react-three/fiber": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "three": "^0.183.2",
+    "three-stdlib": "^2.36.1",
+    "vue": "^3.5.22"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.8",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.184.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/compiler-sfc": "^3.5.22",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@react-three/fiber": "^8.17.10",
+    "@react-three/drei": "^9.122.0",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-toolbar": "^1.1.11",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  }
+}
