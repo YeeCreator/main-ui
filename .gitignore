@@ -238,9 +238,10 @@ PublishScripts/
 # NuGet Symbol Packages
 *.snupkg
 # The packages folder can be ignored because of Package Restore
-**/[Pp]ackages/*
+# 注意：原 `**/[Pp]ackages/*` 规则在 macOS 大小写不敏感文件系统上会误伤仓库内 `packages/`（pnpm workspace 包目录），已注释。
+#**/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
-!**/[Pp]ackages/build/
+# !**/[Pp]ackages/build/
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files
@@ -677,7 +678,7 @@ fastlane/test_output
 iOSInjectionProject/
 
 ### SwiftPackageManager ###
-Packages
+# 注意：原 `Packages` 规则在 macOS 大小写不敏感文件系统上会误伤仓库内 `packages/`（pnpm workspace 包目录），已移除。
 xcuserdata
 *.xcodeproj
 
@@ -1091,6 +1092,9 @@ rust-project.json
 .github/
 .idea/
 *.code-workspace
+
+# 发布打包前由 scripts/copy-release-docs.mjs 生成的包内文档副本
+packages/main-ui/docs/
 
 # mailbox/relay — 运行时状态与归档（不入库）
 .mailbox/

@@ -5,8 +5,8 @@ import {
   defaultEditorCapability,
   defaultModalPresentation,
   defaultTabPresentation,
-} from '../../../src/core';
-import type { EditorDescriptor, WorkspaceDescriptor } from '../../../src/core';
+} from 'main-ui/core';
+import type { EditorDescriptor, WorkspaceDescriptor } from 'main-ui/core';
 
 export const hostProfileWorkspaceIds = [
   'workspace-demo',

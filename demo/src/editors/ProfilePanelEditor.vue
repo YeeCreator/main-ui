@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { EditorRenderContext, JsonValue } from '../../../src/core';
+import type { EditorRenderContext, JsonValue } from 'main-ui/core';
 
 const props = defineProps<{ context: EditorRenderContext }>();
 
