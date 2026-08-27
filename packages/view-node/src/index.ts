@@ -1,5 +1,6 @@
 export * from './types';
 export { clampNumber, normalizeViewport, dedupeById, pruneDanglingEdges } from './node';
+export { NodeCanvas, ensureFlowStyles } from './NodeCanvas';
 export { NodeView } from './NodeView';
 export {
   NODE_VIEW_EDITOR_KIND,

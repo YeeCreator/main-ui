@@ -1,5 +1,31 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-27 · 0.5.0 模板库大规模建设（view-flow 三件套 + 虚拟滚动基座 + EmbeddedViewHost）
+
+功能交付：
+
+1. **P0-1 虚拟滚动基座去重**：将 view-tree / view-table / view-console 三处重复的虚拟窗口计算逻辑沉淀为 `@main-ui/core` 的 `computeVirtualWindow` 与 `isNearBottom` 公共纯函数；三包改为消费基座，保留各自特有逻辑（树的扁平化、表格的排序、控制台的锁滚判定）。新增 12 项单测。
+2. **P0-2 新模板 `@main-ui/view-flow`**：流程/状态机文档编辑器，按「内核 + 组件 + 薄壳」三件套交付：
+   - L2 内核（`flow.ts`）：不可变文档变换纯函数（节点增删移动、连边方向校验、级联删边、环检测、拓扑序、uid 去重、悬空边剪除）
+   - FSM 层（`src/fsm/`）：框架无关纯 TS 有限状态机库（types/machine/interpreter/hub），支持守卫、动作、转换历史、Hub 注册表
+   - `machineToFlowDocument` 单向映射：FSM 定义 → 流程图文档
+   - L1 组件（`FlowCanvas`）：可嵌入流程图画布，不实现四成员契约
+   - L3 薄壳（`FlowView`）：包裹 FlowCanvas + 生命周期契约
+   - 契约（`types.ts`）：FlowDocument（nodes/edges/node_layouts）+ FlowViewState（viewport/selection）；Op 分类 `FLOW_CORE_OP_TYPES`（进文档）/ `FLOW_EDITOR_OP_TYPES`（仅视图状态）
+   - 红线：零网络；执行器/算子注册表不进包；颜色全消费 `--mui-*`
+   - 新增 28 项单测（flow 12 + fsm 16）
+3. **P0-3 EmbeddedViewHost + 嵌套深度保护 + view-node 双模式**：
+   - `@main-ui/core` 新增 `embedded-host.ts`：`createEmbeddedViewHost`（子实例注册/注销/级联销毁，幂等）+ `checkNestingDepth`（递归校验引用链深度，默认 8 层，循环引用保护）
+   - view-node 双模式改造：渲染层剥离为 `NodeCanvas`（L1 可嵌入组件），`NodeView` 转 L3 薄壳包裹 NodeCanvas
+   - 新增 12 项单测
+4. **P1-1 schema 扩展**：`@main-ui/core` 新增 `FormArrayField`（数组字段，动态增删行）+ `VisibleWhen`（条件显隐）+ `evaluateVisibility` 纯函数 + `validateArrayField` 递归校验；新增 10 项单测
+5. 聚合包 `@main-ui/preset-views` 扩入 `flow` 命名空间，升 0.5.0
+6. `@main-ui/core` 升 0.5.0（新增虚拟滚动 + 嵌入托管 + schema 扩展）
+
+验证：`pnpm typecheck`（12 包全绿）、`pnpm test`（168 项：core 41 / main-ui 52 / view-2d 7 / view-flow 28 / view-form 3 / view-console 5 / view-inspector 9 / view-node 4 / view-table 9 / view-tree 10）、`pnpm build`、网络扫描零命中。
+
+文档：MIGRATION_GUIDE_0.5.0、本日志。
+
 ## 2026-08-27 · 0.4.0 后置专项：文档体系全量对齐与模板库标准文档
 
 背景：v0.2–0.4 功能快速交付后，部分文档停留在 0.2.0 口径；本次专项把文档体系全量对齐到 0.4.0，并补齐「安装后可独立获取」的标准文档。

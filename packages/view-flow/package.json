@@ -1,13 +1,13 @@
 {
-  "name": "@main-ui/view-console",
-  "version": "0.4.0",
+  "name": "@main-ui/view-flow",
+  "version": "0.5.0",
   "private": false,
-  "description": "main-ui 官方视图模板：自研虚拟滚动控制台/日志追加列表（等级着色、自动滚动/锁滚、清空意图与本地过滤）。",
+  "description": "main-ui 官方视图模板：流程/状态机文档编辑器（类型化端口 + 数据流/控制流双边 + FSM 语义），三件套交付：L2 内核 + L1 FlowCanvas 组件 + L3 FlowView 薄壳。",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/YeeCreator/main-ui.git",
-    "directory": "packages/view-console"
+    "directory": "packages/view-flow"
   },
   "publishConfig": {
     "access": "public"
@@ -32,12 +32,14 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.4.0",
-    "main-ui": "^0.4.0",
+    "@main-ui/core": "^0.5.0",
+    "@vue-flow/core": "^1.48.0",
+    "main-ui": "^0.5.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
     "@main-ui/core": "workspace:*",
+    "@vue-flow/core": "^1.48.0",
     "main-ui": "workspace:*",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
