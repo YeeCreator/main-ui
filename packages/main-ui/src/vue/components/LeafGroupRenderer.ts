@@ -1,6 +1,8 @@
-import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch, type PropType } from 'vue';
+import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch, type PropType, type VNodeChild } from 'vue';
 import type { EditorDescriptor, FloatingWindowId, GroupId, LayoutNodeId, SplitDirection, TabId } from '../../core';
+import { dropZoneToSplitDirection, resolveDropZone, type DropZone } from '../../core';
 import { useWorkbench } from '../composables/useWorkbench';
+import { beginDockingDrag, dockingDragSession, endDockingDrag, updateDockingHover } from '../dockingDrag';
 import { EditorSurfaceHost } from './EditorSurfaceHost';
 import { EmptyGroupLauncher } from './EmptyGroupLauncher';
 import { renderIconToken } from './IconToken';
@@ -117,9 +119,92 @@ export const LeafGroupRenderer = defineComponent({
     }));
     const popout = () => void dispatch({ type: 'floatingWindow/popout', groupId: props.groupId });
 
+    // ---------- 停靠引导：五向落点指示 + Ghost 预览（v0.4） ----------
+    // 拖拽中间态不落 action，只有 drop 才提交；合法性经 Slot 能力方法裁决。
+    const dragOverZone = ref<DropZone | null>(null);
+    const isDockingTarget = computed(() =>
+      Boolean(dockingDragSession.source) && dockingDragSession.hover?.groupId === props.groupId && dragOverZone.value !== null);
+
+    const zoneLegal = (zone: DropZone, kind: string | undefined): boolean => {
+      if (!kind) return false;
+      return zone === 'center'
+        ? runtime.core.slots.can(kind, 'moveAcrossGroups')
+        : runtime.core.slots.can(kind, 'splitDrop');
+    };
+
+    const handleDragOver = (event: DragEvent) => {
+      if (!dockingDragSession.source) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const zone = resolveDropZone(rect, { x: event.clientX, y: event.clientY });
+      dragOverZone.value = zone;
+      updateDockingHover({ groupId: props.groupId, leafNodeId: props.nodeId, floatingWindowId: props.floatingWindowId, zone });
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      event.preventDefault();
+      const source = dockingDragSession.source;
+      const zone = dragOverZone.value;
+      endDockingDrag();
+      dragOverZone.value = null;
+      if (!source || !zone || source.tabId === undefined) return;
+      if (!zoneLegal(zone, source.editorKind)) return; // 非法落点：不命中、不落 action（完整回退）
+      const fromSameGroup = source.groupId === props.groupId;
+      if (zone === 'center') {
+        if (fromSameGroup) return; // 同组堆叠即原位，无需动作（排序由 tab 条拖拽承担）
+        void dispatch({ type: 'editor/moveTabToGroup', fromGroupId: source.groupId, toGroupId: props.groupId, tabId: source.tabId });
+        return;
+      }
+      const direction = dropZoneToSplitDirection(zone);
+      if (!direction) return;
+      void dispatch({
+        type: 'editor/moveTabToNewSplit',
+        fromGroupId: source.groupId,
+        targetLeafNodeId: props.nodeId,
+        tabId: source.tabId,
+        direction,
+        floatingWindowId: props.floatingWindowId ?? undefined,
+      });
+    };
+
+    const handleDragLeave = (event: DragEvent) => {
+      // 离开本组表面时清理本组指示（进入子元素不算离开）
+      const related = event.relatedTarget as Node | null;
+      if (related && (event.currentTarget as Node).contains(related)) return;
+      if (dockingDragSession.hover?.groupId === props.groupId) {
+        dragOverZone.value = null;
+        updateDockingHover(null);
+      }
+    };
+
+    /** 五向落点指示器 + Non-Opaque Ghost 预览（原位不动，只画半透明虚影）。 */
+    const renderDockingIndicator = (): VNodeChild => {
+      if (!isDockingTarget.value) return null;
+      const zones: DropZone[] = ['top', 'bottom', 'left', 'right', 'center'];
+      return h('div', { class: 'main-ui-dock-indicator', 'aria-hidden': 'true' }, [
+        ...zones.map((zone) => {
+          const legal = zoneLegal(zone, dockingDragSession.source?.editorKind);
+          const active = dragOverZone.value === zone;
+          return h('div', {
+            class: [
+              'main-ui-dock-indicator__zone',
+              `is-${zone}`,
+              active && legal ? 'is-active' : '',
+              legal ? '' : 'is-disabled',
+            ],
+            title: legal ? `Dock ${zone}` : `Dock ${zone} not allowed`,
+          }, legal && zone !== 'center' ? [h('div', { class: 'main-ui-dock-indicator__ghost' })] : undefined);
+        }),
+      ]);
+    };
+
     return () => h('section', {
       class: ['main-ui-leaf-group', layoutDoc.value.activeGroupId === props.groupId ? 'is-active' : ''],
       onPointerdown: () => { if (!props.floatingWindowId) void dispatch({ type: 'layout/setActiveGroup', groupId: props.groupId }); },
+      onDragover: handleDragOver,
+      onDrop: handleDrop,
+      onDragleave: handleDragLeave,
     }, [
       h('div', { class: 'main-ui-tab-strip' }, [
         overflowState.value.canLeft ? h('button', {
@@ -145,10 +230,16 @@ export const LeafGroupRenderer = defineComponent({
             title: tab.title,
             'data-tab-id': tabId,
             onClick: () => void dispatch({ type: 'editor/activateTab', groupId: props.groupId, tabId }),
-            onDragstart: (event: DragEvent) => event.dataTransfer?.setData('text/main-ui-tab', JSON.stringify({ groupId: props.groupId, tabId })),
+            onDragstart: (event: DragEvent) => {
+              event.dataTransfer?.setData('text/main-ui-tab', JSON.stringify({ groupId: props.groupId, tabId }));
+              const editor = workspace.value.editors[tab.editorInstanceId];
+              if (editor) beginDockingDrag({ groupId: props.groupId, tabId, editorKind: editor.kind });
+            },
+            onDragend: () => { endDockingDrag(); dragOverZone.value = null; },
             onDragover: (event: DragEvent) => event.preventDefault(),
             onDrop: (event: DragEvent) => {
               event.preventDefault();
+              event.stopPropagation(); // tab 条自身排序/插入优先，不冒泡到组的停靠落点处理
               const raw = event.dataTransfer?.getData('text/main-ui-tab');
               if (!raw) return;
               try { const source = JSON.parse(raw) as { groupId: string; tabId: string }; const index = group.value.tabIds.indexOf(tabId); void dispatch(source.groupId === props.groupId ? { type: 'editor/reorderTab', groupId: props.groupId, tabId: source.tabId, index } : { type: 'editor/moveTabToGroup', fromGroupId: source.groupId, toGroupId: props.groupId, tabId: source.tabId, index }); } catch { /* ignore malformed drag payload */ }
@@ -257,6 +348,7 @@ export const LeafGroupRenderer = defineComponent({
       activeTab.value
         ? h(EditorSurfaceHost, { groupId: props.groupId, tabId: activeTab.value.id })
         : h(EmptyGroupLauncher, { groupId: props.groupId }),
+      renderDockingIndicator(),
     ]);
   },
 });

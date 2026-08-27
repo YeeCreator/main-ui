@@ -3,6 +3,7 @@ export * from './provider/context';
 export * from './provider/MainUiProvider';
 export * from './composables/useWorkbench';
 export * from './composables/useViewLifecycle';
+export * from './dockingDrag';
 export * from './components/ActivityBar';
 export * from './components/EditorSurfaceHost';
 export * from './components/EmptyGroupLauncher';

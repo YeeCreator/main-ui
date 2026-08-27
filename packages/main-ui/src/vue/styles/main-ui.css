@@ -403,6 +403,7 @@
 }
 
 .main-ui-leaf-group {
+  position: relative;
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -1104,4 +1105,62 @@
 
 .main-ui-floating-window__resize:hover {
   opacity: 1;
+}
+
+/* ---------- 停靠引导指示器（v0.4）：五向落点 + Non-Opaque Ghost 预览 ---------- */
+.main-ui-dock-indicator {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.main-ui-dock-indicator__zone {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1px dashed transparent;
+  border-radius: var(--mui-radius);
+  transition: background-color 80ms ease, border-color 80ms ease;
+}
+
+.main-ui-dock-indicator__zone.is-top { top: 0; left: 0; right: 0; height: 22%; }
+.main-ui-dock-indicator__zone.is-bottom { bottom: 0; left: 0; right: 0; height: 22%; }
+.main-ui-dock-indicator__zone.is-left { top: 0; bottom: 0; left: 0; width: 22%; }
+.main-ui-dock-indicator__zone.is-right { top: 0; bottom: 0; right: 0; width: 22%; }
+.main-ui-dock-indicator__zone.is-center {
+  top: 50%;
+  left: 50%;
+  width: 84px;
+  height: 56px;
+  transform: translate(-50%, -50%);
+  border-style: solid;
+}
+
+/* 非法落点：置灰且不可命中（纯视觉，命中仲裁在渲染层拦截） */
+.main-ui-dock-indicator__zone.is-disabled {
+  opacity: 0.35;
+  background: var(--mui-color-panel-muted);
+  border-color: var(--mui-color-border);
+}
+
+.main-ui-dock-indicator__zone.is-active {
+  background: var(--mui-scrim-subtle);
+  border-color: var(--mui-color-accent);
+  box-shadow: var(--mui-shadow-sm);
+}
+
+.main-ui-dock-indicator__zone.is-active.is-center {
+  background: var(--mui-color-accent);
+  opacity: 0.9;
+}
+
+/* Ghost 预览：半透明虚影预示落位后的区域分割（原位不动，Non-Opaque 模式） */
+.main-ui-dock-indicator__ghost {
+  width: 72%;
+  height: 62%;
+  border: 1px dashed var(--mui-color-accent);
+  border-radius: var(--mui-radius);
+  background: var(--mui-color-panel);
+  opacity: 0.55;
 }
