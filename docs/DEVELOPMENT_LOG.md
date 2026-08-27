@@ -1,5 +1,25 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-27 · 0.6.0 旗舰复合模板 + 外部引擎桥接
+
+功能交付：
+
+1. **P0-1 新模板 `@main-ui/view-sandbox`**：旗舰复合视图模板（L3）——2D 沙盘 + 异构元素（shape/image/embed-view）+ 连线 + 嵌套保护：
+   - L2 内核 `SandboxKernel`（无头纯 TS，可 Node 单测）：元素增删移动缩放旋转、连线增删、相机操作、变更事件、toJSON/fromJSON 序列化
+   - 嵌入保护：embed-view 元素一律经 `EmbeddedViewHost` 托管，嵌套深度默认 8 层超限拒绝
+   - L3 视图 `SandboxView`：MainUiViewLifecycle 四成员 + 相机 + embeddedRefs 进 getViewState + 级联销毁
+   - 新增 15 项单测
+2. **P1-1 新模板 `@main-ui/view-host-engine`**：外部引擎桥接视图（ExternalEngineHostView）：
+   - 纯净 DOM 挂载点 + ResizeObserver 尺寸回调 + 引擎 prop 变更监听
+   - 契约：`ExternalEngineApi`（mount/onResize/destroy）+ `HostEngineViewState`
+   - 模板零渲染零业务，只做容器与通知
+   - 新增 2 项单测
+3. 聚合包 `@main-ui/preset-views` 扩入 `sandbox` + `hostEngine` 命名空间，升 0.6.0
+
+验证：`pnpm typecheck`（14 包全绿）、`pnpm test`（185 项：core 41 + main-ui 52 + 十模板包 92）、`pnpm build`、网络扫描零命中。
+
+文档：MIGRATION_GUIDE_0.6.0、本日志。
+
 ## 2026-08-27 · 0.5.0 模板库大规模建设（view-flow 三件套 + 虚拟滚动基座 + EmbeddedViewHost）
 
 功能交付：
