@@ -9,6 +9,7 @@ export type TabId = string;
 export type EditorInstanceId = string;
 export type EditorKind = string;
 export type OverlaySessionId = string;
+export type FloatingWindowId = string;
 export type IconToken = string;
 export type ThemeId = string;
 

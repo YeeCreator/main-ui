@@ -10,11 +10,12 @@ import type { ActivityContribution, PanelContribution, StatusContribution, ViewC
 import type { EditorDescriptor } from './editor/types';
 import { SlotRegistry } from './editor/slot';
 import { ViewLifecycleRegistry } from './editor/lifecycle';
+import type { MainUiViewLifecycle } from './editor/lifecycle';
 import { createWorkbenchDocument } from './documentFactory';
 import type { PersistenceAdapter } from './persistence/types';
 import { CommandRegistry, EditorRegistry, WorkspaceRegistry } from './registry';
 import { workbenchReducer } from './reducer';
-import type { IdFactory, Result } from './types';
+import type { EditorInstanceId, IdFactory, Result } from './types';
 import { fail, ok } from './types';
 import type { WorkbenchDocument, WorkspaceDescriptor } from './workspace/types';
 import { migrateWorkbenchDocument } from './persistence/migrations';
@@ -52,6 +53,8 @@ export class MainUiCoreRuntime {
   readonly contributions = new ContributionRegistry();
 
   private document: WorkbenchDocument | null = null;
+  /** 快照中带回的视图状态待回放队列：实例表面挂载后按需回放。 */
+  private readonly pendingViewStates = new Map<EditorInstanceId, Record<string, unknown>>();
   private readonly listeners = new Set<RuntimeListener>();
   private readonly persistence?: PersistenceAdapter;
   private readonly activeWorkspaceId?: string;
@@ -107,6 +110,19 @@ export class MainUiCoreRuntime {
   registerPanelContribution(panel: PanelContribution): void { this.contributions.registerPanel(panel); }
   registerActivityContribution(item: ActivityContribution): void { this.contributions.registerActivity(item); }
   registerStatusContribution(item: StatusContribution): void { this.contributions.registerStatus(item); }
+
+  /**
+   * 挂载视图生命周期句柄（渲染层表面挂载时调用）；
+   * 若快照中带有该实例的待回放视图状态，挂载后立即回放。
+   */
+  attachViewLifecycle(editorInstanceId: EditorInstanceId, lifecycle: MainUiViewLifecycle): void {
+    this.viewLifecycles.attach(editorInstanceId, lifecycle);
+    const pending = this.pendingViewStates.get(editorInstanceId);
+    if (pending) {
+      this.pendingViewStates.delete(editorInstanceId);
+      lifecycle.restoreViewState(pending);
+    }
+  }
 
   unregisterMenu(id: string): void {
     this.menus.unregister(id);
@@ -175,6 +191,7 @@ export class MainUiCoreRuntime {
     } else {
       this.document = this.createFreshDocument();
     }
+    this.collectPendingViewStates(this.document);
     this.emit();
     return this.document;
   }
@@ -205,7 +222,10 @@ export class MainUiCoreRuntime {
       return result;
     }
 
-    this.document = result.value;
+    const next = result.value;
+    this.pruneDetachedViewLifecycles(current, next);
+    this.captureViewStates(next);
+    this.document = next;
     await this.persistence?.save(this.document);
     this.emit();
     return ok(this.document, result.warnings);
@@ -214,8 +234,49 @@ export class MainUiCoreRuntime {
   async resetPersistence(): Promise<void> {
     await this.persistence?.clear?.();
     this.viewLifecycles.clear();
+    this.pendingViewStates.clear();
     this.document = this.createFreshDocument();
     this.emit();
+  }
+
+  /** 保存前收集全部活跃表面的视图状态，写入实例旁的 viewState 槽。 */
+  private captureViewStates(document: WorkbenchDocument): void {
+    const collected = this.viewLifecycles.collect();
+    if (Object.keys(collected).length === 0) {
+      return;
+    }
+    for (const workspace of Object.values(document.workspaceStates)) {
+      for (const [editorId, viewState] of Object.entries(collected)) {
+        const editor = workspace.editors[editorId];
+        if (editor) {
+          editor.viewState = viewState;
+        }
+      }
+    }
+  }
+
+  /** 实例被移除（关闭页签等）时销毁对应句柄并丢弃待回放状态。 */
+  private pruneDetachedViewLifecycles(previous: WorkbenchDocument, next: WorkbenchDocument): void {
+    for (const [workspaceId, workspace] of Object.entries(previous.workspaceStates)) {
+      const nextWorkspace = next.workspaceStates[workspaceId];
+      for (const editorId of Object.keys(workspace.editors)) {
+        if (!nextWorkspace?.editors[editorId]) {
+          this.viewLifecycles.detach(editorId);
+          this.pendingViewStates.delete(editorId);
+        }
+      }
+    }
+  }
+
+  /** boot 后从快照收集各编辑实例的 viewState，进入待回放队列。 */
+  private collectPendingViewStates(document: WorkbenchDocument): void {
+    for (const workspace of Object.values(document.workspaceStates)) {
+      for (const editor of Object.values(workspace.editors)) {
+        if (editor.viewState) {
+          this.pendingViewStates.set(editor.id, editor.viewState);
+        }
+      }
+    }
   }
 
   private emit(): void {

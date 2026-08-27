@@ -9,6 +9,7 @@ export * from './settings/store';
 export * from './contribution/types';
 export * from './contribution/registry';
 export * from './feedback';
+export * from './floatingWindow';
 export * from './documentFactory';
 export * from './editor/types';
 export * from './editor/slot';

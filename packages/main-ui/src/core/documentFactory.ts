@@ -15,6 +15,7 @@ export const createWorkspaceState = ({ descriptor, editorDescriptors, createId, 
   const state: WorkspaceState = {
     workspaceId: descriptor.id,
     layout,
+    floatingWindows: {},
     editors: {},
     tabs: {},
     overlays: {},
@@ -91,7 +92,7 @@ export const createWorkbenchDocument = (
   );
 
   return {
-    version: 2,
+    version: 3,
     activeWorkspaceId: firstWorkspaceId,
     workspaceStates,
     theme: createDefaultThemeState(),
