@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.2.0`。API 以本地 `.tgz` 版本包交付；本版本为契约先行扩展（仓库已转 monorepo），旧的 workspace/editor/renderer 注册方式继续有效，新增 Slot、视图生命周期与插件预埋契约均为 opt-in。
+本文档对应 `main-ui 0.3.0`。API 以本地 `.tgz` 版本包交付；本版本新增浮动窗口（docking Window 层）与一期四个官方视图模板包（`@main-ui/view-*` + 聚合包 `@main-ui/preset-views`），既有注册方式继续有效，持久化文档版本升为 3（附自动迁移）。
 
 ## 入口
 
@@ -18,7 +18,7 @@
 
 ```ts
 type WorkbenchDocument = {
-  version: 1 | 2
+  version: 1 | 2 | 3
   activeWorkspaceId: string
   workspaceStates: Record<string, WorkspaceState>
   theme: ThemeState
@@ -34,6 +34,7 @@ type WorkbenchDocument = {
 4. `overlays`：临时 overlay session。
 5. `recentlyClosed`：最近关闭 tab。
 6. `focusHistory`：焦点记录。
+7. `floatingWindows`（v0.3 新增）：`Record<FloatingWindowId, FloatingWindowState>`，每个浮动窗口持有独立布局子树、位置与尺寸。
 
 ## Registry
 
@@ -94,6 +95,7 @@ await runtime.core.dispatch({ type: 'overlay/open', request: { editorKind: 'sett
 7. open / dismiss / promote overlay。
 8. switch / reset workspace。
 9. set theme mode。
+10. floating window popout / dock back / update geometry / close（v0.3 新增）。
 
 常用 action 类型：
 
@@ -111,7 +113,22 @@ type WorkbenchAction =
   | { type: 'overlay/open'; request: EditorOpenRequest }
   | { type: 'overlay/dismiss'; overlayId: string }
   | { type: 'overlay/promoteToTab'; overlayId: string; targetGroupId?: string }
+  | { type: 'floatingWindow/popout'; groupId: GroupId; tabIds?: TabId[]; position?: { x: number; y: number }; size?: { width: number; height: number } }
+  | { type: 'floatingWindow/dockBack'; windowId: FloatingWindowId; targetGroupId?: GroupId }
+  | { type: 'floatingWindow/updateGeometry'; windowId: FloatingWindowId; position?: { x: number; y: number }; size?: { width: number; height: number } }
+  | { type: 'floatingWindow/close'; windowId: FloatingWindowId }
 ```
+
+## 浮动窗口（Window 层）
+
+tab 可拖出为浮动窗口，与主布局树同构（每个浮动窗口持有完整 split/leaf/group 子树）；布局快照只存引用，业务实例不重建。
+
+1. **能力门控**：`EditorCapabilityPolicy.allowFloatingWindow` 为 `false` 的 editor 不出现拖出入口；标记查询经 Slot 能力方法统一走。
+2. **动作**：`floatingWindow/popout`（目标 tab 连同 editor 实例从主树移入浮动窗口树）、`floatingWindow/dockBack`（逆操作，可指定目标 group）、`floatingWindow/updateGeometry`（拖动/缩放回写）、`floatingWindow/close`（窗口关闭，tab 回主树）。
+3. **持久化**：浮动窗口位置、尺寸进入 `WorkbenchDocument`（version 3）；v2 → v3 迁移函数补齐 `floatingWindows: {}`。
+4. **多显示器坑**：恢复时经 `clampFloatingGeometry(window, viewport)` 把越出当前视口的坐标/尺寸归位主视口内（至少保留 32px 标题栏可见）。
+5. **渲染**：浏览器环境实现为「窗内浮动层」（绝对定位的可拖动、可缩放容器，`FloatingWindowLayer`）；升级为真实顶层窗口（Electron 宿主）的能力边界见 `HOST_ADAPTER_GUIDE.md`。
+6. **视图状态串联**：保存布局时收集各活跃表面（含浮动窗口内）的 `getViewState()` 写入实例旁 `viewState` 槽；恢复时调用 `restoreViewState`。
 
 ## Layout Helper
 
@@ -182,6 +199,35 @@ export type EditorMountAdapter = {
 3. adapter 不应该把大型业务对象写入 `EditorInstance.payload`。
 4. `main-ui` 不把 React、p5、Konva、Three.js 作为依赖。
 
+## 官方视图模板包（@main-ui/view-*）
+
+一期四个模板包 + 聚合包，均为独立 npm 包，`main-ui` 为 peerDependency：
+
+| 包 | 内核 | 用途 |
+| --- | --- | --- |
+| `@main-ui/view-tree` | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
+| `@main-ui/view-inspector` | schema 驱动表单 | 属性检视：对象 + schema，变更经 Emits 抛出 |
+| `@main-ui/view-2d` | `@main-ui/viewport-2d-kit`（pixi） | 2D 画布：相机状态进 `getViewState` |
+| `@main-ui/view-table` | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
+| `@main-ui/preset-views` | — | 聚合包：命名空间重导出四包（`tree` / `inspector` / `view2d` / `table`） |
+
+每包统一结构：`types.ts` 数据契约（TS 类型）+ 主组件（`MainUiViewLifecycle` 四成员全实现）+ `register.ts` 一键注册：
+
+```ts
+import { registerTreeViewEditor } from '@main-ui/view-tree'
+
+registerTreeViewEditor(
+  runtime,
+  { allowedWorkspaceIds: ['my-workspace'], title: 'Project Tree' },
+  // resolveProps：把宿主数据转成模板契约（含 loading / error 三态）经 Props 注入
+  (context) => ({ items: myStore.getItems(context.editor.id), loading: myStore.isLoading(context.editor.id) }),
+  // extraProps：消费模板抛出的意图（Emits），裁决后回写宿主数据 → 受控回流
+  (context) => ({ onSelect: (nodeId) => myStore.select(context.editor.id, nodeId) }),
+)
+```
+
+红线：模板包不持有业务数据、不发起网络请求、颜色一律消费 `--mui-*` 变量；只消费 main-ui 公开面（注册契约、主题变量、视图状态契约）。宿主适配层职责（取数 → 转契约 → props 注入 → 意图裁决）见 `HOST_INTEGRATION_GUIDE.md` 与各包 README。
+
 ## Persistence
 
 默认 persistence 是 localStorage adapter。宿主可以替换为自己的持久化层，只要实现 snapshot 的加载与保存。
@@ -232,3 +278,9 @@ Editor surface 具备 loading/error/retry boundary；`EditorMountAdapter` 的 mo
 3. `hostProfileValidationCases`：首批宿主验证表。
 
 fixture 不是正式 API，但它是宿主接入的推荐参考写法。
+
+v0.3 起 demo 新增「模拟后端适配层」示范（`demo/src/adapter/`）：
+
+1. `mockApi.ts`：模拟异步取数（延迟 + 可配失败率），产出领域数据。
+2. `presetViewStore.ts`：响应式仓库（按编辑器实例隔离，三态管理）。
+3. `registerPresetViewEditors.ts`：四个模板的接入端（取数 → 转契约 → props 注入 → 意图裁决回写）。

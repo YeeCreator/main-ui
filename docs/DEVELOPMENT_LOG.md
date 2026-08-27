@@ -1,5 +1,19 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-27 · 0.3.0 浮动窗口（Window 层）+ 一期官方视图模板 + 模拟后端适配层示范
+
+功能交付：
+
+1. P0-1 浮动窗口：`WorkspaceState` 新增 `floatingWindows`（每个窗口持独立布局子树，与主树同构）；新增 `floatingWindow/popout` / `dockBack` / `updateGeometry` / `close` 四个 action 与 `clampFloatingGeometry` 越界归位助手；持久化版本升 3（v2→v3 迁移函数 + 测试）；Vue 层新增 `FloatingWindowLayer`（可拖动/可缩放窗内浮动层）与拖出/拖回出入口，`allowFloatingWindow` 逐 editor 门控；视图状态收集覆盖浮动窗口内表面（`MainUiViewLifecycle` 全链串联）。
+2. P1-1 一期四模板包：`@main-ui/view-tree`（虚拟滚动树：过滤/展开/选中）、`@main-ui/view-inspector`（schema 表单）、`@main-ui/view-2d`（2d-kit docking-ready 封装，相机进 `getViewState`）、`@main-ui/view-table`（虚拟滚动表格：排序/行内编辑意图）；四包统一实现 `MainUiViewLifecycle` 四成员、零网络请求、颜色消费 `--mui-*`；聚合包 `@main-ui/preset-views` 命名空间重导出。
+3. 模板包 `register.ts` 提供 `createXxxEditorRenderer(resolveProps?, extraProps?)` 与 `registerXxxEditor` 一键注册：数据经 Props（含三态）进、意图经 Emits 出。
+4. P2-1 demo 模拟后端适配层：新增 `demo/src/adapter/`（`mockApi` 异步取数 + 失败率、`presetViewStore` 响应式仓库三态管理、`registerPresetViewEditors` 四模板接入端），演示「取数 → 转契约 → props 注入 → 意图裁决回写」标准链路。
+5. 测试：主包新增 `floatingWindow.test.ts`（14 项），主包总量 31→45；四模板包新增 10+9+7+9 项；e2e 新增模板链路用例（1 → 3 项）。
+
+验证：`pnpm typecheck`、`pnpm test`（主包 45 + 模板包 35 全绿）、`pnpm build`、`pnpm demo:build`、`pnpm test:e2e`（3 passed）全部通过；网络依赖扫描对全部 `packages/*/src` 零命中；核心包未引入 pixi/three（pixi 仅在 2d-kit 与 view-2d）。
+
+文档：API_MANUAL（浮动窗口 + 模板包章节）、HOST_INTEGRATION_GUIDE（§9 模板安装与接入）、HOST_ADAPTER_GUIDE（§7 浮动窗口能力边界）、MIGRATION_GUIDE_0.3.0、本日志。
+
 ## 2026-08-27 · 0.2.0 契约先行 + 工程底座（monorepo）
 
 仓库结构变更（包名映射）：
