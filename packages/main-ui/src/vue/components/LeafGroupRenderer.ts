@@ -1,5 +1,5 @@
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch, type PropType } from 'vue';
-import type { EditorDescriptor, GroupId, LayoutNodeId, SplitDirection, TabId } from '../../core';
+import type { EditorDescriptor, FloatingWindowId, GroupId, LayoutNodeId, SplitDirection, TabId } from '../../core';
 import { useWorkbench } from '../composables/useWorkbench';
 import { EditorSurfaceHost } from './EditorSurfaceHost';
 import { EmptyGroupLauncher } from './EmptyGroupLauncher';
@@ -16,6 +16,11 @@ export const LeafGroupRenderer = defineComponent({
       type: String as PropType<GroupId>,
       required: true,
     },
+    /** 浮动窗口内渲染时传入窗口 id：组从窗口布局子树解析，隐藏主布局专属操作。 */
+    floatingWindowId: {
+      type: String as PropType<FloatingWindowId>,
+      default: null,
+    },
   },
   setup(props) {
     const { runtime, document, dispatch } = useWorkbench();
@@ -24,7 +29,9 @@ export const LeafGroupRenderer = defineComponent({
     const availableEditors = computed(() => (workspaceDescriptor.value?.allowedEditorKinds ?? [])
       .map((kind) => runtime.core.editors.get(kind))
       .filter((descriptor): descriptor is EditorDescriptor => descriptor !== undefined && descriptor.capability.launcherVisibility !== 'hidden'));
-    const group = computed(() => workspace.value.layout.groups[props.groupId]);
+    const floatingWindow = computed(() => (props.floatingWindowId ? workspace.value.floatingWindows?.[props.floatingWindowId] ?? null : null));
+    const layoutDoc = computed(() => floatingWindow.value?.layout ?? workspace.value.layout);
+    const group = computed(() => layoutDoc.value.groups[props.groupId]);
     const activeTab = computed(() => {
       const activeTabId = group.value?.activeTabId;
       return activeTabId ? workspace.value.tabs[activeTabId] : null;
@@ -102,9 +109,17 @@ export const LeafGroupRenderer = defineComponent({
       select.value = '';
     };
 
+    // ---------- 拖出浮动窗口（能力经 Slot 查询门控） ----------
+    const canPopout = computed(() => !props.floatingWindowId && group.value.tabIds.some((tabId) => {
+      const tab = workspace.value.tabs[tabId];
+      const editor = tab ? workspace.value.editors[tab.editorInstanceId] : undefined;
+      return editor ? runtime.core.slots.can(editor.kind, 'floatingWindow') : false;
+    }));
+    const popout = () => void dispatch({ type: 'floatingWindow/popout', groupId: props.groupId });
+
     return () => h('section', {
-      class: ['main-ui-leaf-group', workspace.value.layout.activeGroupId === props.groupId ? 'is-active' : ''],
-      onPointerdown: () => void dispatch({ type: 'layout/setActiveGroup', groupId: props.groupId }),
+      class: ['main-ui-leaf-group', layoutDoc.value.activeGroupId === props.groupId ? 'is-active' : ''],
+      onPointerdown: () => { if (!props.floatingWindowId) void dispatch({ type: 'layout/setActiveGroup', groupId: props.groupId }); },
     }, [
       h('div', { class: 'main-ui-tab-strip' }, [
         overflowState.value.canLeft ? h('button', {
@@ -197,7 +212,7 @@ export const LeafGroupRenderer = defineComponent({
             ]);
           })) : null,
         ]) : null,
-        h('div', { class: 'main-ui-tab-strip__actions' }, [
+        props.floatingWindowId ? null : h('div', { class: 'main-ui-tab-strip__actions' }, [
           h('select', {
             class: 'main-ui-editor-select',
             title: 'Open editor',
@@ -215,6 +230,12 @@ export const LeafGroupRenderer = defineComponent({
             disabled: workspace.value.recentlyClosed.length === 0,
             onClick: () => void dispatch({ type: 'editor/reopenRecentlyClosed', targetGroupId: props.groupId }),
           }, [renderIconToken('refresh')]),
+          canPopout.value ? h('button', {
+            class: 'main-ui-mini-button',
+            type: 'button',
+            title: 'Pop out to floating window',
+            onClick: () => popout(),
+          }, [renderIconToken('popout')]) : null,
           h('button', { class: 'main-ui-mini-button', type: 'button', title: 'Split left', onClick: () => split('left') }, [renderIconToken('splitLeft')]),
           h('button', { class: 'main-ui-mini-button', type: 'button', title: 'Split right', onClick: () => split('right') }, [renderIconToken('splitRight')]),
           h('button', { class: 'main-ui-mini-button', type: 'button', title: 'Split up', onClick: () => split('up') }, [renderIconToken('splitUp')]),
