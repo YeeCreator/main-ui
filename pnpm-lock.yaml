@@ -26,15 +26,27 @@ importers:
 
   demo:
     dependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../packages/core
       '@main-ui/preset-views':
         specifier: workspace:*
         version: link:../packages/preset-views
       '@main-ui/view-2d':
         specifier: workspace:*
         version: link:../packages/view-2d
+      '@main-ui/view-console':
+        specifier: workspace:*
+        version: link:../packages/view-console
+      '@main-ui/view-form':
+        specifier: workspace:*
+        version: link:../packages/view-form
       '@main-ui/view-inspector':
         specifier: workspace:*
         version: link:../packages/view-inspector
+      '@main-ui/view-node':
+        specifier: workspace:*
+        version: link:../packages/view-node
       '@main-ui/view-table':
         specifier: workspace:*
         version: link:../packages/view-table
@@ -44,6 +56,9 @@ importers:
       '@main-ui/viewport-2d-kit':
         specifier: workspace:*
         version: link:../packages/viewport-2d-kit
+      '@vue-flow/core':
+        specifier: ^1.48.2
+        version: 1.48.2(vue@3.5.32(typescript@5.7.3))
       main-ui:
         specifier: workspace:*
         version: link:../packages/main-ui
@@ -64,6 +79,18 @@ importers:
         specifier: ^7.1.5
         version: 7.3.1
 
+  packages/core:
+    devDependencies:
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.8)(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4
+
   packages/main-ui:
     devDependencies:
       tsup:
@@ -81,18 +108,33 @@ importers:
 
   packages/preset-views:
     devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
       '@main-ui/view-2d':
         specifier: workspace:*
         version: link:../view-2d
+      '@main-ui/view-console':
+        specifier: workspace:*
+        version: link:../view-console
+      '@main-ui/view-form':
+        specifier: workspace:*
+        version: link:../view-form
       '@main-ui/view-inspector':
         specifier: workspace:*
         version: link:../view-inspector
+      '@main-ui/view-node':
+        specifier: workspace:*
+        version: link:../view-node
       '@main-ui/view-table':
         specifier: workspace:*
         version: link:../view-table
       '@main-ui/view-tree':
         specifier: workspace:*
         version: link:../view-tree
+      '@vue-flow/core':
+        specifier: ^1.48.2
+        version: 1.48.2(vue@3.5.32(typescript@5.7.3))
       main-ui:
         specifier: workspace:*
         version: link:../main-ui
@@ -133,8 +175,71 @@ importers:
         specifier: ^3.5.0
         version: 3.5.32(typescript@5.7.3)
 
+  packages/view-console:
+    devDependencies:
+      main-ui:
+        specifier: workspace:*
+        version: link:../main-ui
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.8)(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.32(typescript@5.7.3)
+
+  packages/view-form:
+    devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
+      main-ui:
+        specifier: workspace:*
+        version: link:../main-ui
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.8)(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.32(typescript@5.7.3)
+
   packages/view-inspector:
     devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
+      main-ui:
+        specifier: workspace:*
+        version: link:../main-ui
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.8)(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.32(typescript@5.7.3)
+
+  packages/view-node:
+    devDependencies:
+      '@vue-flow/core':
+        specifier: ^1.48.2
+        version: 1.48.2(vue@3.5.32(typescript@5.7.3))
       main-ui:
         specifier: workspace:*
         version: link:../main-ui
@@ -1300,6 +1405,9 @@ packages:
   '@types/three@0.184.1':
     resolution: {integrity: sha512-6q4VdiqVsrTRqmk62/BnlcAvIrnDM0zf2ZDVKI5kZiniWrSaOHaQzmbp+BNzoggc/8tgW412pL//wZIxu2PPTA==}
 
+  '@types/web-bluetooth@0.0.20':
+    resolution: {integrity: sha512-g9gZnnXVq7gM7v3tJCWV/qw7w+KeOlSHAhgF9RytFyifW6AF61hdT2ucrYhPq9hLs5JIryeupHV3qGk95dH9ow==}
+
   '@types/webxr@0.5.24':
     resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
 
@@ -1360,6 +1468,11 @@ packages:
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
 
+  '@vue-flow/core@1.48.2':
+    resolution: {integrity: sha512-raxhgKWE+G/mcEvXJjGFUDYW9rAI3GOtiHR3ZkNpwBWuIaCC1EYiBmKGwJOoNzVFgwO7COgErnK7i08i287AFA==}
+    peerDependencies:
+      vue: ^3.3.0
+
   '@vue/compiler-core@3.5.32':
     resolution: {integrity: sha512-4x74Tbtqnda8s/NSD6e1Dr5p1c8HdMU5RWSjMSUzb8RTcUQqevDCxVAitcLBKT+ie3o0Dl9crc/S/opJM7qBGQ==}
 
@@ -1388,6 +1501,15 @@ packages:
 
   '@vue/shared@3.5.32':
     resolution: {integrity: sha512-ksNyrmRQzWJJ8n3cRDuSF7zNNontuJg1YHnmWRJd2AMu8Ij2bqwiiri2lH5rHtYPZjj4STkNcgcmiQqlOjiYGg==}
+
+  '@vueuse/core@10.11.1':
+    resolution: {integrity: sha512-guoy26JQktXPcz+0n3GukWIy/JDNKti9v6VEMu6kV2sYBsWuGiTU8OWdg+ADfUbHg3/3DlqySDe7JmdHrktiww==}
+
+  '@vueuse/metadata@10.11.1':
+    resolution: {integrity: sha512-IGa5FXd003Ug1qAZmyE8wF3sJ81xGLSqTqtQ6jaVfkeZ4i5kS2mwQF61yhVqojRnenVew5PldLyRgvdl4YYuSw==}
+
+  '@vueuse/shared@10.11.1':
+    resolution: {integrity: sha512-LHpC8711VFZlDaYUXEBbFBCQ7GS3dVU9mjOhhMhXP6txTV4EhYQg/KGnQuvt/sPAtoUKq7VVUnL6mVtFoL42sA==}
 
   '@webgpu/types@0.1.72':
     resolution: {integrity: sha512-0cF7RFM2edNoiIS1ODJp0/Gzv4/xSXhwoR0YCza+OWpJWtn4wmo9DvK91aLlH9+uUnwIriP7ZiC3WitmyhuzBw==}
@@ -1486,6 +1608,44 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  d3-color@3.1.0:
+    resolution: {integrity: sha512-zg/chbXyeBtMQ1LbD/WSoW2DpC3I0mpmPdW+ynRTj/x2DAWYrIY7qeZIHidozwV24m4iavr15lNwIwLxRmOxhA==}
+    engines: {node: '>=12'}
+
+  d3-dispatch@3.0.1:
+    resolution: {integrity: sha512-rzUyPU/S7rwUflMyLc1ETDeBj0NRuHKKAcvukozwhshr6g6c5d8zh4c2gQjY2bZ0dXeGLWc1PF174P2tVvKhfg==}
+    engines: {node: '>=12'}
+
+  d3-drag@3.0.0:
+    resolution: {integrity: sha512-pWbUJLdETVA8lQNJecMxoXfH6x+mO2UQo8rSmZ+QqxcbyA3hfeprFgIT//HW2nlHChWeIIMwS2Fq+gEARkhTkg==}
+    engines: {node: '>=12'}
+
+  d3-ease@3.0.1:
+    resolution: {integrity: sha512-wR/XK3D3XcLIZwpbvQwQ5fK+8Ykds1ip7A2Txe0yxncXSdq1L9skcG7blcedkOX+ZcgxGAmLX1FrRGbADwzi0w==}
+    engines: {node: '>=12'}
+
+  d3-interpolate@3.0.1:
+    resolution: {integrity: sha512-3bYs1rOD33uo8aqJfKP3JWPAibgw8Zm2+L9vBKEHJ2Rg+viTR7o5Mmv5mZcieN+FRYaAOWX5SJATX6k1PWz72g==}
+    engines: {node: '>=12'}
+
+  d3-selection@3.0.0:
+    resolution: {integrity: sha512-fmTRWbNMmsmWq6xJV8D19U/gw/bwrHfNXxrIN+HfZgnzqTHp9jOmKMhsTUjXOJnZOdZY9Q28y4yebKzqDKlxlQ==}
+    engines: {node: '>=12'}
+
+  d3-timer@3.0.1:
+    resolution: {integrity: sha512-ndfJ/JxxMd3nw31uyKoY2naivF+r29V+Lc0svZxe1JvvIRmi8hUsrMvdOwgS1o6uBHmiz91geQ0ylPP0aj1VUA==}
+    engines: {node: '>=12'}
+
+  d3-transition@3.0.1:
+    resolution: {integrity: sha512-ApKvfjsSR6tg06xrL434C0WydLr7JewBB3V+/39RMHsaXTOG0zmt/OAXeng5M5LBm0ojmxJrpomQVZ1aPvBL4w==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      d3-selection: 2 - 3
+
+  d3-zoom@3.0.0:
+    resolution: {integrity: sha512-b8AmV3kfQaqWAuacbPuNbL6vahnOJflOhexLzMMNLga62+/nh0JzvJ0aO/5a5MVgUFGS7Hu1P9P03o3fJkDCyw==}
+    engines: {node: '>=12'}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -2153,6 +2313,17 @@ packages:
       happy-dom:
         optional: true
       jsdom:
+        optional: true
+
+  vue-demi@0.14.10:
+    resolution: {integrity: sha512-nMZBOwuzabUO0nLgIcc6rycZEebF6eeUfaiQx9+WSk8e29IbLvPU9feI6tqW4kTo3hvoYAJkMh8n8D0fuISphg==}
+    engines: {node: '>=12'}
+    hasBin: true
+    peerDependencies:
+      '@vue/composition-api': ^1.0.0-rc.1
+      vue: ^3.0.0-0 || ^2.6.0
+    peerDependenciesMeta:
+      '@vue/composition-api':
         optional: true
 
   vue@3.5.32:
@@ -3079,6 +3250,8 @@ snapshots:
       fflate: 0.8.3
       meshoptimizer: 1.1.1
 
+  '@types/web-bluetooth@0.0.20': {}
+
   '@types/webxr@0.5.24': {}
 
   '@use-gesture/core@10.3.1': {}
@@ -3153,6 +3326,17 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
+  '@vue-flow/core@1.48.2(vue@3.5.32(typescript@5.7.3))':
+    dependencies:
+      '@vueuse/core': 10.11.1(vue@3.5.32(typescript@5.7.3))
+      d3-drag: 3.0.0
+      d3-interpolate: 3.0.1
+      d3-selection: 3.0.0
+      d3-zoom: 3.0.0
+      vue: 3.5.32(typescript@5.7.3)
+    transitivePeerDependencies:
+      - '@vue/composition-api'
+
   '@vue/compiler-core@3.5.32':
     dependencies:
       '@babel/parser': 7.29.2
@@ -3206,6 +3390,25 @@ snapshots:
       vue: 3.5.32(typescript@5.7.3)
 
   '@vue/shared@3.5.32': {}
+
+  '@vueuse/core@10.11.1(vue@3.5.32(typescript@5.7.3))':
+    dependencies:
+      '@types/web-bluetooth': 0.0.20
+      '@vueuse/metadata': 10.11.1
+      '@vueuse/shared': 10.11.1(vue@3.5.32(typescript@5.7.3))
+      vue-demi: 0.14.10(vue@3.5.32(typescript@5.7.3))
+    transitivePeerDependencies:
+      - '@vue/composition-api'
+      - vue
+
+  '@vueuse/metadata@10.11.1': {}
+
+  '@vueuse/shared@10.11.1(vue@3.5.32(typescript@5.7.3))':
+    dependencies:
+      vue-demi: 0.14.10(vue@3.5.32(typescript@5.7.3))
+    transitivePeerDependencies:
+      - '@vue/composition-api'
+      - vue
 
   '@webgpu/types@0.1.72': {}
 
@@ -3288,6 +3491,42 @@ snapshots:
       which: 2.0.2
 
   csstype@3.2.3: {}
+
+  d3-color@3.1.0: {}
+
+  d3-dispatch@3.0.1: {}
+
+  d3-drag@3.0.0:
+    dependencies:
+      d3-dispatch: 3.0.1
+      d3-selection: 3.0.0
+
+  d3-ease@3.0.1: {}
+
+  d3-interpolate@3.0.1:
+    dependencies:
+      d3-color: 3.1.0
+
+  d3-selection@3.0.0: {}
+
+  d3-timer@3.0.1: {}
+
+  d3-transition@3.0.1(d3-selection@3.0.0):
+    dependencies:
+      d3-color: 3.1.0
+      d3-dispatch: 3.0.1
+      d3-ease: 3.0.1
+      d3-interpolate: 3.0.1
+      d3-selection: 3.0.0
+      d3-timer: 3.0.1
+
+  d3-zoom@3.0.0:
+    dependencies:
+      d3-dispatch: 3.0.1
+      d3-drag: 3.0.0
+      d3-interpolate: 3.0.1
+      d3-selection: 3.0.0
+      d3-transition: 3.0.1(d3-selection@3.0.0)
 
   debug@4.4.3:
     dependencies:
@@ -3915,6 +4154,10 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  vue-demi@0.14.10(vue@3.5.32(typescript@5.7.3)):
+    dependencies:
+      vue: 3.5.32(typescript@5.7.3)
 
   vue@3.5.32(typescript@5.7.3):
     dependencies:
