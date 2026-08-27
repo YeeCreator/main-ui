@@ -1,70 +1,30 @@
 {
-  "name": "main-ui",
-  "version": "0.1.1",
-  "private": false,
+  "name": "main-ui-workspace",
+  "version": "0.0.0",
+  "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/YeeCreator/main-ui.git"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "type": "module",
   "packageManager": "pnpm@10.33.2",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
-    },
-    "./vue": {
-      "types": "./dist/vue/index.d.ts",
-      "import": "./dist/vue/index.js"
-    },
-    "./tokens": {
-      "types": "./dist/tokens/index.d.ts",
-      "import": "./dist/tokens/index.js"
-    },
-    "./adapters": {
-      "types": "./dist/adapters/index.d.ts",
-      "import": "./dist/adapters/index.js"
-    },
-    "./styles.css": "./src/vue/styles/main-ui.css"
-  },
-  "files": [
-    "dist",
-    "src/vue/styles/main-ui.css",
-    "docs/*.md"
-  ],
-  "sideEffects": [
-    "./src/vue/styles/main-ui.css"
-  ],
   "scripts": {
-    "dev": "tsup --watch",
-    "build": "tsup",
-    "demo:dev": "vite --config demo/vite.config.ts",
-    "demo:build": "vite build --config demo/vite.config.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "dev": "pnpm --filter main-ui dev",
+    "build": "pnpm --filter main-ui build && pnpm --filter \"@main-ui/viewport-2d-kit\" build && pnpm --filter \"@main-ui/core\" build && pnpm --filter \"@main-ui/view-*\" build && pnpm --filter \"@main-ui/preset-views\" build",
+    "typecheck": "pnpm --filter main-ui --filter \"@main-ui/viewport-2d-kit\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" --filter \"@main-ui/preset-views\" typecheck",
+    "test": "pnpm --filter main-ui --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" test",
+    "demo:dev": "pnpm --filter main-ui-demo dev",
+    "demo:build": "pnpm --filter main-ui-demo build",
     "test:e2e": "playwright test",
-    "analyze:dist": "node scripts/report-dist-size.mjs"
-  },
-  "peerDependencies": {
-    "vue": "^3.5.0"
+    "analyze:dist": "node scripts/report-dist-size.mjs packages/main-ui/dist",
+    "release:pack": "pnpm build && node scripts/copy-release-docs.mjs && pnpm --filter main-ui pack --pack-destination ../../"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@vitejs/plugin-vue": "^6.0.6",
-    "tsup": "^8.5.1",
     "typescript": "~5.7.2",
     "vite": "^7.1.5",
-    "vitest": "^3.2.4",
     "vue": "^3.5.0"
-    }
+  }
 }

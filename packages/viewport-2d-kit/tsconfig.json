@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+
+    "strict": true,
+    "skipLibCheck": true,
+
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": [
+    "src/index.ts",
+    "src/core.ts",
+    "src/vue.ts",
+    "src/animation.ts",
+    "src/constraints.ts",
+    "src/controller.ts",
+    "src/coordinateAdapters.ts",
+    "src/interactions.ts",
+    "src/preventPageZoom.ts",
+    "src/renderers.ts",
+    "src/types.ts",
+    "src/viewportMath.ts",
+    "src/core/**/*.ts",
+    "src/vue/**/*.ts",
+    "src/main-ui/**/*.ts",
+    "src/pixi/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.tsx",
+    "src/modes/**",
+    "src/mode-*.ts",
+    "src/ui.ts",
+    "src/ui/**",
+    "src/useViewportCamera.ts",
+    "src/Viewport2D.tsx"
+  ]
+}

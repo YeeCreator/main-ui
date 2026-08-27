@@ -2,7 +2,7 @@
 
 ## 当前版本与升级方式
 
-当前接入基线为 `main-ui 0.1.0`，对应本地包 `main-ui-0.1.0.tgz`。本次升级不要求重写现有 editor renderer；下游应显式选择是否安装该包。源码联调可继续使用 `file:../main-ui`，版本验收使用 `.tgz` 包。
+当前接入基线为 `main-ui 0.4.0`。本次升级不要求重写现有 editor renderer；下游应显式选择是否安装该包与官方视图模板包（`@main-ui/view-*` / `@main-ui/preset-views`）。v0.4 新增停靠引导拖拽与二期三个官方视图模板（form/node/console）及表单基座包 `@main-ui/core`，持久化文档版本不变（仍为 3）；升级路径另见 `MIGRATION_GUIDE_0.4.0.md`。
 
 本文档面向宿主项目维护者，说明 `main-ui` 作为工作台内核时，宿主应如何注册 workspace、editor、renderer、mount adapter，以及哪些职责必须继续留在宿主侧。
 
@@ -355,3 +355,69 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 3. `HOST_ADAPTER_GUIDE.md`：查适配草案与早期宿主示例。
 
 本文件作为正式宿主接入指南，应优先用于后续宿主项目实施。
+
+## 9. 官方视图模板包安装与接入（v0.3 一期 + v0.4 二期）
+
+一期四个官方视图模板以独立包交付：`@main-ui/view-tree`（虚拟滚动树）、`@main-ui/view-inspector`（schema 检查器）、`@main-ui/view-2d`（2D 画布，依赖 `@main-ui/viewport-2d-kit` 与 pixi.js）、`@main-ui/view-table`（虚拟滚动表格）；二期三个：`@main-ui/view-form`（配置面板）、`@main-ui/view-node`（节点图，peer `@vue-flow/core ^1.48`）、`@main-ui/view-console`（日志/控制台追加列表）；聚合包 `@main-ui/preset-views` 命名空间重导出全部七包。另：`@main-ui/core` 为框架无关表单基座（`view-form` / `view-inspector` 共用，宿主自定义表单亦可单独消费）。
+
+安装：
+
+```sh
+npm i @main-ui/view-tree @main-ui/view-inspector @main-ui/view-2d @main-ui/view-table \
+      @main-ui/view-form @main-ui/view-node @main-ui/view-console
+# 或只装聚合包：npm i @main-ui/preset-views
+# 使用 view-node 需额外安装：npm i @vue-flow/core@^1.48
+```
+
+模板包把 `main-ui`（`^0.4.0`）与 `vue` 作为 peerDependency，宿主需已安装两者。接入三步：
+
+1. **注册**：每包提供 `registerXxxEditor(runtime, options, resolveProps?, extraProps?)`，一键完成 descriptor + renderer 注册；`options.allowedWorkspaceIds` 声明模板可出现的 workspace，并需把模板 kind（如 `view-tree` / `view-form` / `view-node` / `view-console`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
+2. **数据经 Props 进**：`resolveProps(context)` 把宿主适配层数据转成模板契约（含 `loading` / `error` 三态）；模板不取数、不缓存。
+3. **意图经 Emits 出**：`extraProps(context)` 转发模板事件（一期如 `onSelect` / `onChange` / `onCellEditIntent` / `onReady`；二期如 `onSubmit` / `onSavePresetIntent` / `onApplyPresetIntent` / `onNodeMoveIntent` / `onNodeConnectIntent` / `onClearIntent`）；宿主裁决后回写自己的数据源，经受控回流更新视图。
+
+二期模板接入要点：
+
+1. **view-form 配置面板链路**：提交永远以意图抛出（`onSubmit` 携带 `{ values, valid, errors }`）；宿主校验裁决 → 落库（可模拟异步）→ 经 `patchViewData`/数据源回写回填；预设存取同走意图（`onSavePresetIntent` / `onApplyPresetIntent`），存储位置由宿主决定。参考实现：`demo/src/adapter/registerPresetViewEditors.ts`。
+2. **view-node**：`@vue-flow/core` 结构样式为 vendored `view-flow.css`，经运行时 `<link>` 幂等注入（带 document 守卫，SSR 自动跳过），宿主无需处理 CSS；节点/边只接收纯 JSON 数据，悬空边自动剪除。
+3. **view-console**：条目追加、上限截断与清空均由宿主数据源承担（模板只经 `onClearIntent` 声明意图）；自动跟随/锁滚/等级与文本过滤为视图本地呈现行为，进视图状态契约。
+4. **view-asset 顺延说明**：资产网格模板顺延至 v0.5（缩略图契约待下游信箱回执），接入规划届时补充。
+
+宿主适配层职责（模板包不承担）：
+
+1. 取数、缓存、三态管理（参考实现：`demo/src/adapter/` 的 `mockApi` + `presetViewStore` + `registerPresetViewEditors`）。
+2. 编辑意图的校验/裁决与后端提交（含 view-form 的提交落库与回填）。
+3. `view-2d` 的世界内容绘制（模板只提供相机/视口底座，`onReady` 回调拿到 `PixiViewport` 后宿主自行绘制）。
+4. 日志/条目流的生产与上限管理（view-console），预设的存储介质（view-form）。
+5. 编辑器实例关闭时的数据清理（可选，防内存增长）。
+6. 停靠引导（v0.4）为内核内置交互，无需宿主接入；若宿主自实现拖拽，可复用 `resolveDropZone` / `dropZoneToSplitDirection` 纯函数。
+
+模板红线（接入评审项）：模板实现 `MainUiViewLifecycle` 全四成员，视图状态（树展开态、表格滚动、2d 相机、节点图视口/选中、控制台过滤/跟随态、表单草稿）随布局保存/恢复；模板包内零网络请求；颜色只消费 `--mui-*` 变量（密度尺寸消费 `--mui-density-*` / `--mui-row-height*`，宿主经 `data-mui-density="compact"` 切换紧凑模式）。
+
+## 附录 A：对接后端（宿主适配层分层）
+
+`main-ui` 自身不发起任何网络请求（发布检查项：`grep -rE "fetch\(|axios|XMLHttpRequest|WebSocket" packages/main-ui/src` 零命中）。所有后端交互由宿主适配层承担，推荐四层分工：
+
+1. **main-ui 内核**：只管布局、插槽、持久化快照；不认识任何业务模型。
+2. **视图模板**（`@main-ui/view-*` 或宿主自绘视图）：声明式消费 Props 数据（含 `loading / error / data` 三态），业务意图经 Emits 向外声明；模板包零网络请求。
+3. **宿主适配层**：宿主项目内的业务层，负责取数、缓存、乐观更新、错误归一化；向下调后端接口，向上把数据注入视图 Props、把视图意图翻译为后端调用。
+4. **后端**：REST/HTTP 提供查询与命令，WebSocket 提供推送。
+
+HTTP 与 WebSocket 分工：
+
+1. 一次性查询、提交、增删改走 HTTP（请求-响应语义清晰，便于重试与缓存）。
+2. 实时性推送（协作变更、任务进度、服务状态）走 WebSocket；适配层维护单一连接并做断线重连，视图不感知连接细节。
+3. 视图模板永不直连 WebSocket；适配层把推送归一为普通数据更新后经 Props 下发。
+
+长任务范式：
+
+1. 提交长任务时后端立即返回 `taskId`，不同步阻塞等待结果。
+2. 适配层以 `taskId` 订阅进度（WebSocket 推送优先，轮询兜底），把 `{ status, progress, result?, error? }` 归一后下发给视图。
+3. 视图按三态渲染：进行中显示进度，失败显示可重试错误，成功显示结果；任务本身的重试与取消由适配层负责。
+4. `main-ui` 的 editor payload 只存 `taskId` 等引用，不存任务结果大对象。
+
+类型对齐建议（Pydantic → OpenAPI → TypeScript）：
+
+1. 后端用 Pydantic 定义接口模型，作为唯一事实来源。
+2. 由 FastAPI/类似框架导出 OpenAPI schema，用 `openapi-typescript` 等工具生成 TS 类型，纳入宿主适配层构建流程。
+3. 视图模板消费的 Props 类型从生成的类型收窄而来；避免手写与后端模型漂移的接口定义。
+4. 分页、错误体、时间戳等公共结构建议在后端统一定义，前端生成后全局复用。

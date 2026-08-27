@@ -5,8 +5,8 @@ import {
   defaultEditorCapability,
   defaultModalPresentation,
   defaultTabPresentation,
-} from '../../../src/core';
-import type { EditorDescriptor, WorkspaceDescriptor } from '../../../src/core';
+} from 'main-ui/core';
+import type { EditorDescriptor, WorkspaceDescriptor } from 'main-ui/core';
 
 export const hostProfileWorkspaceIds = [
   'workspace-demo',
@@ -51,12 +51,25 @@ export const hostProfileEditors: EditorDescriptor[] = [
     },
     presentation: defaultModalPresentation,
   }),
-  createEditor('table-demo', 'Table', 'table-demo-editor', { description: 'Information table editor.' }),
-  createEditor('inspector-demo', 'Inspector', 'inspector-demo-editor', { description: 'Property inspector editor.' }),
-  createEditor('graph-placeholder', 'Graph', 'graph-placeholder-editor', { description: 'Graph or DAG surface.' }),
-  createEditor('canvas-placeholder', 'Canvas', 'canvas-placeholder-editor', { description: 'Canvas style interaction surface.' }),
+  createEditor('table-demo', 'Table', 'table-demo-editor', {
+    description: 'Information table editor.',
+    capability: { ...defaultEditorCapability, allowFloatingWindow: true },
+  }),
+  createEditor('inspector-demo', 'Inspector', 'inspector-demo-editor', {
+    description: 'Property inspector editor.',
+    capability: { ...defaultEditorCapability, allowFloatingWindow: true },
+  }),
+  createEditor('graph-placeholder', 'Graph', 'graph-placeholder-editor', {
+    description: 'Graph or DAG surface.',
+    capability: { ...defaultEditorCapability, allowFloatingWindow: true },
+  }),
+  createEditor('canvas-placeholder', 'Canvas', 'canvas-placeholder-editor', {
+    description: 'Canvas style interaction surface.',
+    capability: { ...defaultEditorCapability, allowFloatingWindow: true },
+  }),
   createEditor('viewport-foundation', 'Viewport', 'viewport-foundation-editor', {
     description: 'Neutral viewport-2d-kit editor foundation fixture.',
+    capability: { ...defaultEditorCapability, allowFloatingWindow: true },
     createDefaultPayload: () => ({ foundation: 'viewport-2d-kit', variant: 'generic' }),
   }),
   createEditor('profile-panel', 'Panel', 'profile-panel-editor', { description: 'Host profile side panel.' }),
@@ -71,6 +84,7 @@ export const hostProfileEditors: EditorDescriptor[] = [
       ...defaultEditorCapability,
       allowMultipleInstances: true,
       allowDuplicate: true,
+      allowFloatingWindow: true,
     },
   }),
 ];
@@ -81,8 +95,8 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
     title: 'Demo',
     description: 'Core workbench smoke test',
     icon: 'DM',
-    allowedEditorKinds: ['welcome', 'settings', 'table-demo', 'graph-placeholder', 'inspector-demo', 'external-mount-demo'],
-    recommendedEditorKinds: ['welcome', 'table-demo', 'graph-placeholder', 'external-mount-demo', 'settings'],
+    allowedEditorKinds: ['welcome', 'settings', 'table-demo', 'graph-placeholder', 'inspector-demo', 'external-mount-demo', 'view-tree', 'view-inspector', 'view-2d', 'view-table', 'view-form', 'view-node', 'view-console'],
+    recommendedEditorKinds: ['welcome', 'table-demo', 'graph-placeholder', 'external-mount-demo', 'view-tree', 'view-2d', 'view-form', 'view-node', 'view-console'],
     defaultOpenRequests: [{ editorKind: 'welcome' }],
     createDefaultLayout: () => createSingleGroupLayout({ groupId: 'workspace-demo-group', leafNodeId: 'workspace-demo-leaf' }),
     allowUserReset: true,

@@ -1,0 +1,49 @@
+{
+  "name": "@main-ui/view-2d",
+  "version": "0.3.0",
+  "private": false,
+  "description": "main-ui 官方视图模板：2D 画布（在 @main-ui/viewport-2d-kit pixi 入口之上的 docking-ready 封装），相机状态进视图状态契约。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/view-2d"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@main-ui/viewport-2d-kit": "^0.1.0",
+    "main-ui": "^0.4.0",
+    "pixi.js": "^8.0.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@main-ui/viewport-2d-kit": "workspace:*",
+    "main-ui": "workspace:*",
+    "pixi.js": "^8.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.0"
+  }
+}
