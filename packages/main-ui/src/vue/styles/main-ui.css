@@ -34,6 +34,16 @@
   /* 结构与排版 */
   --mui-radius: 3px;
   --mui-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mui-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 密度与缩放（v0.4 起）：行高/间距/控件尺寸统一消费变量，
+     宿主经根元素 data-mui-density="compact" 切换紧凑模式。 */
+  --mui-row-height: 24px;
+  --mui-row-height-dense: 20px;
+  --mui-density-gap: 8px;
+  --mui-density-gap-compact: 4px;
+  --mui-control-height: 22px;
+  --mui-toolbar-height: 29px;
 
   /* 兼容别名（0.1.x 既有消费方过渡用，新样式请勿使用） */
   --main-ui-bg: var(--mui-color-bg);
@@ -50,6 +60,14 @@
   --main-ui-status-text: var(--mui-color-status-text);
   --main-ui-radius: var(--mui-radius);
   --main-ui-font: var(--mui-font);
+}
+
+/* 紧凑密度：行高与间距降级，消费方统一读 --mui-density-* / 行高变量 */
+[data-mui-density='compact'] {
+  --mui-row-height: var(--mui-row-height-dense);
+  --mui-density-gap: var(--mui-density-gap-compact);
+  --mui-control-height: 18px;
+  --mui-toolbar-height: 25px;
 }
 
 [data-mui-theme='dark'] {
@@ -594,6 +612,14 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+}
+
+/* 错误边界容器：继承表面高度，保证内部视图 height:100% 与自滚动（虚拟滚动）成立 */
+.main-ui-editor-boundary {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .main-ui-editor-surface--missing {
