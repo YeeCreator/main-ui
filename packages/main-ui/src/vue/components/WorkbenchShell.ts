@@ -1,6 +1,7 @@
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useWorkbench } from '../composables/useWorkbench';
 import { ActivityBar } from './ActivityBar';
+import { FloatingWindowLayer } from './FloatingWindowLayer';
 import { OverlayLayer } from './OverlayLayer';
 import { StatusBar } from './StatusBar';
 import { TitleBar } from './TitleBar';
@@ -37,6 +38,7 @@ export const WorkbenchShell = defineComponent({
         h(BottomPanel),
         h(StatusBar),
       ]),
+      h(FloatingWindowLayer),
       h(OverlayLayer),
       h(CommandPalette, { open: paletteOpen.value, onClose: () => { paletteOpen.value = false; } }),
       h(QuickOpen, { open: quickOpen.value, onClose: () => { quickOpen.value = false; } }),

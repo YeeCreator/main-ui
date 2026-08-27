@@ -19,6 +19,8 @@ const iconMap: Record<string, string> = {
   splitDown: '▥',
   maximize: '□',
   restore: '↙',
+  popout: '⇱',
+  dock: '⇲',
   plus: '+',
   tab: '▣',
   sun: '☼',
