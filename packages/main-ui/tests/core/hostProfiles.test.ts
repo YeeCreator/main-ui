@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { hostProfileEditors, hostProfileValidationCases, hostProfileWorkspaces } from '../../../../demo/src/runtime/hostProfiles';
 
-// 一期官方视图模板经模板包在宿主运行时动态注册（见 demo registerDemoPresetViewEditors），
+// 官方视图模板（一期 + 二期）经模板包在宿主运行时动态注册（见 demo registerPresetViewEditors），
 // 不随 hostProfileEditors 夹具静态声明，这里并入其 kind 以还原真实注册集合。
-const PRESET_VIEW_EDITOR_KINDS = ['view-tree', 'view-inspector', 'view-2d', 'view-table'];
+const PRESET_VIEW_EDITOR_KINDS = [
+  'view-tree', 'view-inspector', 'view-2d', 'view-table',
+  'view-form', 'view-node', 'view-console',
+];
 const editorKinds = new Set([...hostProfileEditors.map((editor) => editor.kind), ...PRESET_VIEW_EDITOR_KINDS]);
 
 describe('host profile fixtures', () => {
