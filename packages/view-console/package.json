@@ -1,0 +1,45 @@
+{
+  "name": "@main-ui/view-console",
+  "version": "0.4.0",
+  "private": false,
+  "description": "main-ui 官方视图模板：自研虚拟滚动控制台/日志追加列表（等级着色、自动滚动/锁滚、清空意图与本地过滤）。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/view-console"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "main-ui": "^0.4.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "main-ui": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.0"
+  }
+}
