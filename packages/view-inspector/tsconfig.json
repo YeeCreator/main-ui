@@ -11,6 +11,7 @@
 
     "baseUrl": ".",
     "paths": {
+      "@main-ui/core": ["../core/src/index.ts"],
       "main-ui": ["../main-ui/src/index.ts"],
       "main-ui/core": ["../main-ui/src/core/index.ts"],
       "main-ui/vue": ["../main-ui/src/vue/index.ts"]
