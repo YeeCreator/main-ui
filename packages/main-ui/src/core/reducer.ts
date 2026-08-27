@@ -458,12 +458,22 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
     case 'editor/moveTabToGroup':
       return moveTabToGroup(document, action.fromGroupId, action.toGroupId, action.tabId, action.index, context);
     case 'editor/moveTabToNewSplit': {
-      const leaf = getLeafNodeByGroupId(workspace.layout, action.fromGroupId);
+      // 目标叶子可在主布局或指定浮动窗口的布局子树内（v0.4 停靠引导：浮动窗口边缘同样支持分割落点）。
+      const targetLayout = action.floatingWindowId
+        ? workspace.floatingWindows?.[action.floatingWindowId]?.layout ?? null
+        : resolveLayoutWithGroup(workspace, action.fromGroupId) ?? workspace.layout;
+      if (!targetLayout) return fail('floatingWindow.notFound', `Floating window ${action.floatingWindowId} was not found.`);
+      const leaf = getLeafNodeByGroupId(targetLayout, action.fromGroupId)
+        ?? (targetLayout.nodes[action.targetLeafNodeId]?.type === 'leaf' ? targetLayout.nodes[action.targetLeafNodeId] : undefined);
       if (!leaf) return fail('layout.leafNotFound', `Leaf for group ${action.fromGroupId} was not found.`);
-      const splitResult = splitLeaf(workspace.layout, action.targetLeafNodeId, action.direction, 0.5, context.createId);
+      const splitResult = splitLeaf(targetLayout, action.targetLeafNodeId, action.direction, 0.5, context.createId);
       if (!splitResult.ok) return splitResult as Result<WorkbenchDocument>;
-      workspace.layout = splitResult.value;
-      const toGroupId = workspace.layout.activeGroupId;
+      if (action.floatingWindowId && workspace.floatingWindows?.[action.floatingWindowId]) {
+        workspace.floatingWindows[action.floatingWindowId].layout = splitResult.value;
+      } else {
+        workspace.layout = splitResult.value;
+      }
+      const toGroupId = splitResult.value.activeGroupId;
       if (!toGroupId) return fail('layout.noTargetGroup', 'No new split group was created.');
       return moveTabToGroup(next, action.fromGroupId, toGroupId, action.tabId, undefined, context);
     }
