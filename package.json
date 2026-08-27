@@ -11,9 +11,9 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "pnpm --filter main-ui dev",
-    "build": "pnpm --filter main-ui build && pnpm --filter \"@main-ui/viewport-2d-kit\" build && pnpm --filter \"@main-ui/view-*\" build",
-    "typecheck": "pnpm --filter main-ui typecheck && pnpm --filter \"@main-ui/viewport-2d-kit\" typecheck",
-    "test": "pnpm --filter main-ui test",
+    "build": "pnpm --filter main-ui build && pnpm --filter \"@main-ui/viewport-2d-kit\" build && pnpm --filter \"@main-ui/view-*\" build && pnpm --filter \"@main-ui/preset-views\" build",
+    "typecheck": "pnpm --filter main-ui --filter \"@main-ui/viewport-2d-kit\" --filter \"@main-ui/view-*\" --filter \"@main-ui/preset-views\" typecheck",
+    "test": "pnpm --filter main-ui --filter \"@main-ui/view-*\" test",
     "demo:dev": "pnpm --filter main-ui-demo dev",
     "demo:build": "pnpm --filter main-ui-demo build",
     "test:e2e": "playwright test",
