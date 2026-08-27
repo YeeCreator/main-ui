@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { EditorRenderContext, JsonObject } from '../../../src/core';
+import type { EditorRenderContext, JsonObject } from 'main-ui/core';
 import {
   Viewport2DCanvas,
   type Camera2D,
   type Viewport2DCanvasExpose,
   type ViewportContainerSize,
-} from 'viewport-2d-kit/vue';
+} from '@main-ui/viewport-2d-kit/vue';
 
 type ViewportVariant = 'autodo-graph' | 'math-canvas' | 'game-board' | 'generic';
 

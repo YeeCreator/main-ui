@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { EditorRenderContext } from '../../../src/core';
+import type { EditorRenderContext } from 'main-ui/core';
 
 defineProps<{ context: EditorRenderContext }>();
 </script>
