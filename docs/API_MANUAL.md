@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.3.0`。API 以本地 `.tgz` 版本包交付；本版本新增浮动窗口（docking Window 层）与一期四个官方视图模板包（`@main-ui/view-*` + 聚合包 `@main-ui/preset-views`），既有注册方式继续有效，持久化文档版本升为 3（附自动迁移）。
+本文档对应 `main-ui 0.4.0`。API 以本地 `.tgz` 版本包交付；本版本新增停靠引导拖拽（五向指示器 + Ghost 预览）、二期三个官方视图模板包（`@main-ui/view-form` / `view-node` / `view-console`）与表单基座包 `@main-ui/core`、主题密度变量；既有注册方式继续有效，持久化文档版本不变（仍为 3）。
 
 ## 入口
 
@@ -96,6 +96,7 @@ await runtime.core.dispatch({ type: 'overlay/open', request: { editorKind: 'sett
 8. switch / reset workspace。
 9. set theme mode。
 10. floating window popout / dock back / update geometry / close（v0.3 新增）。
+11. move tab to new split（v0.4 新增，停靠引导边缘落点）。
 
 常用 action 类型：
 
@@ -117,7 +118,19 @@ type WorkbenchAction =
   | { type: 'floatingWindow/dockBack'; windowId: FloatingWindowId; targetGroupId?: GroupId }
   | { type: 'floatingWindow/updateGeometry'; windowId: FloatingWindowId; position?: { x: number; y: number }; size?: { width: number; height: number } }
   | { type: 'floatingWindow/close'; windowId: FloatingWindowId }
+  | { type: 'editor/moveTabToNewSplit'; fromGroupId: GroupId; targetLeafNodeId: LayoutNodeId; tabId: string; direction: SplitDirection; floatingWindowId?: FloatingWindowId }
 ```
+
+## 拖拽停靠引导（v0.4）
+
+tab 拖拽至目标叶子组时，呈现五向落点指示器与 Ghost 预览，落点确认后一步落 action：
+
+1. **五向落点纯函数**（`main-ui/core` 导出）：
+   - `resolveDropZone(rect, point, edgeRatio?)`：根据指针位置解析 `top | bottom | left | right | center`；边缘带宽度 = 对应边长 × `edgeRatio`（默认 0.22），四角归入先命中的水平方向。
+   - `dropZoneToSplitDirection(zone)`：边缘落点映射为分割方向（`up/down/left/right`），中心落点返回 `null`（组内堆叠）。
+2. **action**：边缘落点经 `editor/moveTabToNewSplit`（携带 `floatingWindowId` 时作用于浮动窗口子树）；中心落点仍走既有 `tab/move`。
+3. **渲染层**：Vue 层维护拖拽会话状态，渲染五向指示器与 Ghost 预览；能力仲裁沿用 Slot 能力方法。
+4. **红线**：指示器与预览仅为视觉提示，不修改布局树中间态；只有落点确认（drop）才落 action，取消拖拽（Escape / 拖出释放）布局树零残留。
 
 ## 浮动窗口（Window 层）
 
@@ -201,7 +214,7 @@ export type EditorMountAdapter = {
 
 ## 官方视图模板包（@main-ui/view-*）
 
-一期四个模板包 + 聚合包，均为独立 npm 包，`main-ui` 为 peerDependency：
+一期四个 + 二期三个模板包 + 聚合包，均为独立 npm 包，`main-ui`（`^0.4.0`）为 peerDependency：
 
 | 包 | 内核 | 用途 |
 | --- | --- | --- |
@@ -209,7 +222,12 @@ export type EditorMountAdapter = {
 | `@main-ui/view-inspector` | schema 驱动表单 | 属性检视：对象 + schema，变更经 Emits 抛出 |
 | `@main-ui/view-2d` | `@main-ui/viewport-2d-kit`（pixi） | 2D 画布：相机状态进 `getViewState` |
 | `@main-ui/view-table` | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
-| `@main-ui/preset-views` | — | 聚合包：命名空间重导出四包（`tree` / `inspector` / `view2d` / `table`） |
+| `@main-ui/view-form`（v0.4） | schema 驱动表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出，宿主裁决后回填 |
+| `@main-ui/view-node`（v0.4） | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState`，移动/连线以意图抛出 |
+| `@main-ui/view-console`（v0.4） | 自研虚拟滚动 | 日志/控制台追加列表：等级/文本过滤、自动跟随/锁滚、清空意图 |
+| `@main-ui/preset-views` | — | 聚合包：命名空间重导出（`tree` / `inspector` / `view2d` / `table` / `form` / `node` / `consoleView`） |
+
+另：`@main-ui/core`（v0.4 新增）为框架无关的表单基座包（`FormFieldSchema` / `FormValues` / 校验纯函数），供 `view-form` 与 `view-inspector` 共用，宿主自定义表单亦可单独消费。
 
 每包统一结构：`types.ts` 数据契约（TS 类型）+ 主组件（`MainUiViewLifecycle` 四成员全实现）+ `register.ts` 一键注册：
 
@@ -283,4 +301,5 @@ v0.3 起 demo 新增「模拟后端适配层」示范（`demo/src/adapter/`）�
 
 1. `mockApi.ts`：模拟异步取数（延迟 + 可配失败率），产出领域数据。
 2. `presetViewStore.ts`：响应式仓库（按编辑器实例隔离，三态管理）。
-3. `registerPresetViewEditors.ts`：四个模板的接入端（取数 → 转契约 → props 注入 → 意图裁决回写）。
+3. `registerPresetViewEditors.ts`：一期 + 二期共七个模板的接入端（取数 → 转契约 → props 注入 → 意图裁决回写）。
+4. v0.4 补充：配置面板链路示范（view-form 提交 → 宿主校验裁决 → 模拟落库 → `patchViewData` 回填）、预设存储（存取以意图抛出）、日志流模拟（定时器追加 + 上限截断）。
