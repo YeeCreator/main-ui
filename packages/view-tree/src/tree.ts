@@ -44,19 +44,5 @@ export const flattenTree = (
   return rows;
 };
 
-/** 虚拟滚动窗口计算（纯函数，可单测）：只渲染可见切片 + 少量缓冲行。 */
-export const computeVirtualWindow = (
-  scrollTop: number,
-  viewportHeight: number,
-  itemHeight: number,
-  totalCount: number,
-  overscan = 4,
-): { start: number; end: number; offsetY: number; totalHeight: number } => {
-  if (totalCount === 0 || itemHeight <= 0) {
-    return { start: 0, end: 0, offsetY: 0, totalHeight: 0 };
-  }
-  const start = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
-  const visible = Math.ceil(Math.max(0, viewportHeight) / itemHeight);
-  const end = Math.min(totalCount, start + visible + overscan * 2);
-  return { start, end, offsetY: start * itemHeight, totalHeight: totalCount * itemHeight };
-};
+/** 虚拟滚动窗口计算（纯函数，可单测）：委托 @main-ui/core 公共基座。 */
+export { computeVirtualWindow } from '@main-ui/core';

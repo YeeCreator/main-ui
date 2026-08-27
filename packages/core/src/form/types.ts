@@ -74,12 +74,40 @@ export type FormTextareaField = {
   maxLength?: number;
 };
 
+/** 数组字段（动态增删行，每项为内嵌字段）。 */
+export type FormArrayField = {
+  kind: 'array';
+  key: string;
+  label: string;
+  description?: string;
+  /** 数组项字段定义（每项复用同一结构） */
+  itemFields: FormField[];
+  defaultValue?: FormValues[];
+  disabled?: boolean;
+  minItems?: number;
+  maxItems?: number;
+};
+
+/** 条件显隐规则：当指定字段值匹配时，字段可见。 */
+export type VisibleWhen = {
+  /** 依赖字段 key */
+  field: string;
+  /** 匹配值（支持单值或数组；数组时任一匹配即可见） */
+  equals: unknown;
+  /** 取反：匹配时隐藏而非显示 */
+  negate?: boolean;
+};
+
 export type FormField =
   | FormStringField
   | FormNumberField
   | FormBooleanField
   | FormSelectField
-  | FormTextareaField;
+  | FormTextareaField
+  | FormArrayField;
+
+/** 所有字段可选的条件显隐属性（opt-in，不影响既有宿主行为）。 */
+export type FormFieldWithVisibility = FormField & { visibleWhen?: VisibleWhen };
 
 /** 字段分组（呈现顺序即数组顺序；省略分组即平铺字段列表）。 */
 export type FormGroup = {
@@ -140,4 +168,21 @@ export const createDefaultFormValues = (schema: FormSchema): FormValues => {
     }
   }
   return values;
+};
+
+/**
+ * 评估字段是否可见（纯函数，可单测）。
+ * 无 visibleWhen 条件时默认可见；条件不满足时隐藏。
+ */
+export const evaluateVisibility = (
+  field: FormFieldWithVisibility,
+  values: FormValues,
+): boolean => {
+  if (!field.visibleWhen) return true;
+  const { field: depKey, equals, negate } = field.visibleWhen;
+  const depValue = values[depKey];
+  const matches = Array.isArray(equals)
+    ? equals.some((v) => v === depValue)
+    : equals === depValue;
+  return negate ? !matches : matches;
 };
