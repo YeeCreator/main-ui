@@ -1,0 +1,62 @@
+{
+  "name": "@main-ui/preset-views",
+  "version": "0.4.0",
+  "private": false,
+  "description": "main-ui 官方视图模板聚合包：一次性引入一期四模板（tree / inspector / 2d / table）与二期模板（form / node / console），仅重导出。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/preset-views"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@main-ui/core": "^0.4.0",
+    "@main-ui/view-2d": "^0.3.0",
+    "@main-ui/view-console": "^0.4.0",
+    "@main-ui/view-form": "^0.4.0",
+    "@main-ui/view-inspector": "^0.4.0",
+    "@main-ui/view-node": "^0.4.0",
+    "@main-ui/view-table": "^0.3.0",
+    "@main-ui/view-tree": "^0.3.0",
+    "@vue-flow/core": "^1.48.0",
+    "main-ui": "^0.4.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@main-ui/core": "workspace:*",
+    "@main-ui/view-2d": "workspace:*",
+    "@main-ui/view-console": "workspace:*",
+    "@main-ui/view-form": "workspace:*",
+    "@main-ui/view-inspector": "workspace:*",
+    "@main-ui/view-node": "workspace:*",
+    "@main-ui/view-table": "workspace:*",
+    "@main-ui/view-tree": "workspace:*",
+    "@vue-flow/core": "^1.48.2",
+    "main-ui": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.0"
+  }
+}

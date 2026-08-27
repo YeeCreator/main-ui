@@ -1,0 +1,97 @@
+.vk-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e5e7eb;
+  font-size: 12px;
+}
+
+.vk-toolbar__label {
+  color: #4b5563;
+}
+
+.vk-toolbar__button {
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.vk-toolbar__button.is-active {
+  background: #e0f2fe;
+}
+
+.vk-toolbar__button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.vk-toolbar__separator {
+  width: 1px;
+  height: 16px;
+  background: #e5e7eb;
+}
+
+.vk-toolbar__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vk-toolbar__select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.vk-toolbar__selected {
+  color: #4b5563;
+}
+
+.vk-context-menu {
+  min-width: 180px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+  font-size: 13px;
+}
+
+.vk-context-menu__label {
+  padding: 6px 8px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.vk-context-menu__separator {
+  height: 1px;
+  margin: 4px 0;
+  background: #e5e7eb;
+}
+
+.vk-context-menu__item {
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #111827;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.vk-context-menu__item[data-highlighted] {
+  outline: none;
+  background: #eff6ff;
+}
+
+.vk-context-menu__item[data-disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "main-ui": ["../main-ui/src/index.ts"],
+      "main-ui/core": ["../main-ui/src/core/index.ts"],
+      "main-ui/vue": ["../main-ui/src/vue/index.ts"],
+      "@main-ui/view-tree": ["../view-tree/src/index.ts"],
+      "@main-ui/view-inspector": ["../view-inspector/src/index.ts"],
+      "@main-ui/view-2d": ["../view-2d/src/index.ts"],
+      "@main-ui/view-table": ["../view-table/src/index.ts"],
+      "@main-ui/core": ["../core/src/index.ts"],
+      "@main-ui/view-form": ["../view-form/src/index.ts"],
+      "@main-ui/view-node": ["../view-node/src/index.ts"],
+      "@main-ui/view-console": ["../view-console/src/index.ts"],
+      "@main-ui/viewport-2d-kit": ["../viewport-2d-kit/src/index.ts"],
+      "@main-ui/viewport-2d-kit/core": ["../viewport-2d-kit/src/core/index.ts"],
+      "@main-ui/viewport-2d-kit/pixi": ["../viewport-2d-kit/src/pixi/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

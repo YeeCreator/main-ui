@@ -2,29 +2,31 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.1.1`。本版本已通过类型检查、核心测试和构建，并生成 `main-ui-0.1.1.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
+当前工程版本为 `main-ui 0.2.0`（v0.2 起仓库已转 pnpm workspace monorepo，主包位于 `packages/main-ui/`，包名仍为 `main-ui`）。本版本已通过类型检查、核心测试和构建，并生成 `.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
 
-下游升级时使用 `pnpm add ../main-ui/main-ui-0.1.1.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时仍可保留 `file:../main-ui`。
+下游升级时使用 `pnpm add ../main-ui/main-ui-0.2.0.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时仍可保留 workspace 内链接。
 
 ## 架构边界
 
-`main-ui` 分为四层：
+`main-ui` 分为四层（均位于 `packages/main-ui/src/`）：
 
-1. `src/core/`：纯 TypeScript，禁止导入 Vue、DOM 组件库和业务服务。
-2. `src/vue/`：官方 Vue3 renderer，只负责渲染、事件绑定和 provider 注入。
-3. `src/adapters/`：外部内容挂载、图标、快捷键等通用契约。
-4. `src/tokens/`：主题令牌。
+1. `core/`：纯 TypeScript，禁止导入 Vue、DOM 组件库和业务服务。
+2. `vue/`：官方 Vue3 renderer，只负责渲染、事件绑定和 provider 注入。
+3. `adapters/`：外部内容挂载、图标、快捷键等通用契约。
+4. `tokens/`：主题令牌。
+
+仓内其他包：`packages/viewport-2d-kit`（`@main-ui/viewport-2d-kit`）、`packages/viewport-3d-kit`（`@main-ui/viewport-3d-kit`，React 层为兼容层，非主线）；`packages/view-*`、`packages/theme`、`packages/preset-views` 为预留位。`demo/` 为 workspace 成员。
 
 宿主业务不进入本仓库。`autodo-app`、`matheshop`、`yeegames` 只在 demo fixture 中以中性 payload 表达。
 
-## 目录地图
+## 目录地图（以 `packages/main-ui/` 为根）
 
 1. `src/core/types.ts`：通用类型、Result、id/clock helper。
-2. `src/core/editor/`：editor descriptor、instance、打开策略。
+2. `src/core/editor/`：editor descriptor、instance、打开策略；`slot.ts`（类型化插槽注册表）、`lifecycle.ts`（`MainUiViewLifecycle` 视图契约与状态收集槽）。
 3. `src/core/layout/`：split tree 类型、布局 helper、纯操作函数。
 4. `src/core/reducer.ts`：工作台状态机。
-5. `src/core/runtime.ts`：registry、dispatch、订阅、persistence。
-6. `src/vue/`：Vue provider、shell、layout renderer、editor host。
+5. `src/core/runtime.ts`：registry（含 `slots`、`viewLifecycles`）、dispatch、订阅、persistence。
+6. `src/vue/`：Vue provider、shell、layout renderer、editor host、`MissingViewSurface`（快照降级占位）。
 7. `src/adapters/`：mount adapter 等宿主扩展契约。
 8. `demo/src/runtime/hostProfiles.ts`：阶段 K 的宿主 fixture。
 9. `tests/core/`：核心行为和 host profile 契约测试。
@@ -41,12 +43,14 @@
 ## 常用命令
 
 ```bash
-pnpm dev
-pnpm build
+pnpm dev          # 主包 dev
+pnpm build        # workspace 构建（主包 + 2d-kit）
 pnpm typecheck
 pnpm test
+pnpm demo:dev     # demo（端口 4183）
 pnpm demo:build
-pnpm run demo:dev
+pnpm test:e2e
+pnpm analyze:dist
 ```
 
 说明：`main-ui` 作为基础工具包，不引入 `*:deps` 维度。联调时由上层业务项目通过 `dev:deps` / `build:deps` 统一调度。
@@ -94,6 +98,14 @@ View/panel descriptor 只声明 `rendererKey`/`providerKey`，不把 Vue 或业�
 ### Accessibility 与 resilience
 
 所有 renderer/adapter 都应允许错误边界接管；adapter 的 cleanup 必须幂等。需要将自定义焦点区标记为 `data-main-ui-scope`，并为 provider surface 提供 label。高对比度主题只覆盖语义 token，不要求宿主重写业务 editor 样式。
+
+### 主题变量规范（强制）
+
+1. 所有样式必须消费 `--mui-` 前缀的 CSS 变量（定义于 `packages/main-ui/src/vue/styles/main-ui.css` 头部 `:root`）；核心与内置组件不写死颜色（`#xxx`、`rgb(`），确需写死的须在 PR 中登记豁免理由。
+2. `--main-ui-*` 变量与 `main-ui-theme--*` 类名仅为历史兼容保留，新代码一律使用 `--mui-*` 与 `data-mui-theme`。
+3. 主题切换的唯一机制：`WorkbenchShell` 根元素输出 `data-mui-theme`（`light` / `dark` / `high-contrast`）属性，`[data-mui-theme='dark'|'high-contrast']` 选择器覆写变量；`system` 模式由 `MainUiProvider` 监听 `matchMedia('(prefers-color-scheme: dark)')` 解析并同步 `resolvedMode`。禁止在组件内自行读写主题类名或媒体查询。
+4. 新增令牌时：先在 `:root` 与两套 `data-mui-theme` 覆写中同步定义，再在样式中消费；三套取值需同时补齐，避免暗色下漏改。
+5. 发布审计基线：`main-ui.css` 中除令牌定义区（`:root` 与 `[data-mui-theme]` 覆写）外，不应再出现硬编码色值。
 
 ## Mount Adapter 开发规则
 

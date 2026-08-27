@@ -1,5 +1,84 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-27 · 0.4.0 停靠引导拖拽 + 二期官方视图模板 + 主题密度变量
+
+功能交付：
+
+1. P0-1 停靠引导指示器 + Ghost 预览：新增五向落点纯函数（center/left/right/top/bottom 区域判定）与 `moveTabToNewSplit` action（支持浮动窗口子树）；Vue 层新增拖拽会话状态、五向指示器与 Ghost 预览渲染、能力仲裁（红线：指示器不改布局树中间态，仅落点确认后落 action）；e2e 覆盖边缘落点分割与取消无残留。
+2. P1-1 二期模板包：
+   - `@main-ui/core`（新建）：表单基座包，`FormFieldSchema` / `FormValues` / 校验纯函数，供 view-form 与 view-inspector 共用；
+   - `@main-ui/view-form`：schema 驱动表单模板，提交/预设存取均以意图抛出（demo 演示「提交 → 宿主裁决 → 落库 → 回填」链路）；
+   - `@main-ui/view-node`：`@vue-flow/core` 薄封装（选型定案见本日志前置专项），视口与选中进 `getViewState`；CSS 采用 vendored `view-flow.css` + 运行时 `<link>` 注入（规避 rollup 对裸 css import 的默认导出差异）；
+   - `@main-ui/view-console`：自研虚拟滚动追加列表（等级/文本过滤、自动跟随/锁滚、清空意图）；
+   - `view-asset` 顺延至 v0.5：信箱无下游回执，缩略图契约待宿主需求确认（见 MIGRATION_GUIDE_0.4.0 说明）。
+   全部模板实现契约四成员（幂等 `onDestroy`）、Props 进 Emits 出、零网络、颜色消费 `--mui-*`。
+3. 聚合包 `@main-ui/preset-views` 扩入二期（form/node/consoleView 命名空间重导出，版本升 0.4.0）；`view-inspector` 同步升 0.4.0（对齐表单基座）。
+4. P2-1 契约评审：网络调用扫描（fetch/axios/XMLHttpRequest/WebSocket）对全部 `packages/*/src` 零命中；硬编码色值仅存于令牌定义区与历史 kit；二期模板契约四成员逐个核验通过。demo 新增配置面板链路示范（提交→模拟落库→回填）。
+5. P3-1 主题密度变量：`--mui-row-height` / `--mui-row-height-dense` / `--mui-density-gap` / `--mui-control-height` / `--mui-toolbar-height` / `--mui-font-mono`，根元素 `data-mui-density="compact"` 切换紧凑模式；view-console 工具条为首个消费示范。
+6. 修复：`EditorErrorBoundary` 容器补 `height: 100%; overflow: hidden`，修复编辑器表面内 `height: 100%` 视图被内容撑开、自滚动（虚拟滚动/自动跟随）失效的问题；修复 view-console 自动跟随与程序化滚动互踩（改监视源数据长度 + 双帧贴底 + 程序化滚动标记）。
+7. 主包 `main-ui` 0.3.0 → 0.4.0，全部模板包 `main-ui` peer 统一 `^0.4.0`；IconToken 补 `terminal` / `preview` 图标。
+
+验证：`pnpm typecheck`（12 包全绿）、`pnpm test`（109 项：core 7 / main-ui 52 / view-2d 7 / inspector 9 / console 5 / form 3 / node 4 / table 9 / tree 10 等）、`pnpm build`、`pnpm demo:build`、`pnpm exec playwright test`（5 passed）全部通过；浏览器冒烟验证 view-form 提交回流、view-node 六节点六边、view-console 跟随/锁滚/回底恢复均正常。
+
+文档：API_MANUAL（拖拽停靠交互章节）、HOST_INTEGRATION_GUIDE（二期模板接入）、MIGRATION_GUIDE_0.4.0、本日志。
+
+## 2026-08-27 · 0.4.0 前置专项：节点图内核选型定案（view-node）
+
+候选：`@vue-flow/core` vs `@antv/x6` vs 收编下游 `flow-graph-kit`。
+
+**定案：采用 `@vue-flow/core`（1.48.x，MIT）。**
+
+对比依据（任务要求四维度）：
+
+| 维度 | vue-flow | @antv/x6 | 收编 flow-graph-kit |
+| --- | --- | --- | --- |
+| Vue3 契合度 | ★★★★★ 原生 Vue3 组件模型，节点即组件，响应式增量渲染 | ★★★ 框架无关引擎，需 `@antv/x6-vue-shape` 适配层（主版本须对齐） | ★★ 该 kit 为下游外部仓库，收编需跨仓迁移 + 包化改造，且 HOST_INTEGRATION_GUIDE 红线禁止 main-ui core 直接依赖下游 kit |
+| 包体积 | 小：core 约 1.2 MB 解包（gzip 约 40 KB）+ d3 交互模块 | 大：解包约 8.5 MB（全量引入），按需裁剪后仍显著重于 vue-flow | 不可控（依赖其内部实现） |
+| 维护活跃度 | 1.48.2（2026-01 发布），小版本持续迭代 | 3.1.8（2026-08 发布），非常活跃 | 下游自维护，不在本仓治理范围 |
+| ViewLifecycle 配合 | ★★★★★ nodes/edges/viewport 均为纯 JSON 响应式数据，`getViewState` 直接返回、`restoreViewState` 直接回灌 | ★★★★ `graph.toJSON()` 可序列化，但画布实例与 Vue 响应式双轨，状态同步需额外桥接 | 未知 |
+
+配套决策：
+
+1. view-node 仅做薄封装（契约四成员 + Props 进 Emits 出），若未来内核需替换，成本收敛在单包内。
+2. 场景规模评估：下游诉求为图文档/公式连线（数十至数百节点），vue-flow 的 SVG/HTML 增量渲染性能充足；若未来出现千级节点+力导向布局诉求再评估迁移。
+3. 风险：vue-flow 国内资料少、v2 规划中。缓解：锁定 minor 版本 + lockfile；薄封装隔离内核 API。
+
+## 2026-08-27 · 0.3.0 浮动窗口（Window 层）+ 一期官方视图模板 + 模拟后端适配层示范
+
+功能交付：
+
+1. P0-1 浮动窗口：`WorkspaceState` 新增 `floatingWindows`（每个窗口持独立布局子树，与主树同构）；新增 `floatingWindow/popout` / `dockBack` / `updateGeometry` / `close` 四个 action 与 `clampFloatingGeometry` 越界归位助手；持久化版本升 3（v2→v3 迁移函数 + 测试）；Vue 层新增 `FloatingWindowLayer`（可拖动/可缩放窗内浮动层）与拖出/拖回出入口，`allowFloatingWindow` 逐 editor 门控；视图状态收集覆盖浮动窗口内表面（`MainUiViewLifecycle` 全链串联）。
+2. P1-1 一期四模板包：`@main-ui/view-tree`（虚拟滚动树：过滤/展开/选中）、`@main-ui/view-inspector`（schema 表单）、`@main-ui/view-2d`（2d-kit docking-ready 封装，相机进 `getViewState`）、`@main-ui/view-table`（虚拟滚动表格：排序/行内编辑意图）；四包统一实现 `MainUiViewLifecycle` 四成员、零网络请求、颜色消费 `--mui-*`；聚合包 `@main-ui/preset-views` 命名空间重导出。
+3. 模板包 `register.ts` 提供 `createXxxEditorRenderer(resolveProps?, extraProps?)` 与 `registerXxxEditor` 一键注册：数据经 Props（含三态）进、意图经 Emits 出。
+4. P2-1 demo 模拟后端适配层：新增 `demo/src/adapter/`（`mockApi` 异步取数 + 失败率、`presetViewStore` 响应式仓库三态管理、`registerPresetViewEditors` 四模板接入端），演示「取数 → 转契约 → props 注入 → 意图裁决回写」标准链路。
+5. 测试：主包新增 `floatingWindow.test.ts`（14 项），主包总量 31→45；四模板包新增 10+9+7+9 项；e2e 新增模板链路用例（1 → 3 项）。
+
+验证：`pnpm typecheck`、`pnpm test`（主包 45 + 模板包 35 全绿）、`pnpm build`、`pnpm demo:build`、`pnpm test:e2e`（3 passed）全部通过；网络依赖扫描对全部 `packages/*/src` 零命中；核心包未引入 pixi/three（pixi 仅在 2d-kit 与 view-2d）。
+
+文档：API_MANUAL（浮动窗口 + 模板包章节）、HOST_INTEGRATION_GUIDE（§9 模板安装与接入）、HOST_ADAPTER_GUIDE（§7 浮动窗口能力边界）、MIGRATION_GUIDE_0.3.0、本日志。
+
+## 2026-08-27 · 0.2.0 契约先行 + 工程底座（monorepo）
+
+仓库结构变更（包名映射）：
+
+1. 仓库根转 pnpm workspace：`src/` + 构建/测试配置迁入 `packages/main-ui/`，包名保持 `main-ui`，导出面与产物结构不变；`demo/` 转 workspace 成员 `main-ui-demo`。
+2. 迁入外部生态项目：`viewport-2d-kit` → `packages/viewport-2d-kit`（包名 `@main-ui/viewport-2d-kit`，入口面不变）；`viewport-3d-kit` → `packages/viewport-3d-kit`（包名 `@main-ui/viewport-3d-kit`，React 依赖转 optional，README 标注 React 层为兼容层、非主线）。
+3. 预留 `packages/view-*`、`packages/theme`、`packages/preset-views` 空位（v0.3 交付）。
+4. demo 端口改 4183（4173 与其他项目冲突），Playwright 同步；新增 `scripts/copy-release-docs.mjs` 供发布前复制 docs。
+
+功能交付：
+
+1. P0-1 Slot 正名与类型化：新增 `core/editor/slot.ts`（`SlotDescriptor` / `SlotLookup` / `slotCan` / `SlotRegistry`），editor 注册时自动叠加登记插槽，`resolve` 永不抛错、缺失返回显式 `missing`；既有 `rendererKey` 契约不变。
+2. P0-2 快照降级占位：新增 `MissingViewSurface`，`EditorSurfaceHost` 接入 Slot 查找，未注册视图类型/缺失 renderer 时渲染「视图不可用（类型缺失）」占位，保留原标题、payload 与 restoreKey，提供关闭命令。
+3. P0-3 Tab 溢出收纳：`LeafGroupRenderer` 重写，提供左右滚动按钮、溢出下拉菜单（点击切换隐藏 tab）、活动 tab 自动滚动，ResizeObserver 响应宽度变化。
+4. P1-2 视图生命周期契约：新增 `core/editor/lifecycle.ts`（`MainUiViewLifecycle` 四成员契约 + `ViewLifecycleRegistry` 状态收集槽），runtime 暴露 `viewLifecycles`；完整串联随 v0.3 浮动窗口落地。
+5. P2-1 前后端边界成文：API_MANUAL 新增「纯 UI 边界与数据契约」章节；HOST_INTEGRATION_GUIDE 新增「附录 A：对接后端」（四层分工、HTTP/WS 分工、长任务范式、Pydantic→OpenAPI→TS）；网络扫描基线零命中并列入发布检查项。
+6. P3-1 主题变量规范：`main-ui.css` 重构为 `--mui-*` 规范令牌（`--main-ui-*` 与 `main-ui-theme--*` 保留兼容），`WorkbenchShell` 输出 `data-mui-theme` 根属性，`MainUiProvider` 以 matchMedia 监听作为 system 模式唯一解析来源；DEVELOPER_GUIDE 成文强制规范。
+7. P4-1 插件契约预埋：`contribution/types.ts` 新增 `DockingViewContribution` / `PluginContributes` 纯类型，无任何运行时调度。
+8. 新增 `slotLifecycle.test.ts`（9 项），测试总量 22→31。
+
+验证：`pnpm typecheck`、`pnpm test`（31 passed）、`pnpm build`、`pnpm demo:build`、`pnpm test:e2e` 全部通过；网络依赖扫描（`fetch(` / `axios` / `XMLHttpRequest` / `WebSocket`）零命中；硬编码色值仅存于令牌定义区。
+
 ## 2026-08-25 · 0.1.1 MenuBar Flat Command Fix
 
 1. 修复 `MenuBar` 顶层扁平命令项（无 `submenu`、直接挂 `commandId`）点击仅切换展开、不执行命令的问题；改为无子菜单时直接执行命令。

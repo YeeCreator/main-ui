@@ -1,6 +1,8 @@
 # main-ui
 
-当前版本：`0.1.1`。本版本已生成本地版本包 `main-ui-0.1.1.tgz`，适合下游通过 pnpm 显式安装和维护；当前尚未发布到 npm registry。安装包内含 `docs/` 文档目录，可直接查看用户手册、API 手册和迁移指南。
+当前版本：`0.2.0`。本版本已生成本地版本包 `main-ui-0.2.0.tgz`，适合下游通过 pnpm 显式安装和维护；当前尚未发布到 npm registry。安装包内含 `docs/` 文档目录，可直接查看用户手册、API 手册和迁移指南。
+
+仓库自 `0.2.0` 起为 pnpm workspace monorepo：主包位于 `packages/main-ui/`（包名仍为 `main-ui`），同仓管理 `@main-ui/viewport-2d-kit`、`@main-ui/viewport-3d-kit`，`packages/view-*`、`packages/theme`、`packages/preset-views` 为模板库预留位。
 
 `main-ui` 是一套全新的 Vue3 + framework-free core 工作台内核库。它不兼容旧 `main-ui-react`，也不包含任何宿主业务逻辑。
 
@@ -25,6 +27,7 @@
 7. L：README 与 docs 四件套同步到新版口径。
 8. 0.1.0：command/keybinding、菜单/面板/设置 schema、布局迁移/tab 体验、可访问性与韧性边界。
 9. 0.1.1：修复 MenuBar 扁平命令项点击不执行的问题（无 `submenu`、直接挂 `commandId` 的 menubar 项现在点击即执行命令）。
+10. 0.2.0：仓库 monorepo 化；Slot 类型化管理与快照降级占位；Tab 溢出收纳；`MainUiViewLifecycle` 视图契约与状态收集槽；前后端边界规范成文；`--mui-*` 主题变量规范与 `data-mui-theme` 切换机制；插件契约纯类型预埋。
 
 ## 安装与开发
 

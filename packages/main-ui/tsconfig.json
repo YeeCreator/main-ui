@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [],
+    "lib": ["ES2022", "DOM"],
+    "baseUrl": ".",
+    "paths": {
+      "main-ui": ["./src/index.ts"],
+      "main-ui/core": ["./src/core/index.ts"],
+      "main-ui/vue": ["./src/vue/index.ts"],
+      "main-ui/adapters": ["./src/adapters/index.ts"],
+      "main-ui/tokens": ["./src/tokens/index.ts"],
+      "@main-ui/viewport-2d-kit": ["../viewport-2d-kit/src/index.ts"],
+      "@main-ui/viewport-2d-kit/*": ["../viewport-2d-kit/src/*/index.ts"]
+    }
+  },
+  "include": ["src", "tests", "vitest.config.ts"]
+}
