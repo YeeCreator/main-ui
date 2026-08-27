@@ -18,7 +18,7 @@
 
 ## 新增可选契约（opt-in）
 
-- 模板包注册沿用一期模式：`registerFormEditor` / `registerNodeEditor` / `registerConsoleEditor`（`resolveProps` 注入数据与三态，`extraProps` 消费意图）；聚合包 `@main-ui/preset-views` 已扩入 `form` / `node` / `consoleView` 命名空间。
+- 模板包注册沿用一期模式：`registerFormViewEditor` / `registerNodeViewEditor` / `registerConsoleViewEditor`（`resolveProps` 注入数据与三态，`extraProps` 消费意图）；全量 API 见 `PRESET_VIEWS_GUIDE.md`；聚合包 `@main-ui/preset-views` 已扩入 `form` / `node` / `consoleView` 命名空间。
 - `view-node` 的 CSS 为 vendored `view-flow.css`，经运行时 `<link>` 幂等注入（带 `document` 守卫）；SSR/非浏览器环境自动跳过，无需宿主处理。
 
 ## 必须检查

@@ -1,5 +1,22 @@
 # DEVELOPMENT_LOG
 
+## 2026-08-27 · 0.4.0 后置专项：文档体系全量对齐与模板库标准文档
+
+背景：v0.2–0.4 功能快速交付后，部分文档停留在 0.2.0 口径；本次专项把文档体系全量对齐到 0.4.0，并补齐「安装后可独立获取」的标准文档。
+
+文档变更：
+
+1. 新增 `PRESET_VIEWS_GUIDE.md`：官方视图模板库统一指南——七个模板包 + 聚合包的安装矩阵、接入三步、每模板全量 Props/Emits/视图状态 API、宿主适配层职责与扩展模式；随主包 `docs/*.md` 分发。
+2. 重写 `USER_MANUAL.md`：补入停靠引导拖拽、浮动窗口、Tab 溢出收纳、七个模板演示、主题密度与常见恢复操作，口径对齐 0.4.0。
+3. 重写 `DEVELOPER_GUIDE.md`：补全 monorepo 包地图、目录地图（含 `floatingWindow.ts` / `dropZone.ts` / `dockingDrag.ts` / `lifecycle.ts` / `slot.ts`）、模板包开发规则、发布检查项与验证路径。
+4. 重写 `docs/README.md`：按角色提供导读路径，补全包内文档地图；重写仓库根 `README.md` 至 0.4.0 口径。
+5. 新增 `packages/main-ui/README.md`：主包包内 README（此前发布包缺失），含文档导航与快速开始；`npm pack` 验证携带全部 19 份文档 + README。
+6. 更新 `packages/preset-views/README.md`：补入二期三命名空间（form / node / consoleView）与附加内核依赖说明。
+7. 修正 `MIGRATION_GUIDE_0.4.0.md` 注册函数名（`registerFormViewEditor` / `registerNodeViewEditor` / `registerConsoleViewEditor`）；`API_MANUAL.md` 模板章节接入 `PRESET_VIEWS_GUIDE.md` 指引。
+8. 配套：外部总设计文档（设计：main-ui）扩写为完备自足的十六节版本（含包目录、核心契约、实现状态矩阵与术语表）。
+
+验证：`npm pack --dry-run` 确认主包 tarball 携带 README 与全套 `docs/*.md`（含 `PRESET_VIEWS_GUIDE.md`，165.6 kB / 46 文件）；模板包 tarball 携带各自 README；`pnpm typecheck`（12 包）与 `pnpm test`（106 项）保持全绿（文档变更不涉及代码）。
+
 ## 2026-08-27 · 0.4.0 停靠引导拖拽 + 二期官方视图模板 + 主题密度变量
 
 功能交付：

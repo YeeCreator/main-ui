@@ -214,7 +214,7 @@ export type EditorMountAdapter = {
 
 ## 官方视图模板包（@main-ui/view-*）
 
-一期四个 + 二期三个模板包 + 聚合包，均为独立 npm 包，`main-ui`（`^0.4.0`）为 peerDependency：
+一期四个 + 二期三个模板包 + 聚合包，均为独立 npm 包，`main-ui`（`^0.4.0`）为 peerDependency。**模板库的安装矩阵、接入三步与全量 Props/Emits/视图状态 API 见 [PRESET_VIEWS_GUIDE.md](PRESET_VIEWS_GUIDE.md)**；下表为速览：
 
 | 包 | 内核 | 用途 |
 | --- | --- | --- |
