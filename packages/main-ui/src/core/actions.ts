@@ -18,7 +18,7 @@ export type EditorAction =
   | { type: 'editor/activateTab'; groupId: GroupId; tabId: string }
   | { type: 'editor/reopenRecentlyClosed'; targetGroupId?: GroupId }
   | { type: 'editor/moveTabToGroup'; fromGroupId: GroupId; toGroupId: GroupId; tabId: string; index?: number }
-  | { type: 'editor/moveTabToNewSplit'; fromGroupId: GroupId; targetLeafNodeId: LayoutNodeId; tabId: string; direction: SplitDirection }
+  | { type: 'editor/moveTabToNewSplit'; fromGroupId: GroupId; targetLeafNodeId: LayoutNodeId; tabId: string; direction: SplitDirection; floatingWindowId?: FloatingWindowId }
   | { type: 'editor/duplicateInstance'; groupId: GroupId; tabId: string; payloadOverride?: Record<string, unknown> };
 
 export type TabStateAction =

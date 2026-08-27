@@ -16,6 +16,7 @@ export * from './editor/slot';
 export * from './editor/lifecycle';
 export * from './editor/viewModels';
 export * from './layout/createLayout';
+export * from './layout/dropZone';
 export * from './layout/operations';
 export * from './layout/types';
 export * from './overlay/types';
