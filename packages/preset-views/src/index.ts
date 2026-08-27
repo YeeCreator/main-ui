@@ -16,3 +16,5 @@ export * as form from '@main-ui/view-form';
 export * as node from '@main-ui/view-node';
 export * as consoleView from '@main-ui/view-console';
 export * as flow from '@main-ui/view-flow';
+export * as sandbox from '@main-ui/view-sandbox';
+export * as hostEngine from '@main-ui/view-host-engine';
