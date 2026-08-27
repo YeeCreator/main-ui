@@ -3,6 +3,7 @@ import type { WorkbenchDocument, WorkspaceState } from '../workspace/types';
 const migrateWorkspace = (workspace: Partial<WorkspaceState>): WorkspaceState => ({
   workspaceId: workspace.workspaceId ?? 'workspace-demo',
   layout: workspace.layout!,
+  floatingWindows: workspace.floatingWindows ?? {},
   editors: workspace.editors ?? {}, tabs: workspace.tabs ?? {}, overlays: workspace.overlays ?? {},
   recentlyClosed: workspace.recentlyClosed ?? [], focusHistory: workspace.focusHistory ?? [],
   dirtyFromPreset: workspace.dirtyFromPreset ?? false, updatedAt: workspace.updatedAt ?? new Date(0).toISOString(),
@@ -20,5 +21,5 @@ export const migrateWorkbenchDocument = (input: unknown): WorkbenchDocument | nu
   if (!activeWorkspaceId) return null;
   const recentWorkspaces = source.recentWorkspaces?.filter((id) => Boolean(workspaceStates[id])) ?? [activeWorkspaceId];
   const recentEditors = source.recentEditors ?? Object.values(workspaceStates).flatMap((workspace) => Object.values(workspace.editors).map((editor) => ({ editorKind: editor.kind, restoreKey: editor.restoreKey, openedAt: editor.createdAt }))).slice(0, 30);
-  return { version: 2, activeWorkspaceId, workspaceStates, theme: source.theme ?? { mode: 'system', resolvedMode: 'light', themeId: 'main-ui-system' }, settings: source.settings ?? { density: 'compact' }, recentWorkspaces: recentWorkspaces.length > 0 ? recentWorkspaces : [activeWorkspaceId], recentEditors };
+  return { version: 3, activeWorkspaceId, workspaceStates, theme: source.theme ?? { mode: 'system', resolvedMode: 'light', themeId: 'main-ui-system' }, settings: source.settings ?? { density: 'compact' }, recentWorkspaces: recentWorkspaces.length > 0 ? recentWorkspaces : [activeWorkspaceId], recentEditors };
 };

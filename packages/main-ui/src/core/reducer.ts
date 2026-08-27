@@ -1,11 +1,13 @@
 import type { WorkbenchAction } from './actions';
 import type { EditorDescriptor, EditorInstance, EditorOpenRequest, TabInstance } from './editor/types';
 import { closeLeaf, getFirstGroupId, getLeafNodeByGroupId, resizeSplit, setActiveGroup, splitLeaf, toggleMaximize } from './layout/operations';
+import type { LayoutDocument } from './layout/types';
+import { countFloatingWindowTabs, createFloatingWindowLayout, defaultFloatingPosition, floatingWindowDefaults } from './floatingWindow';
 import type { OverlaySession } from './overlay/types';
-import type { Clock, EditorInstanceId, GroupId, IdFactory, JsonObject, Result, TabId } from './types';
+import type { Clock, EditorInstanceId, FloatingWindowId, GroupId, IdFactory, JsonObject, Result, TabId } from './types';
 import { fail, ok } from './types';
 import { createWorkspaceState } from './documentFactory';
-import type { WorkbenchDocument, WorkspaceDescriptor, WorkspaceState } from './workspace/types';
+import type { FloatingWindowState, WorkbenchDocument, WorkspaceDescriptor, WorkspaceState } from './workspace/types';
 
 export type ReducerContext = {
   editors: Map<string, EditorDescriptor>;
@@ -51,17 +53,41 @@ const findExistingInstanceTab = (workspace: WorkspaceState, kind: string): { edi
 };
 
 const activateTabInGroup = (workspace: WorkspaceState, groupId: GroupId, tabId: TabId, now: Clock): Result<void> => {
-  const group = workspace.layout.groups[groupId];
-  if (!group || !group.tabIds.includes(tabId)) {
+  const layout = resolveLayoutWithGroup(workspace, groupId);
+  const group = layout?.groups[groupId];
+  if (!layout || !group || !group.tabIds.includes(tabId)) {
     return fail('editor.tabNotInGroup', `Tab ${tabId} is not in group ${groupId}.`);
   }
 
   group.activeTabId = tabId;
   group.lastActiveTabId = tabId;
-  workspace.layout.activeGroupId = groupId;
+  layout.activeGroupId = groupId;
   workspace.focusHistory.push({ groupId, tabId, focusedAt: now() });
   if (tabId) workspace.tabHistory = [tabId, ...(workspace.tabHistory ?? []).filter((id) => id !== tabId)].slice(0, 50);
   return ok(undefined);
+};
+
+/** 在主布局树与全部浮动窗口布局子树中查找持有指定组的布局文档。 */
+const resolveLayoutWithGroup = (workspace: WorkspaceState, groupId: GroupId): LayoutDocument | null => {
+  if (workspace.layout.groups[groupId]) {
+    return workspace.layout;
+  }
+  for (const floatingWindow of Object.values(workspace.floatingWindows ?? {})) {
+    if (floatingWindow.layout.groups[groupId]) {
+      return floatingWindow.layout;
+    }
+  }
+  return null;
+};
+
+/** 回收不再持有任何页签的浮动窗口（关闭/拖回最后一个页签后）。 */
+const pruneEmptyFloatingWindows = (workspace: WorkspaceState): void => {
+  const windows = workspace.floatingWindows ?? {};
+  for (const [windowId, floatingWindow] of Object.entries(windows)) {
+    if (countFloatingWindowTabs(floatingWindow) === 0) {
+      delete windows[windowId];
+    }
+  }
 };
 
 const openEditor = (document: WorkbenchDocument, request: EditorOpenRequest, context: ReducerContext): Result<WorkbenchDocument> => {
@@ -164,9 +190,10 @@ const removeEditorIfUnused = (workspace: WorkspaceState, editorInstanceId: Edito
 const closeTab = (document: WorkbenchDocument, groupId: GroupId, tabId: TabId, context: ReducerContext): Result<WorkbenchDocument> => {
   const next = cloneDocument(document);
   const workspace = activeWorkspace(next);
-  const group = workspace.layout.groups[groupId];
+  const layout = resolveLayoutWithGroup(workspace, groupId);
+  const group = layout?.groups[groupId];
   const tab = workspace.tabs[tabId];
-  if (!group || !tab || !group.tabIds.includes(tabId)) {
+  if (!layout || !group || !tab || !group.tabIds.includes(tabId)) {
     return fail('editor.tabNotFound', `Tab ${tabId} was not found in group ${groupId}.`);
   }
 
@@ -187,6 +214,7 @@ const closeTab = (document: WorkbenchDocument, groupId: GroupId, tabId: TabId, c
     removeEditorIfUnused(workspace, editor.id);
   }
 
+  pruneEmptyFloatingWindows(workspace);
   touchWorkspace(workspace, context.now);
   return ok(next);
 };
@@ -229,8 +257,10 @@ const reopenRecentlyClosed = (document: WorkbenchDocument, targetGroupId: GroupI
 const moveTabToGroup = (document: WorkbenchDocument, fromGroupId: GroupId, toGroupId: GroupId, tabId: TabId, index: number | undefined, context: ReducerContext): Result<WorkbenchDocument> => {
   const next = cloneDocument(document);
   const workspace = activeWorkspace(next);
-  const fromGroup = workspace.layout.groups[fromGroupId];
-  const toGroup = workspace.layout.groups[toGroupId];
+  const fromLayout = resolveLayoutWithGroup(workspace, fromGroupId);
+  const toLayout = resolveLayoutWithGroup(workspace, toGroupId);
+  const fromGroup = fromLayout?.groups[fromGroupId];
+  const toGroup = toLayout?.groups[toGroupId];
   if (!fromGroup || !toGroup || !fromGroup.tabIds.includes(tabId)) {
     return fail('editor.moveTargetInvalid', 'The tab move target is invalid.');
   }
@@ -245,6 +275,7 @@ const moveTabToGroup = (document: WorkbenchDocument, fromGroupId: GroupId, toGro
   if (!activated.ok) {
     return activated as Result<WorkbenchDocument>;
   }
+  pruneEmptyFloatingWindows(workspace);
   touchWorkspace(workspace, context.now);
   return ok(next);
 };
@@ -405,7 +436,7 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
     }
     case 'editor/setTabState': {
       const tab = workspace.tabs[action.tabId];
-      if (!tab || !workspace.layout.groups[action.groupId]?.tabIds.includes(action.tabId)) return fail('editor.tabNotFound', `Tab ${action.tabId} was not found.`);
+      if (!tab || !resolveLayoutWithGroup(workspace, action.groupId)?.groups[action.groupId]?.tabIds.includes(action.tabId)) return fail('editor.tabNotFound', `Tab ${action.tabId} was not found.`);
       if (action.pinned !== undefined) tab.pinned = action.pinned;
       if (action.preview !== undefined) tab.preview = action.preview;
       if (action.dirty !== undefined) tab.dirty = action.dirty;
@@ -413,7 +444,7 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
       return ok(next);
     }
     case 'editor/reorderTab': {
-      const group = workspace.layout.groups[action.groupId];
+      const group = resolveLayoutWithGroup(workspace, action.groupId)?.groups[action.groupId];
       if (!group || !group.tabIds.includes(action.tabId)) return fail('editor.tabNotFound', `Tab ${action.tabId} was not found.`);
       group.tabIds = group.tabIds.filter((id) => id !== action.tabId);
       group.tabIds.splice(Math.max(0, Math.min(action.index, group.tabIds.length)), 0, action.tabId);
@@ -447,6 +478,101 @@ export const workbenchReducer = (document: WorkbenchDocument, action: WorkbenchA
       return dismissOverlay(document, action.overlayId, context);
     case 'overlay/promoteToTab':
       return promoteOverlayToTab(document, action.overlayId, action.targetGroupId, context);
+    case 'floatingWindow/popout': {
+      const sourceGroup = workspace.layout.groups[action.groupId];
+      if (!sourceGroup) return fail('layout.groupNotFound', `Group ${action.groupId} was not found in the main layout.`);
+      const requested = (action.tabIds ?? (sourceGroup.activeTabId ? [sourceGroup.activeTabId] : [])).filter((tabId) => sourceGroup.tabIds.includes(tabId));
+      if (requested.length === 0) return fail('editor.tabNotFound', 'No valid tab was provided for popout.');
+      // 能力仲裁：任一被拖出页签的 editor 不允许浮动窗口则拒绝（经 descriptor 标记，与 Slot 能力方法同源）。
+      for (const tabId of requested) {
+        const editor = workspace.editors[workspace.tabs[tabId]?.editorInstanceId ?? ''];
+        const descriptor = editor ? context.editors.get(editor.kind) : undefined;
+        if (!editor || !descriptor) return fail('editor.descriptorNotFound', `Editor for tab ${tabId} was not found.`);
+        if (!descriptor.capability.allowFloatingWindow) {
+          return fail('floatingWindow.notAllowed', `Editor ${editor.kind} cannot open in a floating window.`);
+        }
+      }
+      const windows = (workspace.floatingWindows ??= {});
+      const windowId: FloatingWindowId = context.createId('floating-window');
+      const activeTabId = requested.includes(sourceGroup.activeTabId ?? '') ? sourceGroup.activeTabId : requested[0];
+      const layout = createFloatingWindowLayout(requested, activeTabId, context.createId);
+      sourceGroup.tabIds = sourceGroup.tabIds.filter((candidate) => !requested.includes(candidate));
+      if (sourceGroup.activeTabId && requested.includes(sourceGroup.activeTabId)) {
+        sourceGroup.activeTabId = sourceGroup.tabIds.at(-1) ?? null;
+        sourceGroup.lastActiveTabId = sourceGroup.activeTabId;
+      }
+      const index = Object.keys(windows).length;
+      windows[windowId] = {
+        id: windowId,
+        layout,
+        position: action.position ?? defaultFloatingPosition(index),
+        size: action.size ?? { width: floatingWindowDefaults.width, height: floatingWindowDefaults.height },
+        createdAt: context.now(),
+        updatedAt: context.now(),
+      } satisfies FloatingWindowState;
+      touchWorkspace(workspace, context.now);
+      return ok(next);
+    }
+    case 'floatingWindow/dockBack': {
+      const windows = workspace.floatingWindows ?? {};
+      const floatingWindow = windows[action.windowId];
+      if (!floatingWindow) return fail('floatingWindow.notFound', `Floating window ${action.windowId} was not found.`);
+      const targetGroupId = action.targetGroupId ?? workspace.layout.activeGroupId ?? getFirstGroupId(workspace.layout);
+      const targetGroup = targetGroupId ? workspace.layout.groups[targetGroupId] : undefined;
+      if (!targetGroupId || !targetGroup) return fail('layout.noTargetGroup', 'No target group is available for docking back.');
+      for (const group of Object.values(floatingWindow.layout.groups)) {
+        for (const tabId of group.tabIds) {
+          if (!targetGroup.tabIds.includes(tabId)) {
+            targetGroup.tabIds.push(tabId);
+          }
+        }
+      }
+      delete windows[action.windowId];
+      const restoredActive = floatingWindow.layout.activeGroupId ? floatingWindow.layout.groups[floatingWindow.layout.activeGroupId]?.activeTabId : null;
+      if (restoredActive && targetGroup.tabIds.includes(restoredActive)) {
+        const activated = activateTabInGroup(workspace, targetGroupId, restoredActive, context.now);
+        if (!activated.ok) return activated as Result<WorkbenchDocument>;
+      }
+      touchWorkspace(workspace, context.now);
+      return ok(next);
+    }
+    case 'floatingWindow/updateGeometry': {
+      const floatingWindow = (workspace.floatingWindows ?? {})[action.windowId];
+      if (!floatingWindow) return fail('floatingWindow.notFound', `Floating window ${action.windowId} was not found.`);
+      if (action.position) floatingWindow.position = { ...action.position };
+      if (action.size) {
+        floatingWindow.size = {
+          width: Math.max(floatingWindowDefaults.minWidth, action.size.width),
+          height: Math.max(floatingWindowDefaults.minHeight, action.size.height),
+        };
+      }
+      floatingWindow.updatedAt = context.now();
+      touchWorkspace(workspace, context.now);
+      return ok(next);
+    }
+    case 'floatingWindow/close': {
+      const windows = workspace.floatingWindows ?? {};
+      const floatingWindow = windows[action.windowId];
+      if (!floatingWindow) return fail('floatingWindow.notFound', `Floating window ${action.windowId} was not found.`);
+      for (const group of Object.values(floatingWindow.layout.groups)) {
+        for (const tabId of [...group.tabIds]) {
+          const tab = workspace.tabs[tabId];
+          if (!tab) continue;
+          const editor = workspace.editors[tab.editorInstanceId];
+          group.tabIds = group.tabIds.filter((candidate) => candidate !== tabId);
+          delete workspace.tabs[tabId];
+          workspace.tabHistory = (workspace.tabHistory ?? []).filter((id) => id !== tabId);
+          if (editor) {
+            workspace.recentlyClosed.unshift({ tab, editor, closedAt: context.now() });
+            removeEditorIfUnused(workspace, editor.id);
+          }
+        }
+      }
+      workspace.recentlyClosed = workspace.recentlyClosed.slice(0, 20);
+      delete windows[action.windowId];
+      touchWorkspace(workspace, context.now);
+      return ok(next);
+    }
     case 'theme/setMode': {
       const resolvedMode = action.resolvedMode ?? (action.mode === 'dark' ? 'dark' : 'light');
       next.theme = {
