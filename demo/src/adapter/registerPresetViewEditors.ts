@@ -1,7 +1,7 @@
 /**
- * demo 模板编辑器注册 —— v0.3 P2-1「模拟后端适配层」示范的接入端。
+ * demo 模板编辑器注册 —— 模拟后端适配层示范的接入端（一期 + 二期）。
  *
- * 每个一期官方视图模板走同一条链路：
+ * 每个官方视图模板走同一条链路：
  *   1. registerXxxEditor 一键注册 descriptor + renderer 适配器；
  *   2. `resolveProps` 从模拟后端取数（经 presetViewStore 缓存与三态管理），
  *      转成模板包契约后经 Props 注入；
@@ -20,8 +20,35 @@ import {
 } from '@main-ui/view-inspector';
 import { registerTableViewEditor, type TableCellEditIntent, type TableColumn, type TableRow } from '@main-ui/view-table';
 import { registerView2dEditor, DEFAULT_VIEW_2D_VIEWBOX, type View2dViewBox } from '@main-ui/view-2d';
+import {
+  registerFormViewEditor,
+  type FormApplyPresetIntentPayload,
+  type FormChangePayload,
+  type FormSavePresetIntentPayload,
+  type FormSchema,
+  type FormSubmitPayload,
+  type FormValues,
+} from '@main-ui/view-form';
+import {
+  registerNodeViewEditor,
+  type NodeConnectIntentPayload,
+  type NodeGraphData,
+  type NodeGraphEdgeData,
+  type NodeMoveIntentPayload,
+} from '@main-ui/view-node';
+import { registerConsoleViewEditor, type ConsoleEntry } from '@main-ui/view-console';
 import { hostProfileWorkspaceIds } from '../runtime/hostProfiles';
-import { fetchOrderTable, fetchProjectTree, fetchSceneGraph, fetchSceneInspector, type SceneGraphData } from './mockApi';
+import {
+  createConsoleEntry,
+  fetchConsoleLogs,
+  fetchNodeGraph,
+  fetchOrderTable,
+  fetchProjectTree,
+  fetchSceneGraph,
+  fetchSceneInspector,
+  fetchSettingsForm,
+  type SceneGraphData,
+} from './mockApi';
 import { ensureViewData, getViewRecord, patchViewData } from './presetViewStore';
 
 type DemoPresetRuntime = {
@@ -168,4 +195,142 @@ export const registerDemoPresetViewEditors = (runtime: DemoPresetRuntime): void 
       },
     }),
   );
+
+  // ---------- 配置面板（v0.4 P2-1 链路：提交 → 模拟适配层落库 → 回填） ----------
+  registerFormViewEditor(
+    runtime,
+    { allowedWorkspaceIds, title: 'Host Settings' },
+    (context) => {
+      const id = context.editor.id;
+      ensureViewData(id, () => fetchSettingsForm().then((data) => ({ ...data })));
+      const record = getViewRecord(id);
+      return {
+        schema: (record?.data.schema as FormSchema | undefined) ?? {},
+        values: (record?.data.values as FormValues | undefined) ?? null,
+        loading: isPending(record?.status),
+        error: record?.status === 'error' ? record.error : null,
+        presets: Object.keys(formPresetStore),
+      };
+    },
+    (context) => ({
+      onChange: (payload: FormChangePayload) => {
+        const record = getViewRecord(context.editor.id);
+        if (!record || record.status !== 'ready') return;
+        const values = { ...(record.data.values as FormValues), [payload.key]: payload.value };
+        patchViewData(context.editor.id, { data: { ...record.data, values } });
+      },
+      onSubmit: (payload: FormSubmitPayload) => {
+        // 裁决：非法提交不落库（阻断由宿主裁决，视图只呈现）
+        if (!payload.valid) {
+          console.warn(`[demo adapter] settings ${context.editor.id} submit rejected: invalid values`);
+          return;
+        }
+        // 模拟异步落库后回填（受控回流：视图值与“后端”值始终一致）
+        setTimeout(() => {
+          const record = getViewRecord(context.editor.id);
+          if (!record || record.status !== 'ready') return;
+          patchViewData(context.editor.id, { data: { ...record.data, values: { ...payload.values } } });
+          console.info(`[demo adapter] settings ${context.editor.id} persisted & refilled`);
+        }, 300);
+      },
+      onSavePresetIntent: (payload: FormSavePresetIntentPayload) => {
+        formPresetStore[payload.name] = { ...payload.values };
+        const record = getViewRecord(context.editor.id);
+        if (record) patchViewData(context.editor.id, { data: { ...record.data } }); // 触发 presets 列表回流
+      },
+      onApplyPresetIntent: (payload: FormApplyPresetIntentPayload) => {
+        const preset = formPresetStore[payload.name];
+        if (!preset) return;
+        const record = getViewRecord(context.editor.id);
+        if (!record || record.status !== 'ready') return;
+        patchViewData(context.editor.id, { data: { ...record.data, values: { ...preset } } });
+      },
+    }),
+  );
+
+  // ---------- 节点图（移动/连线意图裁决后回写，视口进视图状态） ----------
+  registerNodeViewEditor(
+    runtime,
+    { allowedWorkspaceIds, title: 'Pipeline Graph' },
+    (context) => {
+      const id = context.editor.id;
+      ensureViewData(id, () => fetchNodeGraph().then((data) => ({ ...data })));
+      const record = getViewRecord(id);
+      return {
+        nodes: (record?.data.nodes as NodeGraphData[] | undefined) ?? [],
+        edges: (record?.data.edges as NodeGraphEdgeData[] | undefined) ?? [],
+        loading: isPending(record?.status),
+        error: record?.status === 'error' ? record.error : null,
+      };
+    },
+    (context) => ({
+      onNodeMoveIntent: (payload: NodeMoveIntentPayload) => {
+        const record = getViewRecord(context.editor.id);
+        if (!record || record.status !== 'ready') return;
+        const nodes = ((record.data.nodes as NodeGraphData[] | undefined) ?? []).map((node) =>
+          node.id === payload.nodeId ? { ...node, position: { ...payload.position } } : node,
+        );
+        patchViewData(context.editor.id, { data: { ...record.data, nodes } });
+      },
+      onNodeConnectIntent: (payload: NodeConnectIntentPayload) => {
+        const record = getViewRecord(context.editor.id);
+        if (!record || record.status !== 'ready') return;
+        const edges = (record.data.edges as NodeGraphEdgeData[] | undefined) ?? [];
+        // 裁决：重复连线丢弃（仅示范，真实宿主可弹提示）
+        if (edges.some((edge) => edge.source === payload.source && edge.target === payload.target)) return;
+        const nextEdge: NodeGraphEdgeData = {
+          id: `e-${Date.now()}-${edges.length}`,
+          source: payload.source,
+          target: payload.target,
+        };
+        patchViewData(context.editor.id, { data: { ...record.data, edges: [...edges, nextEdge] } });
+      },
+    }),
+  );
+
+  // ---------- 控制台（日志流模拟追加；清空以意图裁决） ----------
+  registerConsoleViewEditor(
+    runtime,
+    { allowedWorkspaceIds, title: 'Log Stream' },
+    (context) => {
+      const id = context.editor.id;
+      ensureViewData(id, async () => {
+        const entries = await fetchConsoleLogs();
+        startConsoleStream(id); // 模拟宿主侧日志流推送（非网络）
+        return { entries };
+      });
+      const record = getViewRecord(id);
+      return {
+        entries: (record?.data.entries as ConsoleEntry[] | undefined) ?? [],
+        loading: isPending(record?.status),
+        error: record?.status === 'error' ? record.error : null,
+      };
+    },
+    (context) => ({
+      onClearIntent: () => {
+        const record = getViewRecord(context.editor.id);
+        if (!record) return;
+        patchViewData(context.editor.id, { data: { ...record.data, entries: [] } });
+      },
+    }),
+  );
+};
+
+// ---------- 二期模板的宿主侧模拟存储（均在适配层，模板包零存储零网络） ----------
+/** 表单预设模板存储（名称 → 值表）。 */
+const formPresetStore: Record<string, FormValues> = {};
+
+/** 日志流定时器（按实例隔离，上限 4000 条防内存增长）。 */
+const consoleStreams = new Map<string, ReturnType<typeof setInterval>>();
+
+const startConsoleStream = (editorInstanceId: string): void => {
+  if (consoleStreams.has(editorInstanceId)) return;
+  const timer = setInterval(() => {
+    const record = getViewRecord(editorInstanceId);
+    if (!record || record.status !== 'ready') return;
+    const entries = (record.data.entries as ConsoleEntry[] | undefined) ?? [];
+    const next = [...entries, createConsoleEntry()];
+    patchViewData(editorInstanceId, { data: { ...record.data, entries: next.length > 4000 ? next.slice(next.length - 4000) : next } });
+  }, 900);
+  consoleStreams.set(editorInstanceId, timer);
 };
