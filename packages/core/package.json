@@ -1,0 +1,39 @@
+{
+  "name": "@main-ui/core",
+  "version": "0.4.0",
+  "private": false,
+  "description": "main-ui 模板库公共基座：框架无关的表单 schema 类型与校验纯函数（view-form / view-inspector 共享）。与主包 main-ui 的 core 层（main-ui/core 子路径）相互独立。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4"
+  }
+}
