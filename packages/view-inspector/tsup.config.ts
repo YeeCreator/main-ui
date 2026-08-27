@@ -7,5 +7,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: ['vue', /^main-ui/],
+  external: ['vue', /^main-ui/, /^@main-ui\//],
 });

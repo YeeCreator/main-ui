@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/view-inspector",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": false,
   "description": "main-ui 官方视图模板：schema 驱动的属性检查器表单（string/number/boolean/select 字段）。",
   "license": "MIT",
@@ -32,10 +32,12 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "main-ui": "^0.3.0",
+    "@main-ui/core": "^0.4.0",
+    "main-ui": "^0.4.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
+    "@main-ui/core": "workspace:*",
     "main-ui": "workspace:*",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
