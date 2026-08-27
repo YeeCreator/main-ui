@@ -2,7 +2,7 @@
 
 ## 当前版本与升级方式
 
-当前接入基线为 `main-ui 0.1.0`，对应本地包 `main-ui-0.1.0.tgz`。本次升级不要求重写现有 editor renderer；下游应显式选择是否安装该包。源码联调可继续使用 `file:../main-ui`，版本验收使用 `.tgz` 包。
+当前接入基线为 `main-ui 0.3.0`。本次升级不要求重写现有 editor renderer；下游应显式选择是否安装该包与官方视图模板包（`@main-ui/view-*` / `@main-ui/preset-views`）。v0.3 新增浮动窗口与一期四个官方视图模板，持久化文档自动从 v2 迁移到 v3；升级路径另见 `MIGRATION_GUIDE_0.3.0.md`。
 
 本文档面向宿主项目维护者，说明 `main-ui` 作为工作台内核时，宿主应如何注册 workspace、editor、renderer、mount adapter，以及哪些职责必须继续留在宿主侧。
 
@@ -355,6 +355,32 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 3. `HOST_ADAPTER_GUIDE.md`：查适配草案与早期宿主示例。
 
 本文件作为正式宿主接入指南，应优先用于后续宿主项目实施。
+
+## 9. 官方视图模板包安装与接入（v0.3）
+
+一期四个官方视图模板以独立包交付：`@main-ui/view-tree`（虚拟滚动树）、`@main-ui/view-inspector`（schema 检查器）、`@main-ui/view-2d`（2D 画布，依赖 `@main-ui/viewport-2d-kit` 与 pixi.js）、`@main-ui/view-table`（虚拟滚动表格）；聚合包 `@main-ui/preset-views` 命名空间重导出四包。
+
+安装：
+
+```sh
+npm i @main-ui/view-tree @main-ui/view-inspector @main-ui/view-2d @main-ui/view-table
+# 或只装聚合包：npm i @main-ui/preset-views
+```
+
+模板包把 `main-ui` 与 `vue` 作为 peerDependency，宿主需已安装两者。接入三步：
+
+1. **注册**：每包提供 `registerXxxEditor(runtime, options, resolveProps?, extraProps?)`，一键完成 descriptor + renderer 注册；`options.allowedWorkspaceIds` 声明模板可出现的 workspace，并需把模板 kind（如 `view-tree`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
+2. **数据经 Props 进**：`resolveProps(context)` 把宿主适配层数据转成模板契约（含 `loading` / `error` 三态）；模板不取数、不缓存。
+3. **意图经 Emits 出**：`extraProps(context)` 转发模板事件（如 `onSelect` / `onChange` / `onCellEditIntent` / `onReady`）；宿主裁决后回写自己的数据源，经受控回流更新视图。
+
+宿主适配层职责（模板包不承担）：
+
+1. 取数、缓存、三态管理（参考实现：`demo/src/adapter/` 的 `mockApi` + `presetViewStore` + `registerPresetViewEditors`）。
+2. 编辑意图的校验/裁决与后端提交。
+3. `view-2d` 的世界内容绘制（模板只提供相机/视口底座，`onReady` 回调拿到 `PixiViewport` 后宿主自行绘制）。
+4. 编辑器实例关闭时的数据清理（可选，防内存增长）。
+
+模板红线（接入评审项）：模板实现 `MainUiViewLifecycle` 全四成员，视图状态（树展开态、表格滚动、2d 相机）随布局保存/恢复；模板包内零网络请求；颜色只消费 `--mui-*` 变量。
 
 ## 附录 A：对接后端（宿主适配层分层）
 

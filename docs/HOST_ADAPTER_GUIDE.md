@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-当前适配基线为 `main-ui 0.1.0`。外部 mount adapter、rendererKey 和宿主 editor 契约保持兼容；下游可通过 `main-ui-0.1.0.tgz` 做隔离升级验证。
+当前适配基线为 `main-ui 0.3.0`。外部 mount adapter、rendererKey 和宿主 editor 契约保持兼容；v0.3 新增浮动窗口能力边界（见 §7）与官方视图模板包接入（见 `HOST_INTEGRATION_GUIDE.md`）。
 
 本文说明 `main-ui` 如何作为通用工作台内核接入首批宿主：`autodo-app`、`matheshop`、`yeegames`。这些内容是适配草案，不迁移宿主业务代码。
 
@@ -112,3 +112,25 @@ type EditorMountAdapter = {
 3. `yeegames-profile` 能打开多个 `game-session` tab，且 payload 不互相覆盖。
 4. `external-mount-demo` 能通过 `registerEditorMountAdapter` 渲染内容。
 5. `package.json` 不出现 React 运行时依赖。
+
+## 7. 浮动窗口能力边界（v0.3）
+
+浮动窗口（docking Window 层）在两种宿主形态下能力不同，边界如下：
+
+### 7.1 纯浏览器宿主（默认形态）
+
+1. 实现为「窗内浮动层」：绝对定位在主视口内的可拖动、可缩放容器，不是真实操作系统窗口。
+2. 拖出/拖回经 `floatingWindow/popout` / `floatingWindow/dockBack` action，布局子树与主树同构，业务实例不重建。
+3. 坐标/尺寸受主视口约束：恢复时越界坐标经 `clampFloatingGeometry` 自动归位（多显示器断开、分辨率变化场景）。
+4. 宿主无需任何额外能力声明即可使用；`EditorCapabilityPolicy.allowFloatingWindow` 逐 editor 门控。
+
+### 7.2 Electron / 真实顶层窗口宿主（升级路径，未内置）
+
+1. `main-ui` 不内置 Electron 依赖，不提供 `BrowserWindow` 创建逻辑。
+2. 宿主若需要真实顶层窗口，应经 `EditorMountAdapter` 或自建渲染层把浮动窗口内容投射到独立窗口；`floatingWindow/updateGeometry` 的坐标可作为窗口初始位置参考。
+3. 快照中的浮动窗口几何信息在纯浏览器降级时仍能无缝回退到窗内浮动层（同一份 `WorkbenchDocument`）。
+4. 能力探测建议由宿主在启动时自行判定（如 `process.platform` / Electron API 存在性），再决定接入层；`main-ui` 不提供探测 API。
+
+### 7.3 模板包与浮动窗口的关系
+
+一期四个官方视图模板（`@main-ui/view-*`）在浮动窗口内与主树内行为一致：视图状态（相机、展开态、滚动位置）经 `MainUiViewLifecycle` 收集/恢复，不区分宿主形态。
