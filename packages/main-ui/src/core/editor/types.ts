@@ -66,6 +66,8 @@ export type EditorInstance = {
   kind: EditorKind;
   payload: JsonObject;
   restoreKey?: string;
+  /** 视图内部状态快照（相机、展开节点、滚动等），由 MainUiViewLifecycle 收集/回放，纯 JSON */
+  viewState?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 };

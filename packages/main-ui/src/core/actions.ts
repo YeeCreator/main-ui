@@ -1,7 +1,7 @@
 import type { EditorOpenRequest } from './editor/types';
-import type { GroupId, LayoutNodeId, OverlayDismissReason, OverlaySessionId, SplitDirection, ThemeId, WorkspaceId } from './types';
+import type { FloatingWindowId, GroupId, LayoutNodeId, OverlayDismissReason, OverlaySessionId, SplitDirection, TabId, ThemeId, WorkspaceId } from './types';
 
-export type WorkbenchAction = LayoutAction | EditorAction | TabStateAction | OverlayAction | WorkspaceAction | ThemeAction;
+export type WorkbenchAction = LayoutAction | EditorAction | TabStateAction | OverlayAction | FloatingWindowAction | WorkspaceAction | ThemeAction;
 
 export type LayoutAction =
   | { type: 'layout/splitLeaf'; leafNodeId: LayoutNodeId; direction: SplitDirection; ratio?: number }
@@ -29,6 +29,16 @@ export type OverlayAction =
   | { type: 'overlay/open'; request: EditorOpenRequest }
   | { type: 'overlay/dismiss'; overlayId: OverlaySessionId; reason: OverlayDismissReason }
   | { type: 'overlay/promoteToTab'; overlayId: OverlaySessionId; targetGroupId?: GroupId };
+
+/**
+ * 浮动窗口（docking Window 层）动作。
+ * 拖出/拖回只迁移页签引用，业务实例不重建；能力仲裁经 Slot/EditorCapabilityPolicy。
+ */
+export type FloatingWindowAction =
+  | { type: 'floatingWindow/popout'; groupId: GroupId; tabIds?: TabId[]; position?: { x: number; y: number }; size?: { width: number; height: number } }
+  | { type: 'floatingWindow/dockBack'; windowId: FloatingWindowId; targetGroupId?: GroupId }
+  | { type: 'floatingWindow/updateGeometry'; windowId: FloatingWindowId; position?: { x: number; y: number }; size?: { width: number; height: number } }
+  | { type: 'floatingWindow/close'; windowId: FloatingWindowId };
 
 export type WorkspaceAction =
   | { type: 'workspace/switch'; workspaceId: WorkspaceId }
