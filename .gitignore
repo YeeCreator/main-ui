@@ -1102,3 +1102,6 @@ docs/mailbox/relay/archive/
 
 # Codebuddy 本地索引缓存（不入库）
 .codebuddy/
+
+# Build info
+*.tsbuildinfo
