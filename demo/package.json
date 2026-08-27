@@ -8,12 +8,17 @@
     "build": "vite build --config vite.config.ts"
   },
   "dependencies": {
+    "@main-ui/core": "workspace:*",
     "@main-ui/preset-views": "workspace:*",
     "@main-ui/view-2d": "workspace:*",
+    "@main-ui/view-console": "workspace:*",
+    "@main-ui/view-form": "workspace:*",
     "@main-ui/view-inspector": "workspace:*",
+    "@main-ui/view-node": "workspace:*",
     "@main-ui/view-table": "workspace:*",
     "@main-ui/view-tree": "workspace:*",
     "@main-ui/viewport-2d-kit": "workspace:*",
+    "@vue-flow/core": "^1.48.2",
     "main-ui": "workspace:*",
     "pixi.js": "^8.0.0",
     "vue": "^3.5.0"

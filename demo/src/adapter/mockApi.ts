@@ -10,6 +10,9 @@ import type { ViewTreeNode } from '@main-ui/view-tree';
 import type { InspectorSchema, InspectorValues } from '@main-ui/view-inspector';
 import type { TableColumn, TableRow } from '@main-ui/view-table';
 import type { View2dViewBox } from '@main-ui/view-2d';
+import type { FormSchema, FormValues } from '@main-ui/view-form';
+import type { NodeGraphData, NodeGraphEdgeData } from '@main-ui/view-node';
+import type { ConsoleEntry, ConsoleLevel } from '@main-ui/view-console';
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -113,4 +116,107 @@ export const fetchSceneGraph = async (): Promise<SceneGraphData> => {
       { source: 'props', target: 'camera' },
     ],
   };
+};
+
+// ---------- 配置面板：分组表单（view-form 契约），验证提交→适配层→回填链路 ----------
+export type SettingsFormData = { schema: FormSchema; values: FormValues };
+
+export const fetchSettingsForm = async (): Promise<SettingsFormData> => {
+  await simulateRequest(400);
+  return {
+    schema: {
+      groups: [
+        {
+          id: 'general',
+          title: 'General',
+          fields: [
+            { kind: 'string', key: 'appName', label: 'App name', required: true, maxLength: 40, defaultValue: 'Demo Host' },
+            {
+              kind: 'select',
+              key: 'theme',
+              label: 'Theme',
+              options: [
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' },
+                { value: 'system', label: 'System' },
+              ],
+              defaultValue: 'system',
+            },
+            { kind: 'boolean', key: 'telemetry', label: 'Enable telemetry', defaultValue: false },
+          ],
+        },
+        {
+          id: 'render',
+          title: 'Rendering',
+          description: 'Host-side render pipeline tuning.',
+          fields: [
+            { kind: 'number', key: 'targetFps', label: 'Target FPS', min: 15, max: 240, step: 15, required: true, defaultValue: 60 },
+            { kind: 'number', key: 'renderScale', label: 'Render scale', min: 0.5, max: 2, step: 0.25, defaultValue: 1 },
+            { kind: 'textarea', key: 'bootNote', label: 'Boot note', rows: 3, maxLength: 200, placeholder: 'Optional startup note', defaultValue: '' },
+          ],
+        },
+      ],
+    },
+    values: { appName: 'Demo Host', theme: 'system', telemetry: false, targetFps: 60, renderScale: 1, bootNote: '' },
+  };
+};
+
+// ---------- 节点图：依赖关系图（view-node 契约），验证移动/连线意图与视口状态 ----------
+export type NodeGraphDemoData = { nodes: NodeGraphData[]; edges: NodeGraphEdgeData[] };
+
+export const fetchNodeGraph = async (): Promise<NodeGraphDemoData> => {
+  await simulateRequest(420);
+  return {
+    nodes: [
+      { id: 'input', label: 'Input', position: { x: 0, y: 120 } },
+      { id: 'parse', label: 'Parser', position: { x: 180, y: 40 } },
+      { id: 'validate', label: 'Validator', position: { x: 180, y: 200 } },
+      { id: 'transform', label: 'Transform', position: { x: 380, y: 120 } },
+      { id: 'render', label: 'Renderer', position: { x: 560, y: 60 } },
+      { id: 'output', label: 'Output', position: { x: 560, y: 200 } },
+    ],
+    edges: [
+      { id: 'e1', source: 'input', target: 'parse' },
+      { id: 'e2', source: 'input', target: 'validate', label: 'raw' },
+      { id: 'e3', source: 'parse', target: 'transform' },
+      { id: 'e4', source: 'validate', target: 'transform', label: 'ok' },
+      { id: 'e5', source: 'transform', target: 'render' },
+      { id: 'e6', source: 'transform', target: 'output' },
+    ],
+  };
+};
+
+// ---------- 控制台日志流：初始批次 + 追加条目工厂（验证虚拟滚动与自动跟随） ----------
+const CONSOLE_SAMPLE_LEVELS: ConsoleLevel[] = ['debug', 'info', 'info', 'info', 'warn', 'error', 'success'];
+const CONSOLE_SAMPLE_MESSAGES = [
+  'Asset loaded: sprites/player.png',
+  'Frame budget exceeded by 3.2ms',
+  'Scene transition completed',
+  'Shader compiled: post-fx-bloom',
+  'Input mapping reloaded',
+  'Cache miss: audio/bgm-main.ogg',
+  'Worker pool resized to 4',
+  'Checkpoint saved',
+];
+
+let consoleLogSeq = 0;
+
+/** 追加条目工厂：适配层模拟日志流推送时调用（非网络）。 */
+export const createConsoleEntry = (): ConsoleEntry => {
+  consoleLogSeq += 1;
+  return {
+    id: `log-${consoleLogSeq}`,
+    level: CONSOLE_SAMPLE_LEVELS[consoleLogSeq % CONSOLE_SAMPLE_LEVELS.length],
+    message: `${CONSOLE_SAMPLE_MESSAGES[consoleLogSeq % CONSOLE_SAMPLE_MESSAGES.length]} (#${consoleLogSeq})`,
+    timestamp: Date.now(),
+  };
+};
+
+export const fetchConsoleLogs = async (): Promise<ConsoleEntry[]> => {
+  await simulateRequest(380);
+  const entries: ConsoleEntry[] = [];
+  for (let index = 0; index < 1500; index += 1) {
+    entries.push(createConsoleEntry());
+  }
+  return entries;
 };
