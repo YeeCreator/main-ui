@@ -27,6 +27,8 @@ const iconMap: Record<string, string> = {
   moon: '☾',
   system: '◐',
   warning: '⚠',
+  terminal: '❯',
+  preview: '◉',
 };
 
 export const resolveIconToken = (icon: string | undefined, fallback = ''): string => {
