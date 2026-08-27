@@ -1,6 +1,6 @@
 # PRESET_VIEWS_GUIDE
 
-> 官方视图模板库（preset-views）统一指南。对应 `main-ui 0.4.0`。本文档随 `main-ui` 包分发（`node_modules/main-ui/docs/PRESET_VIEWS_GUIDE.md`）；每个模板包自身的 `README.md` 是安装后的第一入口，内容与本文一致。
+> 官方视图模板库（preset-views）统一指南。对应模板库 `0.6.0`（`@main-ui/core` 0.5.0 / 内核主包 `main-ui` 0.4.0）。本文档随 `main-ui` 包分发（`node_modules/main-ui/docs/PRESET_VIEWS_GUIDE.md`）；每个模板包自身的 `README.md` 是安装后的第一入口，内容与本文一致。
 
 ## 1. 定位
 
@@ -27,9 +27,12 @@
 | `@main-ui/view-form` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出 |
 | `@main-ui/view-node` | 0.4.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
 | `@main-ui/view-console` | 0.4.0 | 自研虚拟滚动 | 日志/控制台追加列表：过滤、自动跟随/锁滚 |
-| `@main-ui/preset-views` | 0.4.0 | — | 聚合包：命名空间重导出（无逻辑） |
+| `@main-ui/view-flow` | 0.5.0 | `@vue-flow/core`（peer `^1.48`）+ FSM 纯库 | 流程/状态机文档：类型化端口、数据流/控制流双边（三件套：内核 + `FlowCanvas` 组件 + 薄壳） |
+| `@main-ui/view-sandbox` | 0.6.0 | 自研 `SandboxKernel`（无头纯 TS） | 自由沙盘画布（旗舰复合）：异构元素 + 嵌入任意 View + 嵌套保护 |
+| `@main-ui/view-host-engine` | 0.6.0 | 无（纯 DOM 挂载点） | 外部引擎转播窗口：布局归我方、渲染归外部引擎 |
+| `@main-ui/preset-views` | 0.6.0 | — | 聚合包：命名空间重导出（无逻辑） |
 
-配套基座：`@main-ui/core`（0.4.0）为框架无关表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数），供 `view-form` 与 `view-inspector` 共用，宿主自定义表单亦可单独消费。
+配套基座：`@main-ui/core`（0.5.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含数组字段与条件显隐扩展）+ 虚拟滚动基座（`computeVirtualWindow` / `isNearBottom`）+ 嵌入 View 托管（`createEmbeddedViewHost` / `checkNestingDepth`），供各模板共用，宿主亦可单独消费。
 
 ### 2.2 安装矩阵
 
@@ -41,7 +44,8 @@ pnpm add @main-ui/view-tree @main-ui/view-table main-ui vue
 
 # 全量安装
 pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-2d @main-ui/view-table \
-         @main-ui/view-form @main-ui/view-node @main-ui/view-console main-ui vue
+         @main-ui/view-form @main-ui/view-node @main-ui/view-console \
+         @main-ui/view-flow @main-ui/view-sandbox @main-ui/view-host-engine main-ui vue
 
 # 聚合包（仅重导出，仍建议显式安装模板包本体）
 pnpm add @main-ui/preset-views
@@ -54,6 +58,9 @@ pnpm add @main-ui/preset-views
 | `view-2d` | `@main-ui/viewport-2d-kit` + `pixi.js` |
 | `view-node` | `@vue-flow/core@^1.48`（结构样式为包内 vendored，运行时自动注入，无需宿主处理） |
 | `view-form` / `view-inspector` | `@main-ui/core`（peer） |
+| `view-flow` | `@vue-flow/core@^1.48` + `@main-ui/core`（peer） |
+| `view-sandbox` | `@main-ui/core`（peer，消费 EmbeddedViewHost/嵌套保护） |
+| `view-host-engine` | 无（宿主自备外部引擎） |
 
 ### 2.3 安装后文档位置
 
@@ -76,7 +83,7 @@ import { registerTreeViewEditor } from '@main-ui/view-tree'
 registerTreeViewEditor(runtime, { allowedWorkspaceIds: ['my-workspace'], title: 'Project Tree' })
 ```
 
-- `options.allowedWorkspaceIds` 声明模板可出现的 workspace；同时需把模板 kind（`view-tree` / `view-inspector` / `view-2d` / `view-table` / `view-form` / `view-node` / `view-console`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
+- `options.allowedWorkspaceIds` 声明模板可出现的 workspace；同时需把模板 kind（`view-tree` / `view-inspector` / `view-2d` / `view-table` / `view-form` / `view-node` / `view-console` / `view-flow` / `view-sandbox`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
 - 底层拆解可用：`createXxxEditorDescriptor(options)` 只生成 descriptor；`createXxxEditorRenderer(resolveProps?, extraProps?)` 只生成 renderer 适配器。
 
 ### 步骤 2：数据经 Props 进
@@ -107,12 +114,15 @@ registerTreeViewEditor(
 聚合包用法：
 
 ```ts
-import { tree, inspector, view2d, table, form, node, consoleView } from '@main-ui/preset-views'
+import { tree, inspector, view2d, table, form, node, consoleView, flow, sandbox, hostEngine } from '@main-ui/preset-views'
 
 tree.registerTreeViewEditor(runtime, { allowedWorkspaceIds: ['demo'] })
 form.registerFormViewEditor(runtime, { allowedWorkspaceIds: ['demo'] })
 node.registerNodeViewEditor(runtime, { allowedWorkspaceIds: ['demo'] })
 consoleView.registerConsoleViewEditor(runtime, { allowedWorkspaceIds: ['demo'] })
+flow.registerFlowViewEditor(runtime, { allowedWorkspaceIds: ['demo'] })
+sandbox.registerSandboxViewEditor(runtime, { allowedWorkspaceIds: ['demo'] })
+// hostEngine 无注册器（引擎与宿主强相关），直接消费组件：hostEngine.HostEngineView
 ```
 
 ## 4. 各模板 API
@@ -245,6 +255,55 @@ Emits：`clear-intent`（请求宿主清空数据源，是否执行由宿主裁�
 
 呈现行为（视图本地）：等级/文本过滤、自动跟随/锁滚（手动上滚锁滚，贴底恢复跟随）、上限截断由宿主数据源承担。
 
+### 4.8 `@main-ui/view-flow`（流程/状态机文档，v0.5）
+
+组件 `FlowView`（L3 薄壳）/ `FlowCanvas`（L1 可嵌入组件）；注册 `registerFlowViewEditor`。`@vue-flow/core` 内核；与 `view-node` 的硬分界 = 类型化端口 + 数据流/控制流双边 + `node_type`/`content` 节点模型。包内附框架无关 FSM 纯库（`createMachine` / `interpret` / `machineToFlowDocument` 等），执行运行时不进包。
+
+Props：
+
+| Prop | 类型 | 说明 |
+| --- | --- | --- |
+| `document` | `FlowDocument` | 流程文档（`nodes` 含 `node_type` 与类型化 `ports`；`edges` 分 `data`/`control` 信号；`node_layouts` 布局） |
+| `loading` / `error` | — | 三态 |
+| `editable` | `boolean` | 是否允许拖拽/连线（默认 `true`） |
+| `editorInstanceId` | `string \| null` | 挂载视图生命周期（视口/选择进快照） |
+
+Emits：`node-move-intent(FlowMoveNodeIntent)` / `connect-intent(FlowConnectIntent)` / `selection(FlowSelectionIntent)`。
+
+视图状态（`FlowViewState`）：`{ viewport, selectedNodeIds, selectedEdgeIds }`。
+
+### 4.9 `@main-ui/view-sandbox`（自由沙盘画布，旗舰复合模板，v0.6）
+
+组件 `SandboxView`；注册 `registerSandboxViewEditor`；内核 `createSandboxKernel`（无头纯 TS，可 Node 单测）。2D 视口 + 异构元素（`shape` / `image` / `embed-view`）+ 连线；嵌入子 View 一律经 `@main-ui/core` 的 `EmbeddedViewHost`，嵌套深度保护默认 8 层（超限降级占位）；`onDestroy` 级联销毁全部子实例。不重新实现流程/节点逻辑（嵌入只走数据引用）。
+
+Props：
+
+| Prop | 类型 | 说明 |
+| --- | --- | --- |
+| `document` | `SandboxDocument` | 沙盘文档（`elements` + `connections`；元素含 `shape` / `image` / `embedViewRef` 三类载荷） |
+| `loading` / `error` | — | 三态 |
+| `editable` | `boolean` | 是否允许拖拽/缩放/连线（默认 `true`） |
+| `maxNestingDepth` | `number` | 最大嵌套深度（默认 `8`） |
+| `editorInstanceId` | `string \| null` | 挂载视图生命周期 |
+
+Emits：`element-move-intent` / `element-remove-intent` / `element-add-intent` / `connect-intent` / `selection`。
+
+视图状态（`SandboxViewState`）：`{ camera, selectedElementIds, embeddedRefs }`（嵌入只存引用，不深拷贝子 View 数据）。
+
+### 4.10 `@main-ui/view-host-engine`（外部引擎桥接，v0.6）
+
+组件 `HostEngineView`（无一键注册器：引擎与宿主强相关，宿主自行组装注册）。第三方引擎「转播窗口」：模板零渲染零业务，只提供纯净 DOM 挂载点 + `ResizeObserver` 尺寸通知 + 标准视图生命周期。
+
+Props：
+
+| Prop | 类型 | 说明 |
+| --- | --- | --- |
+| `engine` | `ExternalEngineApi \| null` | 外部引擎实现（`mount(container)` / `onResize(w, h)` / `destroy()`，宿主提供） |
+| `loading` / `error` | — | 三态 |
+| `editorInstanceId` | `string \| null` | 挂载视图生命周期（视图状态为容器尺寸） |
+
+无 Emits（引擎交互归宿主）。面向游戏舞台（Y 型）与任意外部渲染嵌入场景。
+
 ## 5. 宿主适配层职责（模板不承担）
 
 1. 取数、缓存、三态管理（参考实现：`demo/src/adapter/` 的 `mockApi` + `presetViewStore` + `registerPresetViewEditors`）。
@@ -264,6 +323,7 @@ Emits：`clear-intent`（请求宿主清空数据源，是否执行由宿主裁�
 
 ## 7. 顺延与规划
 
-- `view-asset`（资产网格）：顺延至 v0.5，缩略图契约待下游信箱回执。
-- `view-3d`：三期，先与 scene-studio 的 @scene-kit 路线对齐。
+- `view-asset`（资产网格）：v0.5 / v0.6 两度顺延（缩略图契约待下游信箱回执），继续顺延。
+- 既有模板剩余增强（table 列拉伸/冻结/多选、tree 多选/懒加载、inspector 嵌套/数组、node 小地图、console 换行/导出等）与 `view-flow` 增强（diff/invert 撤销、反向 FSM 解析、自动布局、小地图）：见任务文档顺延清单。
+- `view-3d`：三期，先与 scene-studio 的 @scene-kit 路线对齐（不因咨询会话理想化设定提前）。
 - 长期候选：`view-dashboard` / `view-timeline` / `view-chat` / `view-whiteboard` / `view-terminal`，按需求信号滚动。
