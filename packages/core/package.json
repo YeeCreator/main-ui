@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": false,
   "description": "main-ui 模板库公共基座：框架无关的表单 schema 类型与校验纯函数（view-form / view-inspector 共享）。与主包 main-ui 的 core 层（main-ui/core 子路径）相互独立。",
   "license": "MIT",

@@ -25,6 +25,11 @@ export const validateFormField = (field: FormField, value: unknown): FormValidat
   if (field.kind === 'boolean') {
     return null;
   }
+  if (field.kind === 'array') {
+    // 数组字段走独立校验路径，返回首个错误或 null
+    const errors = validateArrayField(field, value);
+    return errors.length > 0 ? errors[0] : null;
+  }
   if (field.kind === 'number') {
     if (isEmpty(value)) {
       return field.required ? { code: 'required', key: field.key, message: `${field.label} is required` } : null;
@@ -71,6 +76,32 @@ export const validateFormField = (field: FormField, value: unknown): FormValidat
     return { code: 'pattern', key: field.key, message: `${field.label} has no matching option` };
   }
   return null;
+};
+
+/** 校验数组字段：检查项数约束与每项子字段校验。 */
+export const validateArrayField = (
+  field: import('./types').FormArrayField,
+  value: unknown,
+): FormValidationError[] => {
+  const errors: FormValidationError[] = [];
+  const arr = Array.isArray(value) ? value : [];
+  if (field.minItems !== undefined && arr.length < field.minItems) {
+    errors.push({ code: 'min', key: field.key, message: `${field.label} needs at least ${field.minItems} items` });
+  }
+  if (field.maxItems !== undefined && arr.length > field.maxItems) {
+    errors.push({ code: 'max', key: field.key, message: `${field.label} allows at most ${field.maxItems} items` });
+  }
+  // 逐项校验子字段（错误 key 为 `${field.key}[${i}].${subKey}`）
+  for (let i = 0; i < arr.length; i++) {
+    const item = arr[i] as FormValues;
+    for (const subField of field.itemFields) {
+      const subError = validateFormField(subField, item?.[subField.key]);
+      if (subError) {
+        errors.push({ ...subError, key: `${field.key}[${i}].${subField.key}` });
+      }
+    }
+  }
+  return errors;
 };
 
 /** 校验整表：逐字段执行，返回全部错误。 */

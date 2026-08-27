@@ -32,10 +32,12 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "@main-ui/core": "^0.4.0",
     "main-ui": "^0.4.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
+    "@main-ui/core": "workspace:*",
     "main-ui": "workspace:*",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",

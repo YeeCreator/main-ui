@@ -117,6 +117,9 @@ importers:
       '@main-ui/view-console':
         specifier: workspace:*
         version: link:../view-console
+      '@main-ui/view-flow':
+        specifier: workspace:*
+        version: link:../view-flow
       '@main-ui/view-form':
         specifier: workspace:*
         version: link:../view-form
@@ -177,6 +180,33 @@ importers:
 
   packages/view-console:
     devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
+      main-ui:
+        specifier: workspace:*
+        version: link:../main-ui
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.8)(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.32(typescript@5.7.3)
+
+  packages/view-flow:
+    devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
+      '@vue-flow/core':
+        specifier: ^1.48.0
+        version: 1.48.2(vue@3.5.32(typescript@5.7.3))
       main-ui:
         specifier: workspace:*
         version: link:../main-ui
@@ -258,6 +288,9 @@ importers:
 
   packages/view-table:
     devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
       main-ui:
         specifier: workspace:*
         version: link:../main-ui
@@ -276,6 +309,9 @@ importers:
 
   packages/view-tree:
     devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
       main-ui:
         specifier: workspace:*
         version: link:../main-ui

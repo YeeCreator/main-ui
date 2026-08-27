@@ -1,8 +1,8 @@
 {
   "name": "@main-ui/preset-views",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": false,
-  "description": "main-ui 官方视图模板聚合包：一次性引入一期四模板（tree / inspector / 2d / table）与二期模板（form / node / console），仅重导出。",
+  "description": "main-ui 官方视图模板聚合包：一次性引入一期四模板（tree / inspector / 2d / table）、二期模板（form / node / console）与 v0.5 模板（flow），仅重导出。",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -31,9 +31,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.4.0",
+    "@main-ui/core": "^0.5.0",
     "@main-ui/view-2d": "^0.3.0",
     "@main-ui/view-console": "^0.4.0",
+    "@main-ui/view-flow": "^0.5.0",
     "@main-ui/view-form": "^0.4.0",
     "@main-ui/view-inspector": "^0.4.0",
     "@main-ui/view-node": "^0.4.0",
@@ -47,6 +48,7 @@
     "@main-ui/core": "workspace:*",
     "@main-ui/view-2d": "workspace:*",
     "@main-ui/view-console": "workspace:*",
+    "@main-ui/view-flow": "workspace:*",
     "@main-ui/view-form": "workspace:*",
     "@main-ui/view-inspector": "workspace:*",
     "@main-ui/view-node": "workspace:*",
