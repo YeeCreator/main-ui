@@ -10,7 +10,7 @@ v0.5.0 是模板库大规模建设版本：新增 `@main-ui/view-flow`（流程/
 
 | 包 | 0.4.0 | 0.5.0 | 说明 |
 |---|---|---|---|
-| `main-ui` | 0.4.0 | 0.4.0 | 主包版本不变 |
+| `main-ui` | 0.4.0 | 0.4.0 | 主包版本不变（发布定稿时已统一升至 0.6.0，见下方说明） |
 | `@main-ui/core` | 0.4.0 | **0.5.0** | 新增虚拟滚动 + 嵌入托管 + schema 扩展 |
 | `@main-ui/view-flow` | — | **0.5.0** | 新模板 |
 | `@main-ui/view-tree` | 0.3.0 | 0.3.0 | 改消费 core 虚拟滚动基座（无 API 变更） |
@@ -95,7 +95,7 @@ view-tree / view-table / view-console 内部改为消费 `@main-ui/core` 的 `co
 
 ## 不变更
 
-- `main-ui` 主包版本、导出面、API 不变
+- `main-ui` 主包导出面、API 不变（版本号在 0.6.0 发布时统一升至 `0.6.0`，与模板库世代对齐；仅版本号变化，无导出面差异）
 - 持久化格式（WorkbenchDocument v3）不变
 - 既有模板包的 `registerXxxEditor` / Props / Emits / 视图状态契约不变
 - 主题系统（`--mui-*` / `data-mui-theme`）不变

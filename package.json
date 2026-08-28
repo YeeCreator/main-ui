@@ -1,5 +1,5 @@
 {
-  "name": "main-ui-workspace",
+  "name": "main-ui",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -10,15 +10,15 @@
   "type": "module",
   "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "dev": "pnpm --filter main-ui dev",
-    "build": "pnpm --filter main-ui build && pnpm --filter \"@main-ui/viewport-2d-kit\" build && pnpm --filter \"@main-ui/core\" build && pnpm --filter \"@main-ui/view-*\" build && pnpm --filter \"@main-ui/preset-views\" build",
-    "typecheck": "pnpm --filter main-ui --filter \"@main-ui/viewport-2d-kit\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" --filter \"@main-ui/preset-views\" typecheck",
-    "test": "pnpm --filter main-ui --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" test",
+    "dev": "pnpm --filter \"./packages/main-ui\" dev",
+    "build": "pnpm --filter \"./packages/main-ui\" build && pnpm --filter \"@main-ui/viewport-2d-kit\" build && pnpm --filter \"@main-ui/core\" build && pnpm --filter \"@main-ui/view-*\" build && pnpm --filter \"@main-ui/preset-views\" build",
+    "typecheck": "pnpm --filter \"./packages/main-ui\" --filter \"@main-ui/viewport-2d-kit\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" --filter \"@main-ui/preset-views\" typecheck",
+    "test": "pnpm --filter \"./packages/main-ui\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" test",
     "demo:dev": "pnpm --filter main-ui-demo dev",
     "demo:build": "pnpm --filter main-ui-demo build",
     "test:e2e": "playwright test",
     "analyze:dist": "node scripts/report-dist-size.mjs packages/main-ui/dist",
-    "release:pack": "pnpm build && node scripts/copy-release-docs.mjs && pnpm --filter main-ui pack --pack-destination ../../"
+    "release:pack": "pnpm build && node scripts/copy-release-docs.mjs && cd packages/main-ui && pnpm pack --pack-destination ../../"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
