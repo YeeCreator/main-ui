@@ -1,5 +1,12 @@
 # DEVELOPMENT_LOG
 
+## v0.7 远期清单（下游反馈入账，待排期）
+
+来源：v0.6.0 六家联合改造反馈信（2026-08-29）。优先级低，不阻塞 v0.6 收尾。
+
+- **D-3**：`view-inspector` 的 `InspectorSchema` 增加 `readonly` 字段类型（纯呈现、不可编辑字段，如 ID、计算值）。来源：matheshop 反馈。
+- **D-4**：`view-console` 增加「追加时自动滚动到底」显式 prop 开关（`autoScroll?: boolean`，默认 `true` 保持现有行为）。来源：matheshop 反馈。
+
 ## 2026-08-27 · 0.6.0 旗舰复合模板 + 外部引擎桥接
 
 功能交付：

@@ -31,6 +31,7 @@ const engine: ExternalEngineApi = {
 
 - 传入 `editorInstanceId` 时自动实现 `MainUiViewLifecycle`（视图状态为容器尺寸 `{ containerWidth, containerHeight }`）；
 - Slot 尺寸变化经 `ResizeObserver` 通知引擎 `onResize`；
+- **宿主引擎自行处理 resize 后重绘**：`onResize(w, h)` 只通知尺寸变化，不负责重绘。例如 p5.js 的 `resizeCanvas()` 会重置画布内容，宿主须在 resize 后重新绘制；pixi.js 的 `renderer.resize()` 同理，需在 resize 后重新渲染帧。
 - 组件销毁时调用 `engine.destroy()`（引擎侧需幂等）。
 
 ## Props

@@ -30,6 +30,13 @@
 - [ ] 依赖安装完成
 - [ ] 若为本地包，`dist/` 已更新
 
+## 2.1 构建工具 alias / workspace 检查（monorepo 重构后）
+
+- [ ] vite `resolve.alias` 已跟随 monorepo 结构更新（如 `main-ui/core` 应指向 `../main-ui/packages/main-ui/src/core`，而非旧路径 `../main-ui/src/core`）
+- [ ] webpack `resolve.alias` 已同步更新（若适用）
+- [ ] `pnpm-workspace.yaml` 只包含 `../main-ui/packages/*`，未同时包含根包（防同名包冲突，详见 `HOST_INTEGRATION_GUIDE.md` §8）
+- [ ] 首次接入的模板包已执行 `pnpm build`（确保 `dist/` 类型声明已生成）
+
 ## 3. 接入层检查
 
 - [ ] workspace descriptor 仍能注册

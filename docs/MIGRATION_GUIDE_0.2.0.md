@@ -27,6 +27,7 @@
 - 升级本地包后运行 `pnpm typecheck`、宿主测试与 demo smoke test。
 - 若宿主自绘样式依赖旧的硬编码主题色值，建议改为消费 `--mui-*` 变量（旧变量名仍可用，无强制）。
 - 若宿主依赖 demo 端口（4173），注意已改为 **4183**。
+- **workspace 同名包冲突**：根包与子包同名 `main-ui`（有意为之）。下游使用 pnpm workspace 源码联调时，`pnpm-workspace.yaml` 只加 `../main-ui/packages/*`，**勿同时加根包**（详见 `HOST_INTEGRATION_GUIDE.md` §8）。
 
 ## 迁移成本
 

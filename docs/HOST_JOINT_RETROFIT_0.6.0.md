@@ -39,17 +39,17 @@
 
 ## 4. 下一步计划（优先级）
 
-- **P0 — 文档债修复（我方仓库）**：
-  1. `HOST_INTEGRATION_GUIDE.md` + `MIGRATION_GUIDE_0.2.0.md`：workspace 同名包冲突——下游只加 `../main-ui/packages/*`，勿同时加根包
-  2. `HOST_UPGRADE_CHECKLIST_TEMPLATE.md`：宿主 vite/webpack alias 跟随 monorepo 重构检查项
-  3. `HOST_INTEGRATION_GUIDE.md` §9：模板包首次接入需先 build
-  4. `view-host-engine` 文档：onResize 后宿主自行重绘说明
-  5. `PRESET_VIEWS_GUIDE.md` view-form 章节：FormSchema 完整示例
-- **P1 — yeegames 补做（首次落地驻场机制）**：第 ④ 家驻场会话（升级线 + p5 桥接，复用已验证模式）；启动时执行驻场四步（见 §5）；P0 完成后启动。
-- **P2 — v0.7 待办入账**：D-3（inspector readonly）、D-4（console 自动滚动 prop）写入 `DEVELOPMENT_LOG.md` 远期清单。
-- **P3 — 共研排期**：view-3d 接口草案（我方先出）；view-2d + KaTeX 自定义图层联合设计（matheshop 等待）。
-- **P4 — autodo 第 ⑥ 家驻场**：x6 三方案评估（view-flow / view-node / host-engine 桥接），模式成熟后启动。
-- **P5 — CSG 抽检**：验证其 `vue-tsc -b && vite build` 可复现。
+- **P0 — 文档债修复（我方仓库）**：✅ 全部完成（2026-08-31）
+  1. ✅ `HOST_INTEGRATION_GUIDE.md` 新增 §8 workspace 同名包冲突说明 + `MIGRATION_GUIDE_0.2.0.md` 补「必须检查」项
+  2. ✅ `HOST_UPGRADE_CHECKLIST_TEMPLATE.md` 新增 §2.1 构建工具 alias / workspace 检查项（vite/webpack/pnpm-workspace/build）
+  3. ✅ `HOST_INTEGRATION_GUIDE.md` §10（原§9）模板包首次接入需先 `pnpm build`（确保 dist/ 类型声明已生成）
+  4. ✅ `packages/view-host-engine/README.md` + `PRESET_VIEWS_GUIDE.md` §4.10：onResize 契约补充「宿主引擎自行处理 resize 后重绘」（p5 resizeCanvas / pixi renderer.resize 同理）
+  5. ✅ `PRESET_VIEWS_GUIDE.md` §4.5 view-form 章节：FormSchema 完整示例（`{fields}` 或 `{groups}` 对象，非数组）
+- **P1 — yeegames 补做（首次落地驻场机制）**：待启动。第 ④ 家驻场会话（升级线 + p5 桥接，复用已验证模式）；启动时执行驻场四步（见 §5）；P0 已完成，可启动。
+- **P2 — v0.7 待办入账**：✅ 已完成（2026-08-31）。D-3（inspector readonly）、D-4（console 自动滚动 prop）已写入 `DEVELOPMENT_LOG.md` 远期清单。
+- **P3 — 共研排期**：✅ 草案已发出（2026-08-31）。view-3d 接口草案 v0（ExternalEngine3dApi / View3dViewState / WorldSnapshot dimensions:3 / SceneRenderer3d）已发信给 scene-studio，含 5 条开放问题；KaTeX×view-2d 联合设计邀请（三方案 + 推荐方案 C 混合模式）已发信给 matheshop。等待对方反馈。
+- **P4 — autodo 第 ⑥ 家驻场**：待启动。x6 三方案评估（view-flow / view-node / host-engine 桥接），模式成熟后启动。
+- **P5 — CSG 抽检**：✅ 通过（2026-08-31）。`pnpm install`（17 workspace projects）+ `vue-tsc -b`（零错误）+ `vite build`（1.32s，仅 p5.js chunk 大小警告）均通过，构建可复现性已验证。
 
 ## 5. 联络模式（已定案：常态化驻场 + 信件留痕双轨制，2026-08-31）
 
