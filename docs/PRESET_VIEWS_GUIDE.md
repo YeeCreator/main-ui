@@ -205,6 +205,51 @@ Emits：`row-select(rowId)` / `sort-change(sort)` / `cell-edit-intent({ rowId, c
 
 组件 `FormView`；注册 `registerFormViewEditor`。schema 驱动（`@main-ui/core` 基座），支持平铺字段与分组字段（分组优先）。
 
+**`FormSchema` 是 `{ fields }` 或 `{ groups }` 对象，不是数组。** 完整示例：
+
+```ts
+import type { FormSchema, FormValues } from '@main-ui/core'
+
+// ✅ 正确：schema 是对象，含 fields 或 groups
+const schema: FormSchema = {
+  groups: [
+    {
+      id: 'basic',
+      title: 'Basic Settings',
+      fields: [
+        { kind: 'string', key: 'name', label: 'Name', required: true, minLength: 2 },
+        { kind: 'number', key: 'hp', label: 'HP', min: 1, max: 999, defaultValue: 10 },
+        { kind: 'boolean', key: 'visible', label: 'Visible', defaultValue: true },
+        { kind: 'select', key: 'tier', label: 'Tier',
+          options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+        { kind: 'textarea', key: 'notes', label: 'Notes', maxLength: 200 },
+      ],
+    },
+    {
+      id: 'advanced',
+      title: 'Advanced',
+      fields: [
+        { kind: 'string', key: 'code', label: 'Code', pattern: '^[A-Z]{3}$' },
+      ],
+    },
+  ],
+}
+
+// 或平铺模式（无分组）：
+const flatSchema: FormSchema = {
+  fields: [
+    { kind: 'string', key: 'title', label: 'Title', required: true },
+    { kind: 'boolean', key: 'active', label: 'Active' },
+  ],
+}
+
+// ❌ 错误：schema 不是数组
+// const wrong: FormSchema = [{ kind: 'string', key: 'x', label: 'X' }]
+
+// 初始值（宿主侧单一事实源）
+const values: FormValues = { name: 'Unit', hp: 10, visible: true, tier: 'a', notes: '' }
+```
+
 Props：
 
 | Prop | 类型 | 说明 |
@@ -302,7 +347,7 @@ Props：
 | `loading` / `error` | — | 三态 |
 | `editorInstanceId` | `string \| null` | 挂载视图生命周期（视图状态为容器尺寸） |
 
-无 Emits（引擎交互归宿主）。面向游戏舞台（Y 型）与任意外部渲染嵌入场景。
+无 Emits（引擎交互归宿主）。**`onResize` 契约**：模板只通知尺寸变化，宿主引擎自行处理 resize 后重绘（如 p5 `resizeCanvas()` 会重置画布内容，pixi `renderer.resize()` 同理，宿主须在 resize 后重新渲染）。面向游戏舞台（Y 型）与任意外部渲染嵌入场景。
 
 ## 5. 宿主适配层职责（模板不承担）
 

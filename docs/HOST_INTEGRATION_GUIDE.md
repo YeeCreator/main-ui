@@ -346,7 +346,32 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 6. 刷新后布局与轻量 payload 可恢复。
 7. 业务数据仍由宿主自己负责，不被 `main-ui` 接管。
 
-## 8. 与其他文档的关系
+## 8. workspace 同名包冲突说明
+
+main-ui 仓库根包名与主包同名（均为 `main-ui`），这是**有意为之**（治理身份对齐）。下游项目若使用 pnpm workspace 源码联调，必须注意：
+
+**正确做法**——workspace 只包含 `packages/*` 子目录：
+
+```yaml
+# 宿主 pnpm-workspace.yaml
+packages:
+  - '../main-ui/packages/*'   # ← 只加子包目录
+```
+
+**错误做法**——同时包含根目录与子包目录：
+
+```yaml
+# ❌ 错误：根包 `main-ui` 与子包 `packages/main-ui` 同名，pnpm 无法区分
+packages:
+  - '../main-ui'              # ← 不要加根包
+  - '../main-ui/packages/*'
+```
+
+若宿主 pnpm workspace 同时包含根包与 `packages/main-ui`，pnpm 会报同名包冲突或解析到错误路径。源码联调时只加 `../main-ui/packages/*`，workspace 会自动解析到 `packages/main-ui`（包名 `main-ui`）与各 `packages/view-*` 子包。
+
+使用 `.tgz` 分发包时不受此影响（不涉及 workspace 解析）。
+
+## 9. 与其他文档的关系
 
 建议结合以下文档一起使用：
 
@@ -356,7 +381,7 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 
 本文件作为正式宿主接入指南，应优先用于后续宿主项目实施。
 
-## 9. 官方视图模板包安装与接入（v0.3 一期 + v0.4 二期）
+## 10. 官方视图模板包安装与接入（v0.3 一期 + v0.4 二期）
 
 一期四个官方视图模板以独立包交付：`@main-ui/view-tree`（虚拟滚动树）、`@main-ui/view-inspector`（schema 检查器）、`@main-ui/view-2d`（2D 画布，依赖 `@main-ui/viewport-2d-kit` 与 pixi.js）、`@main-ui/view-table`（虚拟滚动表格）；二期三个：`@main-ui/view-form`（配置面板）、`@main-ui/view-node`（节点图，peer `@vue-flow/core ^1.48`）、`@main-ui/view-console`（日志/控制台追加列表）；聚合包 `@main-ui/preset-views` 命名空间重导出全部七包。另：`@main-ui/core` 为框架无关表单基座（`view-form` / `view-inspector` 共用，宿主自定义表单亦可单独消费）。
 
@@ -369,7 +394,7 @@ npm i @main-ui/view-tree @main-ui/view-inspector @main-ui/view-2d @main-ui/view-
 # 使用 view-node 需额外安装：npm i @vue-flow/core@^1.48
 ```
 
-模板包把 `main-ui`（`^0.4.0`）与 `vue` 作为 peerDependency，宿主需已安装两者。接入三步：
+模板包把 `main-ui`（`^0.4.0`）与 `vue` 作为 peerDependency，宿主需已安装两者。**首次接入前必须先执行 `pnpm build`**（或 `pnpm --filter <包名> build`），确保各模板包的 `dist/` 目录已生成；未 build 的模板包缺少类型声明文件（`.d.ts`），会导致宿主 `vue-tsc` / `tsc` 报「找不到类型」错误。接入三步：
 
 1. **注册**：每包提供 `registerXxxEditor(runtime, options, resolveProps?, extraProps?)`，一键完成 descriptor + renderer 注册；`options.allowedWorkspaceIds` 声明模板可出现的 workspace，并需把模板 kind（如 `view-tree` / `view-form` / `view-node` / `view-console`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
 2. **数据经 Props 进**：`resolveProps(context)` 把宿主适配层数据转成模板契约（含 `loading` / `error` 三态）；模板不取数、不缓存。
