@@ -1,6 +1,6 @@
 # main-ui v0.6.0 六家下游联合改造纪要与下一步计划
 
-> 状态：**进行中**（2026-08-31 更新）。本文档为 0.6.0 世代「发布 → 投递 → 驻场改造 → 反馈回流」全链路的主记录，新会话衔接时优先阅读本文档。
+> 状态：**✅ 六家全部完成**（2026-09-01 更新）。本文档为 0.6.0 世代「发布 → 投递 → 驻场改造 → 反馈回流」全链路的主记录，新会话衔接时优先阅读本文档。
 
 ## 1. 来龙去脉
 
@@ -17,9 +17,9 @@
 | ① | battle-games | tgz 0.1.1 | ✅ 升级线完成（源码联调，73/73 测试），改造线主动暂缓（玩法开发期，后续意向 view-console + view-form） | 已入箱已读 |
 | ② | matheshop | ^0.1.1 | ✅ 升级线 + 批次 2/3 落地（view-inspector 兑现 FR-452、view-console + view-table）；批次 4 评估完成（保留 flow-graph-kit；view-2d 已装，KaTeX 接入待联合设计） | 已入箱已读 |
 | ③ | scene-studio | ^0.1.0 | ✅ 升级线 + 批次 2（view-host-engine 桥接 @scene-kit）+ 批次 3（五模板全接入）；批次 4 给出 view-3d 共研四条设计输入；0.1.1 菜单缺陷闭环 | 已入箱已读 |
-| ④ | yeegames | ^0.1.1 | ❌ **缺课**：依赖未升级、无提交、反馈信空模板——驻场会话未执行，待补做 | 无 |
+| ④ | yeegames | ^0.1.1 | ✅ 升级线 + p5 桥接完成（驻场机制首次落地，tsc -b 零错误 + vite build 2.79s） | 已入箱已读 |
 | ⑤ | ComplexSystemGallery | ^0.1.1 | ✅ 全四批次完成（p5 桥接 + 画廊面板 + 沙盘展项 + 2d-kit 迁移），零缺陷 | 已入箱已读 |
-| ⑥ | autodo | ^0.1.1 | ⏸️ 未启动（按序最后）。注意：其 8/29 "升级"提交为 0.1.0 时代旧事，与 0.6 无关 | 无 |
+| ⑥ | autodo | ^0.1.1 | ✅ 升级线 + x6 三方案评估完成（推荐方案 C: host-engine 桥接，tsc -b 零错误 + vite build 1.09s） | 已入箱已读 |
 
 ## 3. 下游反馈汇总（4 封已读）
 
@@ -45,10 +45,10 @@
   3. ✅ `HOST_INTEGRATION_GUIDE.md` §10（原§9）模板包首次接入需先 `pnpm build`（确保 dist/ 类型声明已生成）
   4. ✅ `packages/view-host-engine/README.md` + `PRESET_VIEWS_GUIDE.md` §4.10：onResize 契约补充「宿主引擎自行处理 resize 后重绘」（p5 resizeCanvas / pixi renderer.resize 同理）
   5. ✅ `PRESET_VIEWS_GUIDE.md` §4.5 view-form 章节：FormSchema 完整示例（`{fields}` 或 `{groups}` 对象，非数组）
-- **P1 — yeegames 补做（首次落地驻场机制）**：待启动。第 ④ 家驻场会话（升级线 + p5 桥接，复用已验证模式）；启动时执行驻场四步（见 §5）；P0 已完成，可启动。
+- **P1 — yeegames 补做（首次落地驻场机制）**：✅ 完成（2026-09-01）。驻场四步 + 升级线 + workspace/alias 修复 + p5 桥接示范 + 构建验证全绿。驻场机制首次落地。
 - **P2 — v0.7 待办入账**：✅ 已完成（2026-08-31）。D-3（inspector readonly）、D-4（console 自动滚动 prop）已写入 `DEVELOPMENT_LOG.md` 远期清单。
 - **P3 — 共研排期**：✅ 草案已发出（2026-08-31）。view-3d 接口草案 v0（ExternalEngine3dApi / View3dViewState / WorldSnapshot dimensions:3 / SceneRenderer3d）已发信给 scene-studio，含 5 条开放问题；KaTeX×view-2d 联合设计邀请（三方案 + 推荐方案 C 混合模式）已发信给 matheshop。等待对方反馈。
-- **P4 — autodo 第 ⑥ 家驻场**：待启动。x6 三方案评估（view-flow / view-node / host-engine 桥接），模式成熟后启动。
+- **P4 — autodo 第 ⑥ 家驻场**：✅ 完成（2026-09-01）。驻场四步 + 升级线 + workspace 修复 + 构建验证全绿 + x6 三方案评估产出（推荐方案 C: host-engine 桥接，待宿主侧决策）。
 - **P5 — CSG 抽检**：✅ 通过（2026-08-31）。`pnpm install`（17 workspace projects）+ `vue-tsc -b`（零错误）+ `vite build`（1.32s，仅 p5.js chunk 大小警告）均通过，构建可复现性已验证。
 
 ## 5. 联络模式（已定案：常态化驻场 + 信件留痕双轨制，2026-08-31）
