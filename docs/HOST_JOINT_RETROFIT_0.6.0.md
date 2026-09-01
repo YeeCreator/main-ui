@@ -63,10 +63,13 @@
 
 **运作规则**：台账随会话持续更新（会话开始读台账、结束回写）；信件只在里程碑节点（驻场启动、批次完成、缺陷上报）发出。首次落地：P1 yeegames 补做会话。
 
+**驻场管理智能体**（2026-09-01 新增）：`.qoder/agents/main-ui-liaison-manager.agent.md`，专职负责新接入用户驻场部署 + 已接入用户驻场维护（台账健康检查、信件时效检查、驻场文件完整性、会话回写规范）。
+
 ## 6. 关键文件索引
 
 - 发布包：`/Users/ethan/CoreFiles/ProjectsFile/main-ui/main-ui-0.6.0.tgz`
 - 6 封升级信件（我方 outbox）：`docs/mailbox/relay/updates/outbox/{6家}/{6家}.md`
 - 4 封反馈信（我方 inbox）：`docs/mailbox/relay/feedback/inbox/{4家}/main-ui-20260829132142.md`
 - 治理主链：`~/.agents/agents/m_多项目联动治理体系智能体_v1.agent.md` + `~/.agents/skills/m_多项目联动治理*_v1/`
+- 驻场管理智能体：`.qoder/agents/main-ui-liaison-manager.agent.md`
 - 迁移指南：`docs/MIGRATION_GUIDE_0.1.0.md` ~ `docs/MIGRATION_GUIDE_0.6.0.md`
