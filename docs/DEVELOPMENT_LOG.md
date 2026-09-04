@@ -2,10 +2,31 @@
 
 ## v0.7 远期清单（下游反馈入账，待排期）
 
-来源：v0.6.0 六家联合改造反馈信（2026-08-29）。优先级低，不阻塞 v0.6 收尾。
+来源：v0.6.0 六家联合改造反馈信（2026-08-29）+ yeegames 联合界面大改造反馈（2026-09-04）。除 **F-3（高，工作台崩溃）** 外优先级低，不阻塞 v0.6 收尾。
 
 - **D-3**：`view-inspector` 的 `InspectorSchema` 增加 `readonly` 字段类型（纯呈现、不可编辑字段，如 ID、计算值）。来源：matheshop 反馈。
 - **D-4**：`view-console` 增加「追加时自动滚动到底」显式 prop 开关（`autoScroll?: boolean`，默认 `true` 保持现有行为）。来源：matheshop 反馈。
+- **F-1**（yeegames 2026-09-04）：`view-host-engine` 无一键注册器（与其余模板 `registerXxxViewEditor` 不一致），建议提供 `registerHostEngineViewEditor(runtime, options, resolveEngine)`。
+- **F-2**（yeegames 2026-09-04）：`registerXxxViewEditor` 的 options 不暴露 `capability`，无法设 `allowClose:false` 常驻导航，建议增 `capability?` 覆盖位。
+- **F-3**（yeegames 2026-09-04，**高**）：`view-sandbox` `SandboxView.getViewState` 返回 `camera: cameraState.value`（响应式 Proxy），被内核 `structuredClone(document)` 克隆时抛 `DataCloneError`，沙盘激活后下一次 dispatch 崩工作台；建议改 `camera: { ...cameraState.value }`/`toRaw`。yeegames 已宿主侧规避（薄壳不传 `editorInstanceId`）。
+- **F-4**（yeegames 2026-09-04，中）：`view-table` `getViewState` 的 `sort: internalSort.value` 排序后同类 Proxy 隐患；建议 `sort: internalSort.value ? { ...internalSort.value } : null`。yeegames 已规避（暂不开 `sortable`）。
+- **F-5**（yeegames 2026-09-04）：app-壳新原语（`LandingView`/`GalleryView`/`StageView`/`activityBar` prop）待补 API_MANUAL + 迁移指南 + host 文档；DEVELOPER_GUIDE 宜强调 `getViewState` 必须返回可 `structuredClone` 的普通值（禁响应式 Proxy）。
+
+## 2026-09-04 · app-壳 GUI 原语（LandingView / GalleryView / StageView + WorkbenchShell app 模式）
+
+来源：yeegames「YG×MUI 联合界面大改造」（联合项目组直接共研，MUI 承担 YG 全部 GUI）。全部 **opt-in 新增**，`WorkbenchShell` 默认行为不变（API 只增不改，保护其余 5 家下游）。
+
+功能交付：
+
+1. **`WorkbenchShell` 新增 `activityBar` prop**（默认 `true` 不变）：`false` 时不渲染 `ActivityBar` 并加 `main-ui-shell--no-activity-bar` 两列网格修饰类，供 app 型宿主隐藏 IDE 式工作区轨（Sidebar 无 view 贡献时本就自动不渲染）。
+2. **`LandingView`**（vue 组件）：app 主菜单/启动器 surface——大块按钮网格，条目经 Props 进、`select(id)` 意图出，消费 `--mui-*` 令牌，可选 `theme` prop 供脱离 shell 独立渲染时同步 `data-mui-theme`。
+3. **`GalleryView`**（vue 组件）：卡片网格/瀑布流 surface（CSS columns 1→4 响应式），条目 `{id,title,description?,image?,icon?,badges?}` + `select(id)` 意图；面向游戏/项目实例列表。
+4. **`StageView`**（vue 组件）：独占舞台壳——上（返回+标题+`topActions` 插槽）/ 下（`statusBar` 插槽或 `status` prop）/ 左右（可选面板插槽）/ 中央（默认插槽）；与渲染引擎解耦（中央内容由宿主注入）。
+5. 三者均从 `main-ui/vue` 导出；新增 css 全消费 `--mui-*` 令牌。
+
+验证：`pnpm typecheck` + `pnpm build`（tsup，`dist/vue/index.d.ts` 26KB）+ `pnpm test`（52 项，未破坏既有）；yeegames 侧浏览器冒烟：主菜单→画廊(12 卡片)→舞台(顶栏/中央 canvas/底部状态栏)→返回、设计器壳无活动栏，0 error 0 warning。
+
+文档：本日志；API_MANUAL / 迁移指南 / host 文档待补（见 v0.7 F-5）。
 
 ## 2026-08-27 · 0.6.0 旗舰复合模板 + 外部引擎桥接
 
