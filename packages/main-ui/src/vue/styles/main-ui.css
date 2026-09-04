@@ -155,6 +155,64 @@
 .main-ui-sidebar { grid-column: 2; }
 .main-ui-shell__body { grid-column: 3; }
 
+/* opt-in app 壳：隐藏活动栏时收拢为两列（Sidebar 无内容时自动返回 null，auto 列折叠为 0），
+   供 app 型宿主（如 YeeGames）以主菜单/landing 取代 IDE 式工作区轨。默认壳不受影响。 */
+.main-ui-shell--no-activity-bar { grid-template-columns: auto minmax(0, 1fr); }
+.main-ui-shell--no-activity-bar .main-ui-sidebar { grid-column: 1; }
+.main-ui-shell--no-activity-bar .main-ui-shell__body { grid-column: 2; }
+
+/* LandingView —— app 主菜单/启动器（MUI 拥有的 GUI 原语；大块按钮，消费 --mui-* 令牌）。 */
+.main-ui-landing { width: 100%; height: 100%; overflow: auto; display: grid; place-items: center; padding: 32px 20px; box-sizing: border-box; background: var(--mui-color-bg); color: var(--mui-color-text); font-family: var(--mui-font); }
+.main-ui-landing__inner { width: min(920px, 100%); display: grid; gap: 24px; }
+.main-ui-landing__header { text-align: center; display: grid; gap: 6px; }
+.main-ui-landing__title { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: 0.5px; }
+.main-ui-landing__subtitle { margin: 0; color: var(--mui-color-text-muted); font-size: 14px; }
+.main-ui-landing__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+.main-ui-landing__card { display: flex; align-items: center; gap: 14px; padding: 22px 20px; border: 1px solid var(--mui-color-border); border-radius: var(--mui-radius); background: var(--mui-color-panel); color: inherit; font: inherit; cursor: pointer; text-align: left; transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease; }
+.main-ui-landing__card:hover { transform: translateY(-2px); border-color: var(--mui-color-accent); box-shadow: var(--mui-shadow-sm); }
+.main-ui-landing__card:focus-visible { outline: 2px solid var(--mui-color-focus-ring); outline-offset: 2px; }
+.main-ui-landing__card-icon { font-size: 24px; font-weight: 700; color: var(--mui-color-accent-strong); min-width: 1.4em; text-align: center; }
+.main-ui-landing__card-body { display: grid; gap: 4px; min-width: 0; }
+.main-ui-landing__card-label { font-size: 17px; font-weight: 600; }
+.main-ui-landing__card-desc { font-size: 12.5px; color: var(--mui-color-text-muted); }
+
+/* GalleryView —— 卡片网格/瀑布流 surface（CSS columns；MUI 拥有的 GUI 原语）。 */
+.main-ui-gallery { width: 100%; height: 100%; overflow: auto; box-sizing: border-box; background: var(--mui-color-bg); color: var(--mui-color-text); font-family: var(--mui-font); }
+.main-ui-gallery__inner { width: min(1200px, 100%); margin: 0 auto; padding: 20px 16px 32px; box-sizing: border-box; }
+.main-ui-gallery__header { margin-bottom: 16px; }
+.main-ui-gallery__title { margin: 0; font-size: 22px; font-weight: 700; }
+.main-ui-gallery__subtitle { margin: 6px 0 0; color: var(--mui-color-text-muted); font-size: 13px; }
+.main-ui-gallery__empty { padding: 40px 12px; text-align: center; color: var(--mui-color-text-muted); }
+.main-ui-gallery__masonry { column-gap: 16px; column-count: 1; }
+@media (min-width: 560px) { .main-ui-gallery__masonry { column-count: 2; } }
+@media (min-width: 920px) { .main-ui-gallery__masonry { column-count: 3; } }
+@media (min-width: 1200px) { .main-ui-gallery__masonry { column-count: 4; } }
+.main-ui-gallery__card { break-inside: avoid; width: 100%; display: block; margin: 0 0 16px; padding: 0; text-align: left; border: 1px solid var(--mui-color-border); border-radius: var(--mui-radius); background: var(--mui-color-panel); color: inherit; font: inherit; cursor: pointer; overflow: hidden; transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease; }
+.main-ui-gallery__card:hover { transform: translateY(-2px); border-color: var(--mui-color-accent); box-shadow: var(--mui-shadow-sm); }
+.main-ui-gallery__card:focus-visible { outline: 2px solid var(--mui-color-focus-ring); outline-offset: 2px; }
+.main-ui-gallery__media { background: var(--mui-color-panel-muted); }
+.main-ui-gallery__img { display: block; width: 100%; height: auto; }
+.main-ui-gallery__placeholder { display: grid; place-items: center; aspect-ratio: 4 / 3; font-size: 28px; font-weight: 700; color: var(--mui-color-accent-strong); background: var(--mui-color-panel-muted); }
+.main-ui-gallery__card-body { padding: 12px 12px 14px; }
+.main-ui-gallery__card-title { font-size: 15px; font-weight: 700; }
+.main-ui-gallery__badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.main-ui-gallery__badge { padding: 2px 7px; border: 1px solid var(--mui-color-border); border-radius: var(--mui-radius); background: var(--mui-color-panel-muted); color: var(--mui-color-text-muted); font-size: 11px; }
+.main-ui-gallery__desc { margin-top: 6px; font-size: 12px; line-height: 1.4; color: var(--mui-color-text-muted); }
+
+/* StageView —— 独占舞台壳（上工具条 + 中央 + 下状态栏 + 左右面板；MUI 拥有的 GUI 原语）。 */
+.main-ui-stage { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; box-sizing: border-box; background: var(--mui-color-bg); color: var(--mui-color-text); font-family: var(--mui-font); overflow: hidden; }
+.main-ui-stage__top { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--mui-color-border); background: var(--mui-color-panel-muted); }
+.main-ui-stage__back { flex: 0 0 auto; border: 1px solid var(--mui-color-border); background: var(--mui-color-panel); color: inherit; font: inherit; border-radius: var(--mui-radius); padding: 4px 12px; cursor: pointer; }
+.main-ui-stage__back:hover { border-color: var(--mui-color-accent); }
+.main-ui-stage__title { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-ui-stage__top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.main-ui-stage__body { flex: 1 1 auto; display: flex; min-height: 0; min-width: 0; }
+.main-ui-stage__side { flex: 0 0 auto; min-width: 0; max-width: 40%; overflow: auto; background: var(--mui-color-panel); }
+.main-ui-stage__side--left { border-right: 1px solid var(--mui-color-border); }
+.main-ui-stage__side--right { border-left: 1px solid var(--mui-color-border); }
+.main-ui-stage__center { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; }
+.main-ui-stage__status { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; min-height: 24px; padding: 3px 12px; border-top: 1px solid var(--mui-color-border); background: var(--mui-color-panel-muted); color: var(--mui-color-text-muted); font-size: 12px; }
+
 .main-ui-sidebar { display: flex; min-width: 34px; max-width: 320px; border-right: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
 .main-ui-sidebar.is-collapsed { width: 34px; }
 .main-ui-sidebar__rail { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }

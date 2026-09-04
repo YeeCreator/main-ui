@@ -14,7 +14,11 @@ import { BottomPanel } from './BottomPanel';
 
 export const WorkbenchShell = defineComponent({
   name: 'WorkbenchShell',
-  setup() {
+  props: {
+    /** opt-in：隐藏工作区活动栏（app 型宿主用主菜单/landing 入口替代）。默认 true = 既有行为不变。 */
+    activityBar: { type: Boolean, default: true },
+  },
+  setup(props) {
     const { document } = useWorkbench();
     const themeClass = computed(() => `main-ui-theme--${document.value.theme.resolvedMode}`);
     const paletteOpen = ref(false);
@@ -28,8 +32,8 @@ export const WorkbenchShell = defineComponent({
     onMounted(() => window.addEventListener('keydown', onKeydown));
     onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
-    return () => h('div', { class: ['main-ui-shell', themeClass.value], 'data-mui-theme': document.value.theme.resolvedMode, role: 'application', 'aria-label': 'main-ui workbench' }, [
-      h(ActivityBar),
+    return () => h('div', { class: ['main-ui-shell', themeClass.value, props.activityBar ? null : 'main-ui-shell--no-activity-bar'], 'data-mui-theme': document.value.theme.resolvedMode, role: 'application', 'aria-label': 'main-ui workbench' }, [
+      props.activityBar ? h(ActivityBar) : null,
       h(Sidebar),
       h('div', { class: 'main-ui-shell__body' }, [
         h(TitleBar),
