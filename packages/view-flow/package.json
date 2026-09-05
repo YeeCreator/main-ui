@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/view-flow",
-  "version": "0.5.0",
+  "version": "1.0.0-alpha",
   "private": false,
   "description": "main-ui 官方视图模板：流程/状态机文档编辑器（类型化端口 + 数据流/控制流双边 + FSM 语义），三件套交付：L2 内核 + L1 FlowCanvas 组件 + L3 FlowView 薄壳。",
   "license": "MIT",
@@ -32,15 +32,15 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.5.0",
+    "@main-ui/core": "^1.0.0-alpha",
     "@vue-flow/core": "^1.48.0",
-    "main-ui": "^0.6.0",
+    "main-ui": "^1.0.0-alpha",
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@main-ui/core": "workspace:*",
+    "@main-ui/core": "workspace:^1.0.0-alpha",
     "@vue-flow/core": "^1.48.0",
-    "main-ui": "workspace:*",
+    "main-ui": "workspace:^1.0.0-alpha",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
     "vitest": "^3.2.4",
