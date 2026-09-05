@@ -63,6 +63,7 @@ export function batchToPolygonItems(batch: EntityBatch): PolygonItem[] {
     items.push({
       points,
       fill: batch.columns.fill ? numColumn(batch, 'fill', i) : undefined,
+      fillAlpha: batch.columns.fillAlpha ? numColumn(batch, 'fillAlpha', i, 1) : undefined,
       stroke: batch.columns.stroke ? numColumn(batch, 'stroke', i) : undefined,
       strokeWidth: batch.columns.strokeWidth ? numColumn(batch, 'strokeWidth', i, 1) : 1,
     });
