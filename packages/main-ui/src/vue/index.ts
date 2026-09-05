@@ -22,6 +22,8 @@ export * from './components/WorkbenchShell';
 export * from './components/LandingView';
 export * from './components/GalleryView';
 export * from './components/StageView';
+export * from './components/SidebarView';
+export * from './components/ToolbarView';
 export * from './components/MenuBar';
 export * from './components/CommandPalette';
 export * from './components/QuickOpen';

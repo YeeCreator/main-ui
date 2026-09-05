@@ -68,9 +68,9 @@ export const hostProfileEditors: EditorDescriptor[] = [
     capability: { ...defaultEditorCapability, allowFloatingWindow: true },
   }),
   createEditor('viewport-foundation', 'Viewport', 'viewport-foundation-editor', {
-    description: 'Neutral viewport-2d-kit editor foundation fixture.',
+    description: 'Neutral view-world editor foundation fixture.',
     capability: { ...defaultEditorCapability, allowFloatingWindow: true },
-    createDefaultPayload: () => ({ foundation: 'viewport-2d-kit', variant: 'generic' }),
+    createDefaultPayload: () => ({ foundation: 'view-world', variant: 'generic' }),
   }),
   createEditor('profile-panel', 'Panel', 'profile-panel-editor', { description: 'Host profile side panel.' }),
   createEditor('external-mount-demo', 'Adapter', 'external-mount-demo-adapter', {
@@ -95,8 +95,8 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
     title: 'Demo',
     description: 'Core workbench smoke test',
     icon: 'DM',
-    allowedEditorKinds: ['welcome', 'settings', 'table-demo', 'graph-placeholder', 'inspector-demo', 'external-mount-demo', 'view-tree', 'view-inspector', 'view-2d', 'view-table', 'view-form', 'view-node', 'view-console'],
-    recommendedEditorKinds: ['welcome', 'table-demo', 'graph-placeholder', 'external-mount-demo', 'view-tree', 'view-2d', 'view-form', 'view-node', 'view-console'],
+    allowedEditorKinds: ['welcome', 'settings', 'table-demo', 'graph-placeholder', 'inspector-demo', 'external-mount-demo', 'view-tree', 'view-inspector', 'view-world', 'view-table', 'view-form', 'view-node', 'view-console'],
+    recommendedEditorKinds: ['welcome', 'table-demo', 'graph-placeholder', 'external-mount-demo', 'view-tree', 'view-world', 'view-form', 'view-node', 'view-console'],
     defaultOpenRequests: [{ editorKind: 'welcome' }],
     createDefaultLayout: () => createSingleGroupLayout({ groupId: 'workspace-demo-group', leafNodeId: 'workspace-demo-leaf' }),
     allowUserReset: true,
@@ -135,7 +135,7 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
         editorKind: 'viewport-foundation',
         title: 'Knowledge graph',
         targetGroupId: 'autodo-profile-group-right',
-        payload: { foundation: 'viewport-2d-kit', variant: 'autodo-graph' },
+        payload: { foundation: 'view-world', variant: 'autodo-graph' },
       },
     ],
     createDefaultLayout: () => createThreePaneLayout('autodo-profile'),
@@ -159,7 +159,7 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
         editorKind: 'viewport-foundation',
         title: 'Formula canvas',
         targetGroupId: 'matheshop-profile-group-center',
-        payload: { foundation: 'viewport-2d-kit', variant: 'math-canvas' },
+        payload: { foundation: 'view-world', variant: 'math-canvas' },
       },
       { editorKind: 'inspector-demo', title: 'Formula inspector', targetGroupId: 'matheshop-profile-group-right' },
     ],
@@ -185,7 +185,7 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
         editorKind: 'viewport-foundation',
         title: 'Board viewport',
         targetGroupId: 'yeegames-profile-group-2',
-        payload: { foundation: 'viewport-2d-kit', variant: 'game-board' },
+        payload: { foundation: 'view-world', variant: 'game-board' },
       },
     ],
     createDefaultLayout: () => createTwoPaneLayout('yeegames-profile', 'vertical'),
@@ -196,14 +196,14 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
 export const hostProfileValidationCases = [
   {
     workspaceId: 'autodo-profile',
-    validates: '多资料工作区、左侧导航、中部表格、右侧 viewport-2d-kit 图谱底座，不把文献业务写入 main-ui。',
+    validates: '多资料工作区、左侧导航、中部表格、右侧 view-world 图谱底座，不把文献业务写入 main-ui。',
   },
   {
     workspaceId: 'matheshop-profile',
-    validates: '强指针 viewport-2d-kit 画布、工具面板、Inspector 与设置 overlay，不把数学引擎写入 main-ui。',
+    validates: '强指针 view-world 画布、工具面板、Inspector 与设置 overlay，不把数学引擎写入 main-ui。',
   },
   {
     workspaceId: 'yeegames-profile',
-    validates: '游戏广场、参数化 game-session、多实例与 viewport-2d-kit 棋盘底座，不把游戏规则写入 main-ui。',
+    validates: '游戏广场、参数化 game-session、多实例与 view-world 棋盘底座，不把游戏规则写入 main-ui。',
   },
 ] as const;

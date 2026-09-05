@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { EditorRenderContext, JsonObject } from 'main-ui/core';
-import {
-  Viewport2DCanvas,
-  type Camera2D,
-  type Viewport2DCanvasExpose,
-  type ViewportContainerSize,
-} from '@main-ui/viewport-2d-kit/vue';
+import type { EntitySnapshot } from '@main-ui/core/primitives';
+import { WorldView, type WorldCameraState, type WorldReadyApi } from '@main-ui/view-world';
 
 type ViewportVariant = 'autodo-graph' | 'math-canvas' | 'game-board' | 'generic';
 
@@ -35,14 +31,21 @@ type ViewportScene = {
 
 const props = defineProps<{ context: EditorRenderContext }>();
 
-const viewportRef = ref<Viewport2DCanvasExpose | null>(null);
+const TONE_COLOR: Record<string, number> = {
+  blue: 0x4a90d9,
+  green: 0x57b894,
+  gold: 0xd9a441,
+  pink: 0xd9708c,
+};
+const EDGE_COLOR = 0x8a8f98;
+
+let worldApi: WorldReadyApi | null = null;
 const zoomPercent = ref(100);
-const cameraState = ref<Camera2D>({ scale: 1, pan: { x: 0, y: 0 } });
-const viewportSize = ref<ViewportContainerSize>({ width: 1, height: 1 });
+const cameraState = ref<WorldCameraState>({ scale: 1, pan: { x: 0, y: 0 } });
+const sizeText = ref('0x0');
 
 const payload = computed(() => props.context.editor.payload as JsonObject & { variant?: ViewportVariant });
 const variant = computed<ViewportVariant>(() => payload.value.variant ?? 'generic');
-const gridPatternId = computed(() => `demo-viewport-grid-${props.context.editor.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`);
 
 const scenes: Record<ViewportVariant, ViewportScene> = {
   'autodo-graph': {
@@ -112,24 +115,85 @@ const scenes: Record<ViewportVariant, ViewportScene> = {
 
 const scene = computed(() => scenes[variant.value]);
 
-const nodesById = computed(() => new Map(scene.value.nodes.map((node) => [node.id, node])));
-const sceneEdges = computed(() =>
-  scene.value.edges.flatMap((edge) => {
-    const source = nodesById.value.get(edge.source);
-    const target = nodesById.value.get(edge.target);
-    return source && target ? [{ source, target }] : [];
-  }),
-);
+/** 把场景映射为通用 EntitySnapshot：edges(polyline) + nodes(rect sprite) + labels(text)。 */
+const snapshot = computed<EntitySnapshot>(() => {
+  const nodesById = new Map(scene.value.nodes.map((node) => [node.id, node]));
+  const edgePoints: number[][] = [];
+  const edgeStroke: number[] = [];
+  for (const edge of scene.value.edges) {
+    const source = nodesById.get(edge.source);
+    const target = nodesById.get(edge.target);
+    if (!source || !target) continue;
+    edgePoints.push([
+      source.x + source.width / 2, source.y + source.height / 2,
+      target.x + target.width / 2, target.y + target.height / 2,
+    ]);
+    edgeStroke.push(EDGE_COLOR);
+  }
+
+  const nodeX: number[] = [];
+  const nodeY: number[] = [];
+  const nodeW: number[] = [];
+  const nodeH: number[] = [];
+  const nodeColor: number[] = [];
+  const labelX: number[] = [];
+  const labelY: number[] = [];
+  const labelText: string[] = [];
+  const labelColor: number[] = [];
+  const labelSize: number[] = [];
+  for (const node of scene.value.nodes) {
+    nodeX.push(node.x + node.width / 2);
+    nodeY.push(node.y + node.height / 2);
+    nodeW.push(node.width);
+    nodeH.push(node.height);
+    nodeColor.push(TONE_COLOR[node.tone] ?? 0x888888);
+    labelX.push(node.x + node.width / 2);
+    labelY.push(node.y + node.height / 2);
+    labelText.push(node.label);
+    labelColor.push(0xffffff);
+    labelSize.push(16);
+  }
+
+  return {
+    bounds: scene.value.viewBox,
+    batches: {
+      edges: { kind: 'edges', count: edgePoints.length, geometry: 'polygon', columns: { points: edgePoints, stroke: edgeStroke, strokeWidth: edgePoints.map(() => 2) } },
+      nodes: { kind: 'nodes', count: nodeX.length, geometry: 'sprite', columns: { x: nodeX, y: nodeY, width: nodeW, height: nodeH, color: nodeColor, shape: nodeX.map(() => 'rect') } },
+      labels: { kind: 'labels', count: labelX.length, geometry: 'text', columns: { x: labelX, y: labelY, text: labelText, color: labelColor, fontSize: labelSize } },
+    },
+  };
+});
 
 const cameraText = computed(() => {
   const camera = cameraState.value;
-  return `${zoomPercent.value}%  pan ${Math.round(camera.pan.x)}, ${Math.round(camera.pan.y)}  ${viewportSize.value.width}x${viewportSize.value.height}`;
+  return `${zoomPercent.value}%  pan ${Math.round(camera.pan.x)}, ${Math.round(camera.pan.y)}  ${sizeText.value}`;
 });
 
-const handleCameraChange = (camera: Camera2D, size: ViewportContainerSize) => {
-  cameraState.value = camera;
-  viewportSize.value = size;
+const handleReady = (api: WorldReadyApi) => {
+  worldApi = api;
+  const size = api.getSize();
+  sizeText.value = `${Math.round(size.width)}x${Math.round(size.height)}`;
 };
+
+const handleCameraChange = (camera: WorldCameraState) => {
+  cameraState.value = camera;
+  zoomPercent.value = Math.round(camera.scale * 100);
+};
+
+const zoomBy = (factor: number) => {
+  if (!worldApi) return;
+  const size = worldApi.getSize();
+  const anchor = { x: size.width / 2, y: size.height / 2 };
+  const camera = worldApi.getCamera();
+  const worldAtAnchor = worldApi.screenToWorld(anchor);
+  const nextScale = camera.scale * factor;
+  worldApi.setCamera({
+    scale: nextScale,
+    pan: { x: anchor.x - worldAtAnchor.x * nextScale, y: anchor.y - worldAtAnchor.y * nextScale },
+  });
+};
+
+const fit = () => worldApi?.fitToBounds(scene.value.viewBox);
 </script>
 
 <template>
@@ -140,59 +204,24 @@ const handleCameraChange = (camera: Camera2D, size: ViewportContainerSize) => {
         <p>{{ scene.description }}</p>
       </div>
       <div class="demo-actions">
-        <button type="button" @click="viewportRef?.zoomOut()">-</button>
-        <button type="button" @click="viewportRef?.fitToBounds()">Fit</button>
-        <button type="button" @click="viewportRef?.zoomIn()">+</button>
+        <button type="button" @click="zoomBy(1 / 1.15)">-</button>
+        <button type="button" @click="fit()">Fit</button>
+        <button type="button" @click="zoomBy(1.15)">+</button>
       </div>
     </div>
 
     <div class="demo-viewport-stage">
-      <Viewport2DCanvas
-        ref="viewportRef"
+      <WorldView
         class="demo-viewport"
+        :snapshot="snapshot"
         :view-box="scene.viewBox"
         :min-scale="0.25"
         :max-scale="4"
         :padding-px="56"
-        @zoom-percent-change="(value) => (zoomPercent = value)"
+        :pan-on-drag="true"
+        @ready="handleReady"
         @camera-change="handleCameraChange"
-      >
-        <template #default="{ width, height, cameraTransform }">
-          <svg class="demo-viewport__svg" :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`">
-            <defs>
-              <pattern :id="gridPatternId" width="32" height="32" patternUnits="userSpaceOnUse">
-                <path d="M 32 0 L 0 0 0 32" class="demo-viewport__grid-line" />
-              </pattern>
-            </defs>
-            <rect :width="width" :height="height" class="demo-viewport__backdrop" />
-            <rect :width="width" :height="height" :fill="`url(#${gridPatternId})`" opacity="0.55" />
-
-            <g :transform="cameraTransform">
-              <line
-                v-for="edge in sceneEdges"
-                :key="`${edge.source.id}-${edge.target.id}`"
-                :x1="edge.source.x + edge.source.width / 2"
-                :y1="edge.source.y + edge.source.height / 2"
-                :x2="edge.target.x + edge.target.width / 2"
-                :y2="edge.target.y + edge.target.height / 2"
-                class="demo-viewport__edge"
-              />
-
-              <g
-                v-for="node in scene.nodes"
-                :key="node.id"
-                :transform="`translate(${node.x} ${node.y})`"
-                class="demo-viewport__node"
-                :class="`is-${node.tone}`"
-              >
-                <rect :width="node.width" :height="node.height" rx="6" />
-                <text :x="node.width / 2" :y="node.height / 2 + 5" text-anchor="middle">{{ node.label }}</text>
-              </g>
-            </g>
-          </svg>
-        </template>
-      </Viewport2DCanvas>
-
+      />
       <div class="demo-viewport__status">{{ cameraText }}</div>
     </div>
   </div>

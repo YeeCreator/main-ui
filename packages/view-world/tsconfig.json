@@ -4,26 +4,17 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-
     "baseUrl": ".",
     "paths": {
       "main-ui": ["../main-ui/src/index.ts"],
       "main-ui/core": ["../main-ui/src/core/index.ts"],
       "main-ui/vue": ["../main-ui/src/vue/index.ts"],
-      "@main-ui/view-tree": ["../view-tree/src/index.ts"],
-      "@main-ui/view-inspector": ["../view-inspector/src/index.ts"],
-      "@main-ui/view-world": ["../view-world/src/index.ts"],
-      "@main-ui/view-table": ["../view-table/src/index.ts"],
       "@main-ui/core": ["../core/src/index.ts"],
       "@main-ui/core/rendering": ["../core/src/rendering/index.ts"],
-      "@main-ui/core/primitives": ["../core/src/primitives/index.ts"],
-      "@main-ui/view-form": ["../view-form/src/index.ts"],
-      "@main-ui/view-node": ["../view-node/src/index.ts"],
-      "@main-ui/view-console": ["../view-console/src/index.ts"]
+      "@main-ui/core/primitives": ["../core/src/primitives/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

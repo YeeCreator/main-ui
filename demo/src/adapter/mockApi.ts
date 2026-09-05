@@ -9,7 +9,7 @@
 import type { ViewTreeNode } from '@main-ui/view-tree';
 import type { InspectorSchema, InspectorValues } from '@main-ui/view-inspector';
 import type { TableColumn, TableRow } from '@main-ui/view-table';
-import type { View2dViewBox } from '@main-ui/view-2d';
+import type { ViewBox } from '@main-ui/core/rendering';
 import type { FormSchema, FormValues } from '@main-ui/view-form';
 import type { NodeGraphData, NodeGraphEdgeData } from '@main-ui/view-node';
 import type { ConsoleEntry, ConsoleLevel } from '@main-ui/view-console';
@@ -91,9 +91,9 @@ export const fetchSceneInspector = async (): Promise<SceneInspectorData> => {
   };
 };
 
-// ---------- 场景图谱：2D 画布世界数据（viewBox + 节点 + 边） ----------
+// ---------- 场景图谱：2D 世界画布数据（viewBox + 节点 + 边） ----------
 export type SceneGraphData = {
-  viewBox: View2dViewBox;
+  viewBox: ViewBox;
   nodes: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>;
   edges: Array<{ source: string; target: string }>;
 };
