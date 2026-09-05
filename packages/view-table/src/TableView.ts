@@ -100,11 +100,16 @@ export const TableView = defineComponent({
     // ---------- 视图生命周期契约（四成员，onDestroy 幂等） ----------
     const lifecycle: MainUiViewLifecycle = {
       viewType: 'view-table',
-      getViewState: (): TableViewState => ({
-        scrollTop: viewportEl.value?.scrollTop ?? scrollTop.value,
-        selectedRowId: internalSelected.value,
-        sort: internalSort.value,
-      }),
+      getViewState: (): TableViewState => {
+        // F-4 fix：internalSort.value 是 Vue 响应式 Proxy（非 null 时），structuredClone 会抛
+        // DataCloneError；用 {...} 展开为普通对象，规避内核 captureViewStates → cloneDocument 崩溃。
+        const sort = internalSort.value;
+        return {
+          scrollTop: viewportEl.value?.scrollTop ?? scrollTop.value,
+          selectedRowId: internalSelected.value,
+          sort: sort ? { key: sort.key, direction: sort.direction } : null,
+        };
+      },
       restoreViewState: (state) => {
         if (destroyed) return;
         const snapshot = state as Partial<TableViewState>;
