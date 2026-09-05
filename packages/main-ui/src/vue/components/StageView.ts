@@ -8,7 +8,7 @@ import { defineComponent, h, type PropType } from 'vue';
  * 纯壳零业务：中央内容由宿主注入（游戏 Screen / 引擎视口）；返回经 `back` emit 出。
  * 左右插槽缺省时不渲染（中央独占）。颜色消费 --mui-* 令牌；可选 `theme` prop 供独立渲染同步。
  *
- * 说明：中央「主视口」的具体渲染引擎（view-2d / scene-kit / pixi 等）由宿主按选型决定，
+ * 说明：中央「主视口」的具体渲染引擎（view-world / scene-kit / pixi 等）由宿主按选型决定，
  * StageView 只提供布局壳，与引擎解耦。
  */
 export const StageView = defineComponent({

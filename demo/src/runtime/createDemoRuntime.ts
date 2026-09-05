@@ -9,8 +9,8 @@ import ProfilePanelEditor from '../editors/ProfilePanelEditor.vue';
 import SettingsEditor from '../editors/SettingsEditor.vue';
 import TableDemoEditor from '../editors/TableDemoEditor.vue';
 import WelcomeEditor from '../editors/WelcomeEditor.vue';
+import ViewportFoundationEditor from '../editors/ViewportFoundationEditor.vue';
 import { hostProfileEditors, hostProfileWorkspaces } from './hostProfiles';
-import { ViewportMainUiEditor } from '@main-ui/viewport-2d-kit/main-ui';
 import { registerDemoPresetViewEditors } from '../adapter/registerPresetViewEditors';
 
 export const createDemoRuntime = () => {
@@ -36,7 +36,7 @@ export const createDemoRuntime = () => {
   runtime.vue.registerEditorRenderer('profile-panel-editor', ProfilePanelEditor);
   runtime.vue.registerEditorRenderer('game-gallery-editor', GameGalleryEditor);
   runtime.vue.registerEditorRenderer('game-session-editor', GameSessionEditor);
-  runtime.vue.registerEditorRenderer('viewport-foundation-editor', ViewportMainUiEditor);
+  runtime.vue.registerEditorRenderer('viewport-foundation-editor', ViewportFoundationEditor);
   registerDemoPresetViewEditors(runtime);
   runtime.vue.registerEditorMountAdapter('external-mount-demo-adapter', {
     mount(container, context) {

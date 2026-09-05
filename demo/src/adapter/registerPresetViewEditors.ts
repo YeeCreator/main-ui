@@ -10,7 +10,6 @@
 import { Graphics, Text } from 'pixi.js';
 import type { Component } from 'vue';
 import type { EditorDescriptor } from 'main-ui/core';
-import type { PixiViewport } from '@main-ui/viewport-2d-kit/pixi';
 import { registerTreeViewEditor, type ViewTreeNode } from '@main-ui/view-tree';
 import {
   registerInspectorViewEditor,
@@ -19,7 +18,7 @@ import {
   type InspectorValues,
 } from '@main-ui/view-inspector';
 import { registerTableViewEditor, type TableCellEditIntent, type TableColumn, type TableRow } from '@main-ui/view-table';
-import { registerView2dEditor, DEFAULT_VIEW_2D_VIEWBOX, type View2dViewBox } from '@main-ui/view-2d';
+import { registerWorldViewEditor, DEFAULT_WORLD_VIEWBOX, type ViewBox, type WorldReadyApi } from '@main-ui/view-world';
 import {
   registerFormViewEditor,
   type FormApplyPresetIntentPayload,
@@ -58,15 +57,15 @@ type DemoPresetRuntime = {
 
 const isPending = (status?: string): boolean => status === 'loading' || status === undefined;
 
-/** 把模拟后端的场景图谱画进 2d 内核的 world 容器（世界坐标）。 */
-const drawSceneGraph = (viewport: PixiViewport, editorInstanceId: string): void => {
+/** 把模拟后端的场景图谱画进 view-world 手动模式（onReady 逃生舱）的 world 容器（世界坐标）。 */
+const drawSceneGraph = (api: WorldReadyApi, editorInstanceId: string): void => {
   const record = getViewRecord(editorInstanceId);
   const data = record?.data as Partial<SceneGraphData> | undefined;
   const nodes = data?.nodes ?? [];
   const edges = data?.edges ?? [];
   if (nodes.length === 0) return;
 
-  const world = viewport.world;
+  const world = api.world;
   world.removeChildren();
   const byId = new Map(nodes.map((node) => [node.id, node]));
 
@@ -147,8 +146,8 @@ export const registerDemoPresetViewEditors = (runtime: DemoPresetRuntime): void 
     }),
   );
 
-  // ---------- 2D 画布（相机进视图状态；世界绘制在宿主侧） ----------
-  registerView2dEditor(
+  // ---------- 2D 世界画布（相机进视图状态；世界绘制在宿主侧的手动模式） ----------
+  registerWorldViewEditor(
     runtime,
     { allowedWorkspaceIds, title: 'Scene Graph' },
     (context) => {
@@ -156,13 +155,17 @@ export const registerDemoPresetViewEditors = (runtime: DemoPresetRuntime): void 
       ensureViewData(id, () => fetchSceneGraph().then((data) => ({ ...data })));
       const record = getViewRecord(id);
       return {
-        viewBox: (record?.data.viewBox as View2dViewBox | undefined) ?? DEFAULT_VIEW_2D_VIEWBOX,
+        snapshot: null,
+        grid: null,
+        viewBox: (record?.data.viewBox as ViewBox | undefined) ?? DEFAULT_WORLD_VIEWBOX,
+        interactive: true,
+        panOnDrag: true,
         loading: isPending(record?.status),
         error: record?.status === 'error' ? record.error : null,
       };
     },
     (context) => ({
-      onReady: (viewport: PixiViewport) => drawSceneGraph(viewport, context.editor.id),
+      onReady: (api: WorldReadyApi) => drawSceneGraph(api, context.editor.id),
     }),
   );
 
