@@ -61,13 +61,18 @@ export const SandboxView = defineComponent({
     // ---------- 视图生命周期契约 ----------
     const lifecycle: MainUiViewLifecycle = {
       viewType: 'view-sandbox',
-      getViewState: (): SandboxViewState => ({
-        camera: cameraState.value,
-        selectedElementIds: [...selectedIds.value],
-        embeddedRefs: kernel.value?.document.elements
-          .filter((e) => e.type === 'embed-view')
-          .map((e) => e.id) ?? [],
-      }),
+      getViewState: (): SandboxViewState => {
+        // F-3 fix：cameraState.value 是 Vue 响应式 Proxy，structuredClone 会抛 DataCloneError；
+        // 用 {...} 展开为普通对象，规避内核 captureViewStates → cloneDocument 崩溃。
+        const cam = cameraState.value;
+        return {
+          camera: { x: cam.x, y: cam.y, zoom: cam.zoom },
+          selectedElementIds: [...selectedIds.value],
+          embeddedRefs: kernel.value?.document.elements
+            .filter((e) => e.type === 'embed-view')
+            .map((e) => e.id) ?? [],
+        };
+      },
       restoreViewState: (state) => {
         if (destroyed) return;
         const snapshot = state as Partial<SandboxViewState>;
