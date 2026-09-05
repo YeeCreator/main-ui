@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/view-host-engine",
-  "version": "0.6.0",
+  "version": "1.0.0-alpha",
   "private": false,
   "description": "main-ui 官方视图模板：外部引擎桥接（ExternalEngineHostView），第三方引擎转播窗口，布局归我方、渲染归外部引擎。",
   "license": "MIT",
@@ -32,11 +32,11 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "main-ui": "^0.6.0",
+    "main-ui": "^1.0.0-alpha",
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "main-ui": "workspace:*",
+    "main-ui": "workspace:^1.0.0-alpha",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
     "vitest": "^3.2.4",

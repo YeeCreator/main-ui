@@ -109,43 +109,43 @@ importers:
   packages/preset-views:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       '@main-ui/view-console':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-console
       '@main-ui/view-flow':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-flow
       '@main-ui/view-form':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-form
       '@main-ui/view-host-engine':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-host-engine
       '@main-ui/view-inspector':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-inspector
       '@main-ui/view-node':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-node
       '@main-ui/view-sandbox':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-sandbox
       '@main-ui/view-table':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-table
       '@main-ui/view-tree':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-tree
       '@main-ui/view-world':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../view-world
       '@vue-flow/core':
         specifier: ^1.48.2
         version: 1.48.2(vue@3.5.32(typescript@5.7.3))
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -163,10 +163,10 @@ importers:
   packages/view-console:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -184,13 +184,13 @@ importers:
   packages/view-flow:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       '@vue-flow/core':
         specifier: ^1.48.0
         version: 1.48.2(vue@3.5.32(typescript@5.7.3))
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -208,10 +208,10 @@ importers:
   packages/view-form:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -229,7 +229,7 @@ importers:
   packages/view-host-engine:
     devDependencies:
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -247,10 +247,10 @@ importers:
   packages/view-inspector:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -271,7 +271,7 @@ importers:
         specifier: ^1.48.2
         version: 1.48.2(vue@3.5.32(typescript@5.7.3))
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -289,10 +289,10 @@ importers:
   packages/view-sandbox:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -310,10 +310,10 @@ importers:
   packages/view-table:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -331,10 +331,10 @@ importers:
   packages/view-tree:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       tsup:
         specifier: ^8.5.1
@@ -352,10 +352,10 @@ importers:
   packages/view-world:
     devDependencies:
       '@main-ui/core':
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../core
       main-ui:
-        specifier: workspace:*
+        specifier: workspace:^1.0.0-alpha
         version: link:../main-ui
       pixi.js:
         specifier: ^8.0.0

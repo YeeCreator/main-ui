@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/view-table",
-  "version": "0.3.0",
+  "version": "1.0.0-alpha",
   "private": false,
   "description": "main-ui 官方视图模板：自研虚拟滚动表格（列定义 + 行数据，排序、行选中、单元格编辑意图）。",
   "license": "MIT",
@@ -32,13 +32,13 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.4.0",
-    "main-ui": "^0.6.0",
+    "@main-ui/core": "^1.0.0-alpha",
+    "main-ui": "^1.0.0-alpha",
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@main-ui/core": "workspace:*",
-    "main-ui": "workspace:*",
+    "@main-ui/core": "workspace:^1.0.0-alpha",
+    "main-ui": "workspace:^1.0.0-alpha",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
     "vitest": "^3.2.4",

@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/view-world",
-  "version": "0.6.0",
+  "version": "1.0.0-alpha",
   "private": false,
   "description": "main-ui 官方视图模板：2D 世界可视化（L1 中级游戏引擎层）。消费通用 EntitySnapshot 自动渲染图元（Grid/Sprite/Text/Polygon），支持手动模式（onReady 逃生舱）与 InteractionLayer（点击/拖拽 + screen→world 命中）。内核用 @main-ui/core/rendering（PixiJS WebGL）。取代已废弃的 view-2d。",
   "license": "MIT",
@@ -32,14 +32,14 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.5.0",
-    "main-ui": "^0.6.0",
+    "@main-ui/core": "^1.0.0-alpha",
+    "main-ui": "^1.0.0-alpha",
     "pixi.js": "^8.0.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@main-ui/core": "workspace:*",
-    "main-ui": "workspace:*",
+    "@main-ui/core": "workspace:^1.0.0-alpha",
+    "main-ui": "workspace:^1.0.0-alpha",
     "pixi.js": "^8.0.0",
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
