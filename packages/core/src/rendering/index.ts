@@ -12,4 +12,5 @@
 export * from './camera';
 export * from './constraints';
 export * from './interactions';
+export { installPreventPageZoom } from './preventPageZoom';
 export { PixiViewport, type PixiViewportOptions } from './pixiViewport';
