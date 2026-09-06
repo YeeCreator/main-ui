@@ -1,21 +1,17 @@
-# MIGRATION_GUIDE · main-ui 1.0.0-alpha
+# MIGRATION_GUIDE · main-ui 0.x（pre-1.0 开发线）
 
 > 适用对象：所有 main-ui 下游项目（autodo / matheshop / yeegames / scene-kit / scene-studio 等）。
 > 触发：2026-09-05 联合项目组引擎选型会 + 无畏版架构大改造。
 > 基调：联合项目组优先，一次性彻底重构，下游按本指南一次性适配。
+> **版本说明**：本次为大改造但**版本保持 0.x 开发线（未正式发布）**，不跳 1.0；breaking 变更体现在包名/入口删除（见 §二），而非版本号。
 
 ---
 
-## 一、版本跳变概览
+## 一、版本说明（保持 0.x，不跳 1.0）
 
-| 包 | 旧版 | 新版 |
-|---|---|---|
-| `main-ui` | `^0.6.0` | `^1.0.0-alpha` |
-| `@main-ui/core` | `^0.5.0` | `^1.0.0-alpha` |
-| `@main-ui/preset-views` | `^0.6.0` | `^1.0.0-alpha` |
-| `@main-ui/view-*`（全部 11 个模板） | `^0.3.0` ~ `^0.6.0` | `^1.0.0-alpha` |
+本次改造**不跳版本号**。各包仍处 0.x 开发线（main-ui 0.6.0 / @main-ui/core 0.5.0 / view-* 0.3.0~0.6.0），标识尚未到可正式发布状态。
 
-**操作**：下游 `package.json` 中所有 `workspace:^0.x` / `^0.x` 范围统一更新为 `^1.0.0-alpha`（或 `workspace:^1.0.0-alpha`），然后 `pnpm install`。
+下游**无需**因版本跳变调整范围；只需按 §二/§三 处理**包名删除与新增子路径**，并按 §六 补 `pixi.js` peerDep（若使用 view-world）。
 
 ---
 
@@ -131,7 +127,7 @@ import { SidebarView, ToolbarView } from 'main-ui/vue';
 
 ## 七、推荐适配流程
 
-1. **依赖升级**：`package.json` 中 main-ui / @main-ui/* 版本范围统一更新为 `^1.0.0-alpha`（或 `workspace:^1.0.0-alpha`），并新增 `pixi.js ^8.0.0`（若使用 view-world）。
+1. **依赖调整**：版本范围保持 0.x 不变；删除对 `@main-ui/viewport-2d-kit` / `@main-ui/view-2d` / `@main-ui/viewport-3d-kit` 的依赖；新增 `@main-ui/view-world` 与 `pixi.js ^8.0.0`（若使用 view-world）。
 2. **替换 import**：全文搜索 `viewport-2d-kit` / `view-2d` / `viewport-3d-kit`，按 §二 表替换。
 3. **注册代码迁移**：`registerView2dEditor` → `registerWorldViewEditor`；旧的 `ViewportMainUiEditor` 手动注册代码改为 `registerWorldViewEditor(runtime, options)`。
 4. **移除 F-3/F-4 规避代码**：见 §四。

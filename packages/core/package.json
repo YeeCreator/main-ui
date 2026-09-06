@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/core",
-  "version": "1.0.0-alpha",
+  "version": "0.5.0",
   "private": false,
   "description": "main-ui 模板库公共基座：框架无关的表单 schema 类型与校验纯函数（view-form / view-inspector 共享）；渲染基础设施（core/rendering，吸收自原 viewport-2d-kit）与图元系统（core/primitives）以独立子路径导出，仅画布类视图引入 PixiJS。与主包 main-ui 的 core 层（main-ui/core 子路径）相互独立。",
   "license": "MIT",
