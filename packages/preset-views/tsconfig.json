@@ -23,7 +23,10 @@
       "@main-ui/core/primitives": ["../core/src/primitives/index.ts"],
       "@main-ui/view-form": ["../view-form/src/index.ts"],
       "@main-ui/view-node": ["../view-node/src/index.ts"],
-      "@main-ui/view-console": ["../view-console/src/index.ts"]
+      "@main-ui/view-console": ["../view-console/src/index.ts"],
+       "@main-ui/view-run-control": ["../view-run-control/src/index.ts"],
+       "@main-ui/view-timeline": ["../view-timeline/src/index.ts"],
+       "@main-ui/view-storyboard": ["../view-storyboard/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

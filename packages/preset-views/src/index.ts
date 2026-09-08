@@ -1,11 +1,12 @@
 /**
  * @main-ui/preset-views —— 官方视图模板聚合包（仅重导出，不含任何逻辑）。
- * 数据：tree / inspector / table / form / node / console；画布：world / sandbox / flow / host-engine。
+ * 数据：tree / inspector / table / form / node / console；画布：world / sandbox / flow / host-engine；
+ * 控制：runControl / timeline / storyboard。
  *
  * 命名空间重导出避免模板间的共享类型名冲突：
  *
  * ```ts
- * import { tree, inspector, world, table, form, node, console as consoleView, flow, sandbox } from '@main-ui/preset-views';
+ * import { tree, inspector, world, table, form, node, console as consoleView, flow, sandbox, runControl, timeline, storyboard } from '@main-ui/preset-views';
  * ```
  */
 export * as tree from '@main-ui/view-tree';
@@ -18,3 +19,6 @@ export * as consoleView from '@main-ui/view-console';
 export * as flow from '@main-ui/view-flow';
 export * as sandbox from '@main-ui/view-sandbox';
 export * as hostEngine from '@main-ui/view-host-engine';
+export * as runControl from '@main-ui/view-run-control';
+export * as timeline from '@main-ui/view-timeline';
+export * as storyboard from '@main-ui/view-storyboard';

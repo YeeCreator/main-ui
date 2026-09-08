@@ -1,0 +1,45 @@
+{
+  "name": "@main-ui/view-storyboard",
+  "version": "0.1.0",
+  "private": false,
+  "description": "main-ui 官方控制视图模板：分镜卡片/截图/注释/排列的通用 UI 原语。卡片经 Props 注入，增删改以意图经 Emits 抛出；语义为通用分镜（card/tick/note/image），不绑定任何领域。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/view-storyboard"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "main-ui": "^0.6.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "main-ui": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.0"
+  }
+}
