@@ -94,6 +94,47 @@ import { SidebarView, ToolbarView } from 'main-ui/vue';
 - `SidebarView`：侧栏布局（标题 + 默认插槽 + 页脚插槽；props：`title`/`width`/`side: 'left'|'right'`/`collapsible`/`collapsed`/`theme`；emit：`toggle`）
 - `ToolbarView`：水平工具条（左/中/右三区插槽；props：`height`/`theme`）
 
+### 3.5 控制视图（新包，Phase 2c）
+
+三个**通用仿真/控制语义**的控制视图模板（首版 0.1.0），不绑定任何领域（无游戏/棋类专属术语）：
+
+| 包 | 职责 | 关键 Props | 关键 Emits（意图） |
+|---|---|---|---|
+| `@main-ui/view-run-control` | 运行/暂停/单步/重置/速率 | `status`(`idle`/`running`/`paused`) / `rate` / `tick` / `connected` / `canReset` / `rateEditable` | `play` `pause` `step` `reset` `rate-change` |
+| `@main-ui/view-timeline` | 帧序列/时间轴/回放/拖拽定位 | `frames: TimelineFrame[]` / `currentIndex: number\|null`(null=实时) / `totalTicks` | `seek` `scrub` `live` |
+| `@main-ui/view-storyboard` | 分镜卡片/截图/注释/排列 | `cards: StoryboardCard[]` / `draftNote` / `addEnabled` / `exportEnabled` | `add-card` `remove-card` `update-note` `update-draft` `export` |
+
+**使用示例**（数据经 Props 注入、操作以意图 Emits 抛出，视图不发起请求）：
+
+```vue
+<script setup lang="ts">
+import { RunControlView, type RunControlStatus } from '@main-ui/view-run-control';
+import { TimelineView, type TimelineFrame } from '@main-ui/view-timeline';
+import { StoryboardView, type StoryboardCard } from '@main-ui/view-storyboard';
+</script>
+
+<template>
+  <RunControlView :status="status" :rate="rate" :tick="tick" :connected="connected"
+    @play="play" @pause="pause" @step="step" @reset="reset" @rate-change="onRate" />
+  <TimelineView :frames="frames" :current-index="index"
+    @seek="seek" @scrub="scrub" @live="goLive" />
+  <StoryboardView :cards="cards" :draft-note="draft"
+    @add-card="addCard" @remove-card="removeCard" @update-note="updateNote" @export="exportJson" />
+</template>
+```
+
+**注册为 MUI editor**（ViewLifecycle 四成员已实现）：
+
+```ts
+import { registerRunControlViewEditor } from '@main-ui/view-run-control';
+import { registerTimelineViewEditor } from '@main-ui/view-timeline';
+import { registerStoryboardViewEditor } from '@main-ui/view-storyboard';
+
+registerRunControlViewEditor(runtime, { allowedWorkspaceIds: ['my-workspace'] }, resolveProps, extraProps);
+```
+
+`resolveProps` 把 `EditorRenderContext` 映射为视图 Props（宿主适配层）；`extraProps` 转发 `onPlay`/`onSeek` 等事件监听。三者均已纳入 `@main-ui/preset-views`（见 §五）。
+
 ---
 
 ## 四、F-3 / F-4 缺陷已根治
@@ -114,7 +155,7 @@ import { SidebarView, ToolbarView } from 'main-ui/vue';
 + import { world } from '@main-ui/preset-views';
 ```
 
-当前完整命名空间：`tree` / `inspector` / `world` / `table` / `form` / `node` / `consoleView` / `flow` / `sandbox` / `hostEngine`。
+当前完整命名空间：`tree` / `inspector` / `world` / `table` / `form` / `node` / `consoleView` / `flow` / `sandbox` / `hostEngine` / `runControl` / `timeline` / `storyboard`。
 
 ---
 
@@ -148,3 +189,30 @@ import { SidebarView, ToolbarView } from 'main-ui/vue';
 ## 九、问题反馈
 
 遇到迁移问题，请投入 `mailbox/relay/feedback/outbox/main-ui/`（走 mailbox 协议），或直接联系联合项目组。
+
+---
+
+## 十、跨项目独立性约束（提醒）
+
+MUI 的 API/视图设计**不得以任一单一下游（含 YG）为唯一消费者**。下游在消费/扩展 MUI 时请遵守：
+
+- **控制视图接口为通用仿真/控制语义**（`status`/`rate`/`tick`/`frame`/`card`），不含游戏或棋类专属术语；SA、autodo-app、Matheshop、CSL、ES 均应能**不加适配层**直接消费。
+- **数据视图 / 画布视图同理**：`view-world` 消费通用 `EntitySnapshot`（不绑定 scene-kit）；DOM 视图不引入 PixiJS。
+- 若下游需要领域语义（如棋谱、agent 思维链），请在**宿主侧适配层**完成映射（Props 注入 / Emits 回收），不要向 MUI 包内注入领域类型。
+- 新增 MUI 能力的验收包含「非 YG 消费者可用性检查」：至少确认 CSL 或 ES 可在不修改自身代码的前提下消费。
+
+---
+
+## 十一、SK（scene-kit）发版策略说明
+
+SK 为联合项目组 L3 **通用世界建模层**，其发版与 MUI / SA **解耦**：
+
+| 维度 | 策略 |
+|---|---|
+| 版本号 | SK 自身 semver（当前 0.6.0），独立演进 |
+| 消费者约束 | 下游以 `scene-kit>=0.6.0` 声明（CSL/ES 现用 `>=0.2.0`） |
+| Changelog | 由 SK 仓库 `CHANGELOG.md` 维护 |
+| 发版节奏 | 跟随 SK 功能迭代，**不绑定 SA（scene-studio）或 MUI 发版** |
+| 本地开发 | 开发期继续 `uv.sources` / `file:` 可编辑路径，发布时切正式版本 |
+
+对 MUI 下游的含义：MUI 包**不依赖** SK；MUI 与 SK 之间仅以通用 `EntitySnapshot` / `WorldSnapshot` 数据形状在**宿主适配层**对接（见 SIF 草案）。因此 SK 升版**不触发** MUI 迁移；反之 MUI 0.x 迁移也**不要求** SK 升版。
