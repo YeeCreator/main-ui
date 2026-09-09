@@ -1,5 +1,56 @@
 # DEVELOPMENT_LOG
 
+## 2026-09-08 · Phase 2c 控制视图三件套（view-run-control / view-timeline / view-storyboard）
+
+来源：联合项目组剩余阶段开发（Phase 2c）。
+
+功能交付：
+
+1. **`@main-ui/view-run-control`**（v0.1.0）：通用仿真运行控制视图——play/pause/step/reset/rate 控制；`RunControlState { status, rate, tick }` + `RunControlEvents`；`.ts` render-function 组件（对齐既有 11 个 view 包的 tsup 构建约定）；ViewLifecycle 四成员。
+2. **`@main-ui/view-timeline`**（v0.1.0）：通用时间线视图——帧列表 + 当前帧导航；`TimelineFrame { tick, time, label? }` + `TimelineState { frames, currentIndex, totalTicks }`。
+3. **`@main-ui/view-storyboard`**（v0.1.0）：通用分镜视图——卡片增删 + 注释编辑；`StoryboardCard { id, tick, note, image? }` + `StoryboardEvents`。
+4. 三包统一：接口类型为通用仿真/控制语义（status/rate/tick/frame/card），不含游戏专属术语；注册为 MUI editor；纳入 `@main-ui/preset-views` 聚合包。
+
+验证：`pnpm typecheck`（17 包全绿）、`pnpm test`（199 项，新增 14）、`pnpm build` 全绿。
+
+**独立性检查**：通过。CSL/ES 等下游可在不修改自身代码的前提下直接消费。
+
+文档：MIGRATION_GUIDE_0.x.md（补充控制视图章节）、本日志。
+
+## 2026-09-05~06 · 联合大改造 Phase 0/1（viewport-2d-kit 消灭 + view-world 新建 + F-3/F-4 根治）
+
+来源：联合项目组引擎选型会决策（2026-09-05）+ 无畏版彻底重构策略。
+
+**Phase 0 — MUI 大清理（Breaking Change）**：
+
+1. **删除** `packages/viewport-2d-kit/`（功能吸收进 `@main-ui/core/rendering/`：Camera2D / PixiViewport / fitCameraToViewBox / cameraToCssTransform / createViewportInteractions / installPreventPageZoom）。
+2. **删除** `packages/viewport-3d-kit/`（远期 3D 待重新设计）。
+3. **删除** `packages/view-2d/`（功能并入 view-world 手动模式）。
+4. **`@main-ui/core` 新增 `rendering/`**：相机数学 + 约束 + 交互 + PixiViewport；PixiJS 作为唯一 2D 渲染核心。
+5. **`@main-ui/core` 新增 `primitives/`**：图元系统下沉（Grid / Sprite / Text / Polygon + hitTest + EntitySnapshot 列式解析）。
+6. **轻组件** `SidebarView` / `ToolbarView` 并入 `main-ui/vue`（纯壳 GUI 原语）。
+
+**Phase 1 — 新建 `@main-ui/view-world`**：
+
+1. 消费通用 `EntitySnapshot` + `GridSpec`（不绑定 scene-kit）。
+2. **自动渲染模式**：Grid / Sprite / Text / Polygon 图元按 EntitySnapshot 自动选择。
+3. **手动模式**：`@ready` 逃生舱（onReady 回调暴露 PixiJS Application），取代旧 view-2d。
+4. **InteractionLayer**：点击 / 拖拽 + screen→world 命中测试。
+5. 内核用 `@main-ui/core/rendering/`（PixiViewport WebGL）。
+6. `registerWorldViewEditor` 一键注册；纳入 preset-views `world` 命名空间。
+
+**F-3/F-4 根治**：
+
+- F-3：`view-sandbox/SandboxView.ts` 的 `camera` 显式展开 `{ x, y, zoom }`（不返回响应式 Proxy），`structuredClone` 安全。新增 `regression-f3.test.ts`（2 用例）。
+- F-4：`view-table/TableView.ts` 的 `sort` 显式展开 `{ key, direction }`。新增 `regression-f4.test.ts`（3 用例）。
+- 下游可移除既有规避代码（view-sandbox 不必再省略 editorInstanceId、view-table 可开启 sortable）。
+
+**版本策略（用户裁决）**：保持 0.x 开发线，不跳 1.0。breaking 体现在包名删除而非版本号。`MIGRATION_GUIDE_1.0.0.md` 重命名为 `MIGRATION_GUIDE_0.x.md`。
+
+验证：`pnpm typecheck`（14 包全绿）、`pnpm test`（202 tests 含 F-3/F-4 回归）、`pnpm build`、`pnpm demo:build` 全绿。
+
+文档：MIGRATION_GUIDE_0.x.md、本日志。
+
 ## v0.7 远期清单（下游反馈入账，待排期）
 
 来源：v0.6.0 六家联合改造反馈信（2026-08-29）+ yeegames 联合界面大改造反馈（2026-09-04）。除 **F-3（高，工作台崩溃）** 外优先级低，不阻塞 v0.6 收尾。
