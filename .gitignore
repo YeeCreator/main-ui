@@ -1105,3 +1105,6 @@ docs/mailbox/relay/archive/
 
 # Build info
 *.tsbuildinfo
+
+# mailbox/relay — 治理信箱已迁出仓库（2026-10-05）
+docs/mailbox/relay/

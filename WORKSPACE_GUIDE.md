@@ -50,7 +50,7 @@
 ### 📓 笔记
 
 #### Engs 笔记 Main UI
-- **路径**: `/Users/ethan/Library/Mobile Documents/iCloud~md~obsidian/Documents/Engs_notebook/Projects/Main UI`
+- **路径**: `/Users/ethan/Library/Mobile Documents/iCloud~md~obsidian/Documents/Engs_notebook/Projects/主界面UI`
 - **说明**: Obsidian 项目笔记，含 notes/、tasks/、archive/ 等
 - **子目录**: archive, docs, notes, tasks
 
@@ -83,4 +83,4 @@
 
 ---
 
-*本文件由 `generate_workspace_guides.py` 自动生成*
+*本文件由 `mlms_kit.aoc.workspace_guides` 自动生成*

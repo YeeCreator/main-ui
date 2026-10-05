@@ -17,7 +17,7 @@
 ## 工作区地图（移动端速查，详情见 WORKSPACE_GUIDE.md）
 
 - 📁 项目 · main-ui → `/Users/ethan/CoreFiles/ProjectsFile/main-ui`
-- 📓 笔记 · Engs 笔记 Main UI → `/Users/ethan/Library/Mobile Documents/iCloud~md~obsidian/Documents/Engs_notebook/Projects/Main UI`
+- 📓 笔记 · Engs 笔记 Main UI → `/Users/ethan/Library/Mobile Documents/iCloud~md~obsidian/Documents/Engs_notebook/Projects/主界面UI`
 - 📓 笔记 · Engs 笔记 Main UI Kit → `/Users/ethan/Library/Mobile Documents/iCloud~md~obsidian/Documents/Engs_notebook/Projects/Main UI Kit`
 - 📁 项目 · matheshop → `/Users/ethan/CoreFiles/ProjectsFile/matheshop`
 - 🎮 游戏项目 · yeegames → `/Users/ethan/CoreFiles/ProjectsFile/yeegames`
