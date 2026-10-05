@@ -69,9 +69,9 @@ runtime.core.registerWorkspace({
 
 ## 生态包
 
-- 官方视图模板：`@main-ui/view-tree` / `view-inspector` / `view-2d` / `view-table` / `view-form` / `view-node` / `view-console`，聚合包 `@main-ui/preset-views`（指南见 `docs/PRESET_VIEWS_GUIDE.md`）。
-- 表单基座：`@main-ui/core`（框架无关，宿主自定义表单亦可单独消费）。
-- 视口能力层：`@main-ui/viewport-2d-kit`（PixiJS）/ `@main-ui/viewport-3d-kit`（Three.js）。
+- 官方视图模板：`@main-ui/view-tree` / `view-inspector` / `view-world` / `view-table` / `view-form` / `view-node` / `view-console`，聚合包 `@main-ui/preset-views`（指南见 `docs/PRESET_VIEWS_GUIDE.md`）。
+- 表单基座：`@main-ui/core`（框架无关，宿主自定义表单亦可单独消费；渲染基础设施与图元系统经 `core/rendering`、`core/primitives` 子路径导出）。
+- 视口层：`@main-ui/view-world`（世界视口视图）；相机数学与 PixiJS 内核位于 `@main-ui/core/rendering`。
 
 ## 边界
 

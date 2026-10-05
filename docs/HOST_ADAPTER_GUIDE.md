@@ -38,7 +38,7 @@
 
 宿主保留内容：SQLite bridge、文献状态机、知识图谱服务、TeX DAG 解析与业务命令。
 
-当前 demo 对应 fixture：`docs-workspace`，使用三栏布局模拟资料侧栏、表格和基于 `viewport-2d-kit` 的图谱底座。
+当前 demo 对应 fixture：`docs-workspace`，使用三栏布局模拟资料侧栏、表格和基于 `@main-ui/view-world` 的图谱底座。
 
 ## 3. 画布型宿主 适配草案
 
@@ -58,7 +58,7 @@
 
 宿主保留内容：`CanvasBoard`、Inspector 业务逻辑、符号计算引擎路由、React 过渡层或后续 Vue 迁移。
 
-当前 demo 对应 fixture：`canvas-workspace`，使用三栏布局模拟工具面板、基于 `viewport-2d-kit` 的公式画布底座和 Inspector。画布 fixture 支持平移、缩放与 fit，用于验证主界面不会吞掉强交互 surface。
+当前 demo 对应 fixture：`canvas-workspace`，使用三栏布局模拟工具面板、基于 `@main-ui/view-world` 的公式画布底座和 Inspector。画布 fixture 支持平移、缩放与 fit，用于验证主界面不会吞掉强交互 surface。
 
 ## 4. 对局宿主 适配草案
 
@@ -108,7 +108,7 @@ type EditorMountAdapter = {
 适配草案通过以下条件视为成立：
 
 1. 三类宿主都能由同一套 `WorkspaceDescriptor`、`EditorDescriptor`、`LayoutDocument` 表达。
-2. `canvas-workspace` 的画布能通过 `viewport-2d-kit` 完成平移、缩放与 fit。
+2. `canvas-workspace` 的画布能通过 `@main-ui/view-world` 完成平移、缩放与 fit。
 3. `matches-workspace` 能打开多个 `game-session` tab，且 payload 不互相覆盖。
 4. `external-mount-demo` 能通过 `registerEditorMountAdapter` 渲染内容。
 5. `package.json` 不出现 React 运行时依赖。

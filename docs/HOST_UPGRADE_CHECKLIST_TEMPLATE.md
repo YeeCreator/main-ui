@@ -1,6 +1,6 @@
 # HOST_UPGRADE_CHECKLIST_TEMPLATE
 
-本文档提供宿主项目升级 `main-ui` 或 `viewport-2d-kit` 时的最小检查清单模板。
+本文档提供宿主项目升级 `main-ui` 或 `@main-ui/view-world` 时的最小检查清单模板。
 
 ## 模板
 
@@ -12,7 +12,7 @@
 ## 1. 基本信息
 
 - 宿主项目：
-- 关联底层包：`main-ui` / `viewport-2d-kit`
+- 关联底层包：`main-ui` / `@main-ui/view-world`
 - 升级范围：
 - 升级版本或提交范围：
 
@@ -21,8 +21,8 @@
 - [ ] 已阅读 `main-ui/docs/DEVELOPER_GUIDE.md`
 - [ ] 已阅读 `main-ui/docs/HOST_INTEGRATION_GUIDE.md`
 - [ ] 已阅读 `main-ui/docs/HOST_PROFILE_VALIDATION.md`
-- [ ] 若涉及 2D 视口，已阅读 `viewport-2d-kit/docs/DEVELOPER_GUIDE.md`
-- [ ] 若涉及 `main-ui` + `viewport-2d-kit` 组合，已阅读 `viewport-2d-kit/docs/MAIN_UI_INTEGRATION_GUIDE.md`
+- [ ] 若涉及 2D 世界视图，已阅读 `main-ui/packages/view-world/` 与 `main-ui/packages/core/src/rendering/`
+- [ ] 若涉及 `main-ui` + `@main-ui/view-world` 组合，已阅读 `main-ui/docs/HOST_INTEGRATION_GUIDE.md` §4
 
 ## 2. 依赖检查
 

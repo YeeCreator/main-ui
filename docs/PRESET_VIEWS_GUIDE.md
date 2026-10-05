@@ -22,7 +22,7 @@
 | --- | --- | --- | --- |
 | `@main-ui/view-tree` | 0.3.0 | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
 | `@main-ui/view-inspector` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 属性检视：对象 + schema，变更经 Emits 抛出 |
-| `@main-ui/view-2d` | 0.3.0 | `@main-ui/viewport-2d-kit`（pixi） | 2D 画布：相机状态进 `getViewState` |
+| `@main-ui/view-world` | 0.6.0 | `@main-ui/core/rendering`（pixi） | 2D 世界可视化：相机状态进 `getViewState` |
 | `@main-ui/view-table` | 0.3.0 | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
 | `@main-ui/view-form` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出 |
 | `@main-ui/view-node` | 0.4.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
@@ -43,7 +43,7 @@
 pnpm add @main-ui/view-tree @main-ui/view-table main-ui vue
 
 # 全量安装
-pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-2d @main-ui/view-table \
+pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-table \
          @main-ui/view-form @main-ui/view-node @main-ui/view-console \
          @main-ui/view-flow @main-ui/view-sandbox @main-ui/view-host-engine main-ui vue
 
@@ -55,7 +55,7 @@ pnpm add @main-ui/preset-views
 
 | 模板 | 额外必装 |
 | --- | --- |
-| `view-2d` | `@main-ui/viewport-2d-kit` + `pixi.js` |
+| `view-world` | `@main-ui/core/rendering` + `pixi.js` |
 | `view-node` | `@vue-flow/core@^1.48`（结构样式为包内 vendored，运行时自动注入，无需宿主处理） |
 | `view-form` / `view-inspector` | `@main-ui/core`（peer） |
 | `view-flow` | `@vue-flow/core@^1.48` + `@main-ui/core`（peer） |
@@ -83,7 +83,7 @@ import { registerTreeViewEditor } from '@main-ui/view-tree'
 registerTreeViewEditor(runtime, { allowedWorkspaceIds: ['my-workspace'], title: 'Project Tree' })
 ```
 
-- `options.allowedWorkspaceIds` 声明模板可出现的 workspace；同时需把模板 kind（`view-tree` / `view-inspector` / `view-2d` / `view-table` / `view-form` / `view-node` / `view-console` / `view-flow` / `view-sandbox`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
+- `options.allowedWorkspaceIds` 声明模板可出现的 workspace；同时需把模板 kind（`view-tree` / `view-inspector` / `view-world` / `view-table` / `view-form` / `view-node` / `view-console` / `view-flow` / `view-sandbox`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
 - 底层拆解可用：`createXxxEditorDescriptor(options)` 只生成 descriptor；`createXxxEditorRenderer(resolveProps?, extraProps?)` 只生成 renderer 适配器。
 
 ### 步骤 2：数据经 Props 进
@@ -162,24 +162,31 @@ Props：
 
 Emits：`change({ key, value, previous })`——数值自动钳制 `min`/`max`，select 只接受 schema 内选项，值未变化不抛出。
 
-### 4.3 `@main-ui/view-2d`（2D 画布）
+### 4.3 `@main-ui/view-world`（2D 世界可视化）
 
-组件 `View2d`；注册 `registerView2dEditor`。基于 `@main-ui/viewport-2d-kit`（PixiJS）。
+组件 `WorldView`；注册 `registerWorldViewEditor`（`WORLD_VIEW_RENDERER_KEY`）。内核为 `@main-ui/core/rendering` 的 `PixiViewport`（PixiJS WebGL）。消费通用 `EntitySnapshot`，不绑定 scene-kit。
 
 Props：
 
 | Prop | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `viewBox` | `View2dViewBox` | `DEFAULT_VIEW_2D_VIEWBOX` | 首次打开相机 fit 的世界范围 |
-| `minScale` / `maxScale` | `number` | `0.25` / `4` | 缩放边界 |
-| `paddingPx` | `number` | `56` | fit 留白 |
+| `snapshot` | `EntitySnapshot \| null` | `null` | 自动渲染模式：通用实体快照 |
+| `grid` | `GridSpec \| null` | `null` | 自动渲染模式：网格/棋盘图元规格 |
+| `textureResolver` | `TextureResolver \| null` | `null` | 精灵纹理键解析器（可选） |
+| `viewBox` | `ViewBox \| null` | `null` | 世界范围（相机 fit 目标）；缺省从 grid/snapshot 推导 |
+| `minScale` / `maxScale` | `number` | `0.2` / `8` | 缩放边界 |
+| `paddingPx` | `number` | `40` | fit 留白 |
 | `background` | `number \| null` | `null` | pixi 数值色；`null` 时读取 `--mui-color-panel` 换算（主题跟随） |
-| `loading` / `error` | — | — | 加载三态（loading 时不挂载 pixi） |
+| `antialias` | `boolean` | `false` | 抗锯齿 |
+| `interactive` | `boolean` | `true` | 是否启用 InteractionLayer（点击/拖拽命中） |
+| `panOnDrag` | `boolean` | `false` | 左键拖拽是否平移相机；棋类通常为 false |
+| `zoomOnWheel` | `boolean` | `true` | 滚轮是否缩放 |
+| `loading` / `error` | `boolean` / `string \| null` | — | 加载三态 |
 | `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期（相机进快照） |
 
-Emits：`ready(viewport: PixiViewport)`（pixi 就绪，宿主在此绘制世界内容）/ `camera-change(camera)`。
+Emits：`ready(api)`（手动模式逃生舱，宿主可直接操作 PixiJS world 容器）/ `camera-change(camera)` / `world-pointerdown` / `world-pointerup` / `world-click` / `cell-pointerdown` / `cell-click`。
 
-宿主适配层职责：世界内容绘制完全在宿主侧（`onReady` 拿到 viewport 后自行绘制）。
+自动渲染图元：Grid / Sprite / Text / Polygon；`screen→world` 命中由 InteractionLayer 提供，抛出 world/cell 意图。
 
 ### 4.4 `@main-ui/view-table`（虚拟滚动表格）
 
@@ -353,7 +360,7 @@ Props：
 
 1. 取数、缓存、三态管理（参考实现：`demo/src/adapter/` 的 `mockApi` + `presetViewStore` + `registerPresetViewEditors`）。
 2. 编辑意图的校验/裁决与后端提交（含 `view-form` 的提交落库与回填）。
-3. `view-2d` 的世界内容绘制（模板只提供相机/视口底座）。
+3. `view-world` 的世界内容绘制（自动渲染消费 `EntitySnapshot`；手动模式经 `onReady` 拿到 `PixiViewport`）。
 4. 日志/条目流的生产与上限管理（`view-console`）、预设的存储介质（`view-form`）。
 5. 编辑器实例关闭时的数据清理（可选，防内存增长）。
 6. 停靠引导为内核内置交互，无需宿主接入；若宿主自实现拖拽，可复用 `main-ui/core` 的 `resolveDropZone` / `dropZoneToSplitDirection` 纯函数。

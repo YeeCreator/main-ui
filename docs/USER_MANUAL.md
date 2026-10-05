@@ -95,7 +95,7 @@ demo 通过「模拟后端适配层」（`demo/src/adapter/`）接入全部七�
 | --- | --- |
 | Project Tree（`view-tree`） | 过滤、展开折叠、选中高亮；虚拟滚动 |
 | Scene Inspector（`view-inspector`） | schema 驱动属性表单，变更经意图抛出 |
-| Scene Graph（`view-2d`） | PixiJS 画布：拖拽平移、Ctrl/⌘+滚轮缩放、相机进视图状态 |
+| Scene Graph（`view-world`） | PixiJS 画布：拖拽平移、Ctrl/⌘+滚轮缩放、相机进视图状态 |
 | Order Table（`view-table`） | 排序、行选中、双击行内编辑（意图抛出） |
 | Host Settings（`view-form`） | 提交 → 宿主校验裁决 → 模拟落库 → 回填；预设存取 |
 | Pipeline Graph（`view-node`） | 节点拖拽、拉线连线（意图抛出）、视口/选中进视图状态 |
@@ -110,8 +110,8 @@ demo 通过「模拟后端适配层」（`demo/src/adapter/`）接入全部七�
 
 ## Host Profile
 
-- Docs：模拟资料侧栏、表格、基于 `viewport-2d-kit` 的图谱三栏。
-- Canvas：模拟工具栏、基于 `viewport-2d-kit` 的公式画布、Inspector 三栏。
+- Docs：模拟资料侧栏、表格、基于 `@main-ui/view-world` 的图谱三栏。
+- Canvas：模拟工具栏、基于 `@main-ui/view-world` 的公式画布、Inspector 三栏。
 - Matches：模拟游戏资源、条目广场、棋盘视口和参数化 game-session 多实例。
 
 这些 profile 只用于验证 `main-ui` 抽象，不包含真实业务逻辑。

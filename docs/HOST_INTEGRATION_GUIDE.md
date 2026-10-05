@@ -17,8 +17,7 @@
 1. `main-ui/docs/DEVELOPER_GUIDE.md`
 2. `main-ui/docs/HOST_INTEGRATION_GUIDE.md`
 3. `main-ui/docs/HOST_PROFILE_VALIDATION.md`
-4. 若宿主会组合 2D 视口能力，再额外阅读 `viewport-2d-kit/docs/DEVELOPER_GUIDE.md`
-5. 若宿主会把 `viewport-2d-kit` 放进 `main-ui` editor 体系，再额外阅读 `viewport-2d-kit/docs/MAIN_UI_INTEGRATION_GUIDE.md`
+4. 若宿主会组合 2D 世界视图能力，再额外阅读 `main-ui/packages/view-world/` 与 `main-ui/packages/core/src/rendering/`（相机数学与 PixiViewport）
 
 宿主在开始实现前，至少要确认以下规则已经被接受：
 
@@ -189,32 +188,32 @@ runtime.vue.registerEditorMountAdapter('react-canvas-editor', {
 import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue'
 ```
 
-## 4. `main-ui`、`viewport-2d-kit`、`flow-graph-kit` 的分层协同
+## 4. `main-ui`、`@main-ui/view-world`、`@main-ui/view-flow` 的分层协同
 
 在画布型宿主中，建议固定使用以下四层协同模型：
 
 1. `main-ui`：workbench shell，负责 workspace、layout tree、tab、overlay、renderer registry 与工作台持久化。
-2. `viewport-2d-kit`：viewport engine，负责平移/缩放、坐标换算、视口壳层与 host bridge。
-3. `flow-graph-kit`（含 `flow-graph-kit-vue`）：graph canvas editor kit，负责图文档、节点/连边语义、选择状态、图编辑交互 surface。
+2. `@main-ui/view-world`：世界视口视图，负责平移/缩放、坐标换算、图元渲染与命中（内核 `@main-ui/core/rendering`）。
+3. `@main-ui/view-flow`：流程/状态机文档编辑器，负责图文档、节点/连边语义、选择状态、图编辑交互 surface。
 4. 宿主画布 editor renderer：负责把宿主业务状态映射到图文档，组合工具栏、检查器与业务命令。
 
 职责边界：
 
 1. `main-ui` 不理解节点、连边、公式块等业务语义。
-2. `viewport-2d-kit` 不承载流程图语义与业务命令。
-3. `flow-graph-kit` 不接管宿主业务数据源和领域规则。
+2. `@main-ui/view-world` 不承载流程图语义与业务命令。
+3. `@main-ui/view-flow` 不接管宿主业务数据源和领域规则。
 4. 宿主 renderer 不重写通用视口底层与通用图编辑契约。
 
 推荐放置位置：
 
-1. `viewport-2d-kit` 与 `flow-graph-kit-vue` 放在宿主 renderer 内部组合使用。
+1. `@main-ui/view-world` 与 `@main-ui/view-flow` 放在宿主 renderer 内部组合使用。
 2. `main-ui` 只通过 `rendererKey` 或 `mount adapter` 承载宿主 editor。
 3. demo fixture 用于验证分层协同，不用于沉淀宿主业务逻辑。
 
 不推荐：
 
-1. `main-ui/core` 直接依赖 `viewport-2d-kit` 或 `flow-graph-kit`。
-2. 把 `viewport-2d-kit` 或 `flow-graph-kit` 上升为 `main-ui` 内置业务层。
+1. `main-ui/core` 直接依赖 `@main-ui/view-world` 或 `@main-ui/view-flow`。
+2. 把 `@main-ui/view-world` 或 `@main-ui/view-flow` 上升为 `main-ui` 内置业务层。
 3. 在宿主 renderer 中复制一套平移/缩放或图编辑核心状态机。
 
 ## 5. 三类宿主的标准接法
@@ -383,12 +382,12 @@ packages:
 
 ## 10. 官方视图模板包安装与接入（v0.3 一期 + v0.4 二期）
 
-一期四个官方视图模板以独立包交付：`@main-ui/view-tree`（虚拟滚动树）、`@main-ui/view-inspector`（schema 检查器）、`@main-ui/view-2d`（2D 画布，依赖 `@main-ui/viewport-2d-kit` 与 pixi.js）、`@main-ui/view-table`（虚拟滚动表格）；二期三个：`@main-ui/view-form`（配置面板）、`@main-ui/view-node`（节点图，peer `@vue-flow/core ^1.48`）、`@main-ui/view-console`（日志/控制台追加列表）；聚合包 `@main-ui/preset-views` 命名空间重导出全部七包。另：`@main-ui/core` 为框架无关表单基座（`view-form` / `view-inspector` 共用，宿主自定义表单亦可单独消费）。
+一期四个官方视图模板以独立包交付：`@main-ui/view-tree`（虚拟滚动树）、`@main-ui/view-inspector`（schema 检查器）、`@main-ui/view-world`（2D 世界可视化，内核 `@main-ui/core/rendering` 与 pixi.js）、`@main-ui/view-table`（虚拟滚动表格）；二期三个：`@main-ui/view-form`（配置面板）、`@main-ui/view-node`（节点图，peer `@vue-flow/core ^1.48`）、`@main-ui/view-console`（日志/控制台追加列表）；聚合包 `@main-ui/preset-views` 命名空间重导出全部包。另：`@main-ui/core` 为框架无关表单基座（`view-form` / `view-inspector` 共用，宿主自定义表单亦可单独消费）。
 
 安装：
 
 ```sh
-npm i @main-ui/view-tree @main-ui/view-inspector @main-ui/view-2d @main-ui/view-table \
+npm i @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-table \
       @main-ui/view-form @main-ui/view-node @main-ui/view-console
 # 或只装聚合包：npm i @main-ui/preset-views
 # 使用 view-node 需额外安装：npm i @vue-flow/core@^1.48
@@ -411,7 +410,7 @@ npm i @main-ui/view-tree @main-ui/view-inspector @main-ui/view-2d @main-ui/view-
 
 1. 取数、缓存、三态管理（参考实现：`demo/src/adapter/` 的 `mockApi` + `presetViewStore` + `registerPresetViewEditors`）。
 2. 编辑意图的校验/裁决与后端提交（含 view-form 的提交落库与回填）。
-3. `view-2d` 的世界内容绘制（模板只提供相机/视口底座，`onReady` 回调拿到 `PixiViewport` 后宿主自行绘制）。
+3. `view-world` 的世界内容绘制：模板支持自动渲染（消费 `EntitySnapshot`）与手动模式（`onReady` 回调拿到 `PixiViewport` 后宿主自行绘制）。
 4. 日志/条目流的生产与上限管理（view-console），预设的存储介质（view-form）。
 5. 编辑器实例关闭时的数据清理（可选，防内存增长）。
 6. 停靠引导（v0.4）为内核内置交互，无需宿主接入；若宿主自实现拖拽，可复用 `resolveDropZone` / `dropZoneToSplitDirection` 纯函数。

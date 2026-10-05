@@ -53,5 +53,4 @@
 | `main-ui` | `node_modules/main-ui/docs/`（本目录）+ 包根 README |
 | `@main-ui/view-*`（十个模板） | `node_modules/@main-ui/view-*/README.md` |
 | `@main-ui/preset-views`（聚合包） | `node_modules/@main-ui/preset-views/README.md` |
-| `@main-ui/core`（表单基座） | `node_modules/@main-ui/core/README.md` |
-| `@main-ui/viewport-2d-kit` | `node_modules/@main-ui/viewport-2d-kit/README.md`（另含 `docs/` 子目录） |
+| `@main-ui/core`（表单基座 + 渲染基础设施） | `node_modules/@main-ui/core/README.md` |

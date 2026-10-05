@@ -1,6 +1,6 @@
 # HOST_FEEDBACK_TEMPLATE
 
-本文档提供宿主项目对 `main-ui` 或 `viewport-2d-kit` 的标准反馈模板。
+本文档提供宿主项目对 `main-ui` 或 `@main-ui/view-world` 的标准反馈模板。
 
 建议每次接入或升级后，至少输出一份正式反馈文档，而不是只在聊天中留下零散结论。
 
@@ -12,7 +12,7 @@
 ## 1. 基本信息
 
 - 宿主项目：
-- 关联底层包：`main-ui` / `viewport-2d-kit`
+- 关联底层包：`main-ui` / `@main-ui/view-world`
 - 反馈主题：
 - 反馈类型：API / 文档 / 示例 / 兼容 / 体验
 

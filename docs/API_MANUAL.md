@@ -220,7 +220,7 @@ export type EditorMountAdapter = {
 | --- | --- | --- |
 | `@main-ui/view-tree` | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
 | `@main-ui/view-inspector` | schema 驱动表单 | 属性检视：对象 + schema，变更经 Emits 抛出 |
-| `@main-ui/view-2d` | `@main-ui/viewport-2d-kit`（pixi） | 2D 画布：相机状态进 `getViewState` |
+| `@main-ui/view-world` | `@main-ui/core/rendering`（pixi） | 2D 世界可视化：相机状态进 `getViewState` |
 | `@main-ui/view-table` | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
 | `@main-ui/view-form`（v0.4） | schema 驱动表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出，宿主裁决后回填 |
 | `@main-ui/view-node`（v0.4） | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState`，移动/连线以意图抛出 |

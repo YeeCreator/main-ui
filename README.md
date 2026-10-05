@@ -2,7 +2,7 @@
 
 当前版本：`0.4.0`（开发分支 `dev-v0.5`）。本版本已生成本地版本包 `main-ui-0.4.0.tgz`，适合下游通过 pnpm 显式安装和维护；当前尚未发布到 npm registry。安装包内含 `docs/` 文档目录（含模板库指南 `PRESET_VIEWS_GUIDE.md`），安装后可从 `node_modules/main-ui/docs/README.md` 进入全部用户与开发文档。
 
-仓库自 `0.2.0` 起为 pnpm workspace monorepo：主包位于 `packages/main-ui/`（包名仍为 `main-ui`），同仓管理表单基座 `@main-ui/core`、七个官方视图模板包（`@main-ui/view-*`）、聚合包 `@main-ui/preset-views`、视口能力层 `@main-ui/viewport-2d-kit` / `@main-ui/viewport-3d-kit` 与演示工程 `demo/`。
+仓库自 `0.2.0` 起为 pnpm workspace monorepo：主包位于 `packages/main-ui/`（包名仍为 `main-ui`），同仓管理表单基座 `@main-ui/core`、官方视图模板包（`@main-ui/view-*`，含世界视口视图 `@main-ui/view-world`）、聚合包 `@main-ui/preset-views` 与演示工程 `demo/`。
 
 `main-ui` 是一套 Vue3 + framework-free core 工作台内核库。它不兼容旧 `main-ui-react`，也不包含任何宿主业务逻辑。
 
@@ -124,7 +124,7 @@ import 'main-ui/styles.css'
 
 ## 边界
 
-`main-ui` 不内置文献、数学引擎、游戏规则、数据库桥接或 React 兼容层。Demo 可以组合 `viewport-2d-kit` 验证 2D editor foundation，但 `main-ui/core` 不把任何 Canvas/viewport 库作为必需依赖。宿主应用只注册 workspace、editor、renderer、command/menu/keybinding/contribution、persistence 与业务 payload；所有新能力均为 opt-in。
+`main-ui` 不内置文献、数学引擎、游戏规则、数据库桥接或 React 兼容层。Demo 可以组合 `@main-ui/view-world` 与 `@main-ui/core/rendering` 验证 2D editor foundation，但 `main-ui/core` 不把任何 Canvas/viewport 库作为必需依赖。宿主应用只注册 workspace、editor、renderer、command/menu/keybinding/contribution、persistence 与业务 payload；所有新能力均为 opt-in。
 
 如果宿主只缺“顶部工具栏窗口”或“左/右树状窗口”，优先复用 `ToolbarEditor` 与 `TreeEditor`。
 

@@ -23,14 +23,14 @@
 | `@main-ui/core` | `packages/core` | 框架无关表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数） |
 | `@main-ui/view-tree` | `packages/view-tree` | 模板：虚拟滚动树 |
 | `@main-ui/view-inspector` | `packages/view-inspector` | 模板：schema 属性检视 |
-| `@main-ui/view-2d` | `packages/view-2d` | 模板：2D 画布（基于 2d-kit） |
+| `@main-ui/view-world` | `packages/view-world` | 模板：2D 世界可视化（内核 `@main-ui/core/rendering`） |
 | `@main-ui/view-table` | `packages/view-table` | 模板：虚拟滚动表格 |
 | `@main-ui/view-form` | `packages/view-form` | 模板：配置面板/表单 |
 | `@main-ui/view-node` | `packages/view-node` | 模板：节点图（`@vue-flow/core` 薄封装） |
 | `@main-ui/view-console` | `packages/view-console` | 模板：日志/控制台追加列表 |
 | `@main-ui/preset-views` | `packages/preset-views` | 聚合包（仅命名空间重导出） |
-| `@main-ui/viewport-2d-kit` | `packages/viewport-2d-kit` | 能力层：PixiJS 2D 视口 |
-| `@main-ui/viewport-3d-kit` | `packages/viewport-3d-kit` | 能力层：Three.js 3D 视口（React 层为兼容层、非主线） |
+| `@main-ui/view-world` | `packages/view-world` | 视图模板：2D 世界可视化（PixiJS，经 `@main-ui/core/rendering`） |
+| `@main-ui/core/rendering` | `packages/core/src/rendering` | 渲染基础设施：相机数学、约束、交互（吸收自原 viewport-2d-kit） |
 | `main-ui-demo` | `demo` | 演示与验收工程（端口 4183） |
 
 依赖铁律：`main-ui` 与 `@main-ui/core` 不依赖任何模板包、viewport kit 或重型渲染内核；模板包把 `main-ui`（与各自内核）声明为 peerDependency；聚合包只做重导出。

@@ -13,7 +13,7 @@
 1. `docs-workspace`：资料管理型宿主。
 2. `canvas-workspace`：强指针画布型宿主。
 3. `matches-workspace`：条目广场与多对局宿主。
-4. `viewport-foundation`：基于 `viewport-2d-kit/vue` 的 2D editor foundation smoke test。
+4. `viewport-foundation`：基于 `@main-ui/view-world` + `@main-ui/core/rendering` 的 2D editor foundation smoke test。
 5. `external-mount-demo`：外部内容 mount adapter smoke test。
 
 ## 2. Fixture 来源
@@ -39,7 +39,7 @@ fixture 定义在：
 1. workspace 引用的 editor kind 都已注册。
 2. default open request 指向的 target group 均存在。
 3. `matches-workspace` 支持 `game-session` 多实例。
-4. `canvas-workspace` 包含 `viewport-2d-kit` 画布型 editor surface。
+4. `canvas-workspace` 包含 `@main-ui/view-world` 画布型 editor surface。
 5. `external-mount-demo` 的 rendererKey 是 framework-neutral adapter。
 6. validation cases 覆盖三类首批宿主。
 
@@ -74,10 +74,10 @@ pnpm run demo:dev
 当前实现满足阶段 K 的核心要求：
 
 1. `多资料管理型宿主` 可被解释为多 workspace 资料管理宿主。
-2. `画布型宿主` 可被解释为由 `viewport-2d-kit` 承载的画布型宿主。
+2. `画布型宿主` 可被解释为由 `@main-ui/view-world` 承载的画布型宿主。
 3. `对局宿主` 可被解释为游戏库、对局实例与棋盘视口宿主。
 4. 三者都不要求 `main-ui` 内置业务逻辑。
-5. `viewport-2d-kit` 作为 demo 级 editor foundation 被组合进 renderer，没有向 `main-ui/core` 引入业务或 React 依赖。
+5. `@main-ui/view-world` 作为 demo 级 editor foundation 被组合进 renderer，没有向 `main-ui/core` 引入业务或 React 依赖。
 6. 外部内容过渡路径通过通用 mount adapter 表达，没有向 `main-ui` 引入 React 依赖。
 
 ## 6. 非目标项
