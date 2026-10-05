@@ -14,17 +14,7 @@
 ## 禁止与易踩坑
 <!-- TODO: 禁改目录、易踩坑、通用性红线等 -->
 
-## 工作区地图（移动端速查，详情见 WORKSPACE_GUIDE.md）
+## 项目结构（速查，详情见 WORKSPACE_GUIDE.md）
 
-- 📁 项目 · main-ui → `${PROJECTS_ROOT}/main-ui`
-- 📓 笔记 · Engs 笔记 Main UI → `${OBSIDIAN_ROOT}/Notebook/Projects/MainUI`
-- 📓 笔记 · Engs 笔记 Main UI Kit → `${OBSIDIAN_ROOT}/Notebook/Projects/Main UI Kit`
-- 📁 项目 · 画布型宿主 → `${PROJECTS_ROOT}/画布型宿主`
-- 🎮 游戏项目 · 对局宿主 → `${PROJECTS_ROOT}/对局宿主`
-- 💻 代码仓库 · 多资料管理型宿主 → `${PROJECTS_ROOT}/多资料管理型宿主`
-- 📁 项目 · 画廊型宿主 → `${PROJECTS_ROOT}/画廊型宿主`
-- 📁 项目 · 场景编辑型宿主 → `${PROJECTS_ROOT}/场景编辑型宿主`
-- 💻 代码仓库 · viewport-2d-kit → `${PROJECTS_ROOT}/viewport-2d-kit`
-- 💻 代码仓库 · viewport-3d-kit → `${PROJECTS_ROOT}/viewport-3d-kit`
-- 🛠️ AI Skills · 用户级 Copilot 之 Skills → `${HOME}/.copilot/skills`
-- 🤖 AI Agent · 用户级 Copilot 之 Agents → `${HOME}/.copilot/agents`
+- 💻 本项目 · main-ui → `./`
+
