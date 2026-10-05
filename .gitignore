@@ -1105,3 +1105,6 @@ docs/反馈通道/archive/
 
 # Build info
 *.tsbuildinfo
+
+# 反馈通道 — 治理信箱已迁出仓库（2026-10-05）
+docs/反馈通道/

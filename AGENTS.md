@@ -17,7 +17,7 @@
 ## 工作区地图（移动端速查，详情见 WORKSPACE_GUIDE.md）
 
 - 📁 项目 · main-ui → `${PROJECTS_ROOT}/main-ui`
-- 📓 笔记 · Engs 笔记 Main UI → `${OBSIDIAN_ROOT}/Notebook/Projects/Main UI`
+- 📓 笔记 · Engs 笔记 Main UI → `${OBSIDIAN_ROOT}/Notebook/Projects/MainUI`
 - 📓 笔记 · Engs 笔记 Main UI Kit → `${OBSIDIAN_ROOT}/Notebook/Projects/Main UI Kit`
 - 📁 项目 · 画布型宿主 → `${PROJECTS_ROOT}/画布型宿主`
 - 🎮 游戏项目 · 对局宿主 → `${PROJECTS_ROOT}/对局宿主`
