@@ -16,6 +16,32 @@ export type ViewportWheelEventLike = {
   preventDefault: () => void;
 };
 
+/** 滚轮手势语义：缩放 / 平移。 */
+export type WheelIntent = 'zoom' | 'pan';
+
+/** 滚轮分流策略：auto=捏合缩放·平移滑视口；zoom=一律缩放；pan=一律平移。 */
+export type WheelMode = 'zoom' | 'pan' | 'auto';
+
+/**
+ * 按手势语义分类一次 wheel 事件（纯函数，供交互层统一分流）。
+ *
+ * 判据：触控板捏合会带 `ctrlKey`（浏览器约定），故 auto 模式下
+ * `ctrlKey` → 缩放；非 `ctrlKey` → 平移（双指滑视口 / 离散滚轮）。
+ */
+export function classifyWheelIntent(event: { ctrlKey: boolean }, mode: WheelMode = 'auto'): WheelIntent {
+  if (mode === 'zoom') return 'zoom';
+  if (mode === 'pan') return 'pan';
+  return event.ctrlKey ? 'zoom' : 'pan';
+}
+
+/**
+ * 计算平移型 wheel 的屏幕位移增量（触控板双指滑动 / 离散滚轮）。
+ * deltaX/deltaY 单位与 wheel 一致（CSS 像素）；speed 为灵敏度。
+ */
+export function wheelPanDelta(event: { deltaX: number; deltaY: number }, speed = 1): Vec2 {
+  return { x: -event.deltaX * speed, y: -event.deltaY * speed };
+}
+
 export type ViewportPointerEventLike = {
   pointerId: number;
   clientX: number;

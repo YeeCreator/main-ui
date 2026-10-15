@@ -6,6 +6,8 @@ v0.6.0 是旗舰复合模板版本：新增 `@main-ui/view-sandbox`（自由沙�
 
 **向下兼容**：核心包名 `main-ui` 与导出面不变；既有模板无 API 变更。
 
+> **已删除包声明（供下游迁移消费 · 2026-10-08 补登）**：`@main-ui/viewport-2d-kit`（及 `@main-ui/view-2d` / `@main-ui/viewport-3d-kit`）**已不在 `packages/` 中**（于 0.6.0 世代前的联合大改造 Phase 0/1 删除，见 `DEVELOPMENT_LOG.md` 2026-09-05~06）。任何宿主 `package.json` 仍声明 `@main-ui/viewport-2d-kit: workspace:*` 均为**悬空声明**（解析不到包），必须迁移：相机数学/PixiViewport 内核 → `@main-ui/core/rendering`；Vue 2D 世界视口组件 → `@main-ui/view-world`。完整替换表见 `MIGRATION_GUIDE_1.0.0.md` §二。
+
 **主包版本对齐**：发布定稿时 `main-ui` 主包从 `0.4.0` 升至 `0.6.0`（与模板库世代号对齐），全部 `@main-ui/*` 子包的 `main-ui` peer 同步为 `^0.6.0`。仅版本号与 peer 范围变化，导出面与行为无任何差异。
 
 ## 包版本矩阵

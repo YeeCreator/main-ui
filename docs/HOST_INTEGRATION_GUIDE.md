@@ -2,7 +2,7 @@
 
 ## 当前版本与升级方式
 
-当前接入基线为 `main-ui 0.4.0`。本次升级不要求重写现有 editor renderer；下游应显式选择是否安装该包与官方视图模板包（`@main-ui/view-*` / `@main-ui/preset-views`）。v0.4 新增停靠引导拖拽与二期三个官方视图模板（form/node/console）及表单基座包 `@main-ui/core`，持久化文档版本不变（仍为 3）；升级路径另见 `MIGRATION_GUIDE_0.4.0.md`。
+当前接入基线为 `main-ui 0.6.0`（2026-10-08 A11 校准；原载 0.4.0）。本次升级不要求重写现有 editor renderer；下游应显式选择是否安装该包与官方视图模板包（`@main-ui/view-*` / `@main-ui/preset-views`）。v0.4 新增停靠引导拖拽与二期三个官方视图模板（form/node/console）及表单基座包 `@main-ui/core`，持久化文档版本不变（仍为 3）；v0.5/v0.6 的增量（view-sandbox / view-host-engine 旗舰复合模板、主包世代号对齐 0.6.0）见 `MIGRATION_GUIDE_0.5.0.md` / `MIGRATION_GUIDE_0.6.0.md`。
 
 本文档面向宿主项目维护者，说明 `main-ui` 作为工作台内核时，宿主应如何注册 workspace、editor、renderer、mount adapter，以及哪些职责必须继续留在宿主侧。
 
@@ -216,6 +216,8 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 2. 把 `@main-ui/view-world` 或 `@main-ui/view-flow` 上升为 `main-ui` 内置业务层。
 3. 在宿主 renderer 中复制一套平移/缩放或图编辑核心状态机。
 
+> **对外承诺（C5 契约增补 · 2026-10-08）**：凡是消费世界快照协议（`scene-kit.world-*`，msgpack/WebSocket）的下游宿主，**官方呈现位固定为 `@scene-kit/core`（+ 可选 `@scene-kit/vue`）消费协议 + `@main-ui/view-world` 渲染**。`@main-ui/view-world` 已取代旧 `@scene-kit/renderer-2d` 与已删除的 `@main-ui/viewport-2d-kit`，不再推荐宿主自研 2D 世界视口。相机数学/PixiViewport 内核统一归 `@main-ui/core/rendering`。
+
 ## 5. 三类宿主的标准接法
 
 ### 5.1 `多资料管理型宿主`
@@ -393,7 +395,7 @@ npm i @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/vi
 # 使用 view-node 需额外安装：npm i @vue-flow/core@^1.48
 ```
 
-模板包把 `main-ui`（`^0.4.0`）与 `vue` 作为 peerDependency，宿主需已安装两者。**首次接入前必须先执行 `pnpm build`**（或 `pnpm --filter <包名> build`），确保各模板包的 `dist/` 目录已生成；未 build 的模板包缺少类型声明文件（`.d.ts`），会导致宿主 `vue-tsc` / `tsc` 报「找不到类型」错误。接入三步：
+模板包把 `main-ui`（`^0.6.0`）与 `vue` 作为 peerDependency（`@main-ui/view-world` 另 peer `@main-ui/core ^0.5.0`），宿主需已安装两者。**首次接入前必须先执行 `pnpm build`**（或 `pnpm --filter <包名> build`），确保各模板包的 `dist/` 目录已生成；未 build 的模板包缺少类型声明文件（`.d.ts`），会导致宿主 `vue-tsc` / `tsc` 报「找不到类型」错误。接入三步：
 
 1. **注册**：每包提供 `registerXxxEditor(runtime, options, resolveProps?, extraProps?)`，一键完成 descriptor + renderer 注册；`options.allowedWorkspaceIds` 声明模板可出现的 workspace，并需把模板 kind（如 `view-tree` / `view-form` / `view-node` / `view-console`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
 2. **数据经 Props 进**：`resolveProps(context)` 把宿主适配层数据转成模板契约（含 `loading` / `error` 三态）；模板不取数、不缓存。

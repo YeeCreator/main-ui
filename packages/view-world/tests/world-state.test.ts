@@ -31,6 +31,22 @@ describe('view-world world-state', () => {
     expect(toCamera2D({ scale: 3, pan: { x: 1, y: 2 } })).toEqual({ scale: 3, pan: { x: 1, y: 2 } });
   });
 
+  test('rotation round-trips through state (0 omitted for legacy compatibility)', () => {
+    // 旧相机（无 rotation）不引入该字段
+    expect(buildWorldViewState({ scale: 2, pan: { x: 3, y: 4 } })).toEqual({ camera: { scale: 2, pan: { x: 3, y: 4 } } });
+    // 带 rotation 时保留
+    const withRot = buildWorldViewState({ scale: 2, pan: { x: 3, y: 4 }, rotation: 0.75 });
+    expect(withRot.camera.rotation).toBeCloseTo(0.75, 6);
+    expect(() => structuredClone(withRot)).not.toThrow();
+    expect(toCamera2D(withRot.camera).rotation).toBeCloseTo(0.75, 6);
+  });
+
+  test('sanitizeCameraState keeps rotation when present, drops when zero/invalid', () => {
+    expect(sanitizeCameraState({ scale: 1, pan: { x: 0, y: 0 }, rotation: 1.2 })?.rotation).toBeCloseTo(1.2, 6);
+    expect(sanitizeCameraState({ scale: 1, pan: { x: 0, y: 0 }, rotation: 0 })).toEqual({ scale: 1, pan: { x: 0, y: 0 } });
+    expect(sanitizeCameraState({ scale: 1, pan: { x: 0, y: 0 }, rotation: NaN })).toEqual({ scale: 1, pan: { x: 0, y: 0 } });
+  });
+
   test('parseCssColorToNumber handles hex and rgb()', () => {
     expect(parseCssColorToNumber('#ffffff')).toBe(0xffffff);
     expect(parseCssColorToNumber('#fff')).toBe(0xffffff);

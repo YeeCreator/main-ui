@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-当前适配基线为 `main-ui 0.3.0`。外部 mount adapter、rendererKey 和宿主 editor 契约保持兼容；v0.3 新增浮动窗口能力边界（见 §7）与官方视图模板包接入（见 `HOST_INTEGRATION_GUIDE.md`）。
+当前适配基线为 `main-ui 0.6.0`（2026-10-08 A11 校准；原载 0.3.0）。外部 mount adapter、rendererKey 和宿主 editor 契约保持兼容；v0.3 新增浮动窗口能力边界（见 §7）与官方视图模板包接入（见 `HOST_INTEGRATION_GUIDE.md`）；v0.5/v0.6 增量（view-sandbox / view-host-engine、主包世代号对齐 0.6.0）见 `MIGRATION_GUIDE_0.5.0.md` / `MIGRATION_GUIDE_0.6.0.md`。
 
 本文说明 `main-ui` 如何作为通用工作台内核接入首批宿主：`多资料管理型宿主`、`画布型宿主`、`对局宿主`。这些内容是适配草案，不迁移宿主业务代码。
 

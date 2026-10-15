@@ -17,7 +17,7 @@
  */
 import { Application, Container } from 'pixi.js';
 import type { Camera2D, Vec2, ViewBox } from './camera';
-import { clamp, fitCameraToViewBox, panBy, screenToWorld, worldToScreen, zoomAtScreenPoint } from './camera';
+import { cameraRotation, clamp, fitCameraToViewBox, panBy, screenToWorld, worldToScreen, zoomAtScreenPoint } from './camera';
 
 export interface PixiViewportOptions {
   viewBox: ViewBox;
@@ -162,14 +162,19 @@ export class PixiViewport {
   }
 
   getCamera(): Camera2D {
-    return { scale: this.camera.scale, pan: { x: this.camera.pan.x, y: this.camera.pan.y } };
+    const rotation = cameraRotation(this.camera);
+    const out: Camera2D = { scale: this.camera.scale, pan: { x: this.camera.pan.x, y: this.camera.pan.y } };
+    if (rotation !== 0) out.rotation = rotation;
+    return out;
   }
 
   setCamera(camera: Camera2D): void {
+    const rotation = cameraRotation(camera);
     this.camera = {
       scale: clamp(camera.scale, this.minScale, this.maxScale),
       pan: { x: camera.pan.x, y: camera.pan.y },
     };
+    if (rotation !== 0) this.camera.rotation = rotation;
     this.applyCamera();
     this.onCameraChangeCb?.(this.getCamera());
   }
@@ -177,6 +182,8 @@ export class PixiViewport {
   private applyCamera(): void {
     this.world.scale.set(this.camera.scale);
     this.world.position.set(this.camera.pan.x, this.camera.pan.y);
+    // 屏幕 Y 轴向下：pixi 的 rotation 与相机模型同向（正 = 顺时针）。
+    this.world.rotation = cameraRotation(this.camera);
   }
 
   /** 适配世界范围 viewBox 到容器（默认使用当前 viewBox）。 */

@@ -8,7 +8,7 @@
 import type { Camera2D } from '@main-ui/core/rendering';
 import type { WorldCameraState, WorldViewState } from './types';
 
-/** 把任意输入净化为合法的相机状态；非法返回 null。 */
+/** 把任意输入净化为合法的相机状态；非法返回 null。rotation 缺省时不带该字段（保持旧快照兼容）。 */
 export function sanitizeCameraState(raw: unknown): WorldCameraState | null {
   if (!raw || typeof raw !== 'object') return null;
   const candidate = raw as Partial<WorldCameraState>;
@@ -19,20 +19,30 @@ export function sanitizeCameraState(raw: unknown): WorldCameraState | null {
   const px = (pan as { x?: unknown }).x;
   const py = (pan as { y?: unknown }).y;
   if (typeof px !== 'number' || typeof py !== 'number' || !Number.isFinite(px) || !Number.isFinite(py)) return null;
-  return { scale, pan: { x: px, y: py } };
+  const out: WorldCameraState = { scale, pan: { x: px, y: py } };
+  const rotation = candidate.rotation;
+  if (typeof rotation === 'number' && Number.isFinite(rotation) && rotation !== 0) out.rotation = rotation;
+  return out;
 }
 
 /** 从 Camera2D 构建视图状态（全新普通对象，可安全 structuredClone）。 */
 export function buildWorldViewState(camera: Camera2D | null | undefined): WorldViewState {
-  const safe = camera && Number.isFinite(camera.scale) && Number.isFinite(camera.pan.x) && Number.isFinite(camera.pan.y)
+  const valid = camera && Number.isFinite(camera.scale) && Number.isFinite(camera.pan.x) && Number.isFinite(camera.pan.y)
     ? camera
     : { scale: 1, pan: { x: 0, y: 0 } };
-  return { camera: { scale: safe.scale, pan: { x: safe.pan.x, y: safe.pan.y } } };
+  const out: WorldCameraState = { scale: valid.scale, pan: { x: valid.pan.x, y: valid.pan.y } };
+  const rotation = (valid as Camera2D).rotation;
+  if (typeof rotation === 'number' && Number.isFinite(rotation) && rotation !== 0) out.rotation = rotation;
+  return { camera: out };
 }
 
 /** 视图状态相机 -> Camera2D。 */
 export function toCamera2D(state: WorldCameraState): Camera2D {
-  return { scale: state.scale, pan: { x: state.pan.x, y: state.pan.y } };
+  const out: Camera2D = { scale: state.scale, pan: { x: state.pan.x, y: state.pan.y } };
+  if (typeof state.rotation === 'number' && Number.isFinite(state.rotation) && state.rotation !== 0) {
+    out.rotation = state.rotation;
+  }
+  return out;
 }
 
 /**
