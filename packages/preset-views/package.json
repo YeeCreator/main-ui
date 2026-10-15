@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/preset-views",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": false,
   "description": "main-ui 官方视图模板聚合包：一次性引入数据模板（tree / inspector / table / form / node / console）、画布模板（world / sandbox / flow / host-engine），仅重导出。",
   "license": "MIT",
@@ -31,8 +31,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.5.0",
-    "@main-ui/view-world": "^0.6.0",
+    "@main-ui/core": "^0.6.0",
+    "@main-ui/view-world": "^0.7.0",
+    "@main-ui/view-canvas": "^0.7.0",
     "@main-ui/view-console": "^0.4.0",
     "@main-ui/view-flow": "^0.5.0",
     "@main-ui/view-host-engine": "^0.6.0",
@@ -41,17 +42,19 @@
     "@main-ui/view-node": "^0.4.0",
     "@main-ui/view-sandbox": "^0.6.0",
     "@main-ui/view-table": "^0.3.0",
+    "@main-ui/view-formula": "^0.1.0",
     "@main-ui/view-tree": "^0.3.0",
     "@main-ui/view-run-control": "^0.1.0",
     "@main-ui/view-timeline": "^0.1.0",
     "@main-ui/view-storyboard": "^0.1.0",
     "@vue-flow/core": "^1.48.0",
-    "main-ui": "^0.6.0",
+    "main-ui": "^0.7.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
     "@main-ui/core": "workspace:*",
     "@main-ui/view-world": "workspace:*",
+    "@main-ui/view-canvas": "workspace:*",
     "@main-ui/view-console": "workspace:*",
     "@main-ui/view-flow": "workspace:*",
     "@main-ui/view-host-engine": "workspace:*",
@@ -60,6 +63,7 @@
     "@main-ui/view-node": "workspace:*",
     "@main-ui/view-sandbox": "workspace:*",
     "@main-ui/view-table": "workspace:*",
+    "@main-ui/view-formula": "workspace:*",
     "@main-ui/view-tree": "workspace:*",
     "@main-ui/view-run-control": "workspace:*",
     "@main-ui/view-timeline": "workspace:*",

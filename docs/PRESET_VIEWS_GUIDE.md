@@ -22,15 +22,17 @@
 | --- | --- | --- | --- |
 | `@main-ui/view-tree` | 0.3.0 | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
 | `@main-ui/view-inspector` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 属性检视：对象 + schema，变更经 Emits 抛出 |
-| `@main-ui/view-world` | 0.6.0 | `@main-ui/core/rendering`（pixi） | 2D 世界可视化：相机状态进 `getViewState` |
+| `@main-ui/view-world` | 0.7.0 | `@main-ui/core/rendering`（pixi） | 2D 世界可视化：相机状态进 `getViewState` |
+| `@main-ui/view-canvas` | 0.7.0 | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互；取代已废弃的 `viewport-2d-kit/vue` |
 | `@main-ui/view-table` | 0.3.0 | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
+| `@main-ui/view-formula` | 0.1.0 | `katex` | 数学公式视图：KaTeX 渲染 + 变量级锚点（token→符号 id；契约4 符号寻址） |
 | `@main-ui/view-form` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出 |
 | `@main-ui/view-node` | 0.4.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
 | `@main-ui/view-console` | 0.4.0 | 自研虚拟滚动 | 日志/控制台追加列表：过滤、自动跟随/锁滚 |
 | `@main-ui/view-flow` | 0.5.0 | `@vue-flow/core`（peer `^1.48`）+ FSM 纯库 | 流程/状态机文档：类型化端口、数据流/控制流双边（三件套：内核 + `FlowCanvas` 组件 + 薄壳） |
 | `@main-ui/view-sandbox` | 0.6.0 | 自研 `SandboxKernel`（无头纯 TS） | 自由沙盘画布（旗舰复合）：异构元素 + 嵌入任意 View + 嵌套保护 |
 | `@main-ui/view-host-engine` | 0.6.0 | 无（纯 DOM 挂载点） | 外部引擎转播窗口：布局归我方、渲染归外部引擎 |
-| `@main-ui/preset-views` | 0.6.0 | — | 聚合包：命名空间重导出（无逻辑） |
+| `@main-ui/preset-views` | 0.7.0 | — | 聚合包：命名空间重导出（无逻辑） |
 
 配套基座：`@main-ui/core`（0.5.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含数组字段与条件显隐扩展）+ 虚拟滚动基座（`computeVirtualWindow` / `isNearBottom`）+ 嵌入 View 托管（`createEmbeddedViewHost` / `checkNestingDepth`），供各模板共用，宿主亦可单独消费。
 
@@ -43,7 +45,7 @@
 pnpm add @main-ui/view-tree @main-ui/view-table main-ui vue
 
 # 全量安装
-pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-table \
+pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-canvas @main-ui/view-table @main-ui/view-formula \
          @main-ui/view-form @main-ui/view-node @main-ui/view-console \
          @main-ui/view-flow @main-ui/view-sandbox @main-ui/view-host-engine main-ui vue
 
@@ -56,6 +58,7 @@ pnpm add @main-ui/preset-views
 | 模板 | 额外必装 |
 | --- | --- |
 | `view-world` | `@main-ui/core/rendering` + `pixi.js` |
+| `view-canvas` | `@main-ui/core/rendering`（纯 DOM，无 pixi） |
 | `view-node` | `@vue-flow/core@^1.48`（结构样式为包内 vendored，运行时自动注入，无需宿主处理） |
 | `view-form` / `view-inspector` | `@main-ui/core`（peer） |
 | `view-flow` | `@vue-flow/core@^1.48` + `@main-ui/core`（peer） |
@@ -180,13 +183,115 @@ Props：
 | `antialias` | `boolean` | `false` | 抗锯齿 |
 | `interactive` | `boolean` | `true` | 是否启用 InteractionLayer（点击/拖拽命中） |
 | `panOnDrag` | `boolean` | `false` | 左键拖拽是否平移相机；棋类通常为 false |
-| `zoomOnWheel` | `boolean` | `true` | 滚轮是否缩放 |
+| `zoomOnWheel` | `boolean` | `true` | 滚轮是否缩放（保留兼容；优先看 `wheelMode`） |
+| `wheelMode` | `'auto' \| 'zoom' \| 'pan'` | `'auto'` | 滚轮/触控板分流：`auto`=捏合缩放·双指平移；`zoom`=一律缩放；`pan`=一律平移 |
+| `clickButtonPolicy` | `'left' \| 'any'` | `'left'` | `world-click` 抛出策略：`left`=仅左键（右键抛 `world-contextmenu`）；`any`=旧行为（任意键） |
+| `nativeGestureGuard` | `boolean` | `true` | 内置原生手势隔离（`user-select:none` / pointerdown `preventDefault` / 抑制右键原生菜单 / `touch-action`） |
+| `rotateOnGesture` | `boolean` | `false` | 是否启用双指旋转手势（“单指按住 + 另一指拖动”） |
+| `rotateStep` | `number` | `π/12` | 旋转步长（弧度），供宿主自行绑定快捷键时复用默认值 |
 | `loading` / `error` | `boolean` / `string \| null` | — | 加载三态 |
 | `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期（相机进快照） |
 
-Emits：`ready(api)`（手动模式逃生舱，宿主可直接操作 PixiJS world 容器）/ `camera-change(camera)` / `world-pointerdown` / `world-pointerup` / `world-click` / `cell-pointerdown` / `cell-click`。
+Emits：`ready(api)`（手动模式逃生舱，宿主可直接操作 PixiJS world 容器）/ `camera-change(camera)` / `world-pointerdown` / `world-pointerup` / `world-click`（默认仅左键）/ `world-contextmenu`（右键） / `cell-pointerdown` / `cell-click` / `cell-contextmenu`。
 
 自动渲染图元：Grid / Sprite / Text / Polygon；`screen→world` 命中由 InteractionLayer 提供，抛出 world/cell 意图。
+
+#### 4.3.1 Web 手势隔离与鼠标键语义（游戏宿主推荐配置）
+
+下游游戏宿主（实时战略 / 棋类 / 沙盘）推荐用如下配置，即可获得“左键选中 / 右键下令 / 触控板三手势”，无需逐浏览器逐平台自写兑底：
+
+```vue
+<WorldView
+  :snapshot="snapshot"
+  :view-box="viewBox"
+  :interactive="true"
+  :pan-on-drag="true"
+  wheel-mode="auto"
+  click-button-policy="left"
+  :native-gesture-guard="true"
+  :rotate-on-gesture="true"
+  @world-click="onSelect"
+  @world-contextmenu="onCommand"
+  @ready="onReady"
+/>
+```
+
+| 宿主意图 | 依赖能力 | 写法 |
+| --- | --- | --- |
+| 左键选中 | `world-click` 默认仅左键 | 监听 `@world-click`，`payload.button === 0` |
+| 右键下令 | 右键走专用事件、不误触 `world-click` | 监听 `@world-contextmenu`（已屏蔽原生菜单） |
+| 触控板捏合缩放 / 双指平移 | `wheelMode` skips | 默认 `auto`，无需额外代码 |
+| 双指旋转 | 相机 `rotation` + `rotateOnGesture` | 开 prop 即用；或经 `ready.api.rotateAtScreenPoint()` 命令式控制 |
+| 区分鼠标键 | `WorldPointerPayload.button` + `modifiers` | 读 `payload.button`（0/1/2）与 `payload.modifiers` |
+
+**兼容性提示（v0.7.0 行为变更）**：`world-click` 默认从“任意键抛”改为“仅左键抛”。旧宿主若依赖右键也抛 `world-click`，传 `click-button-policy="any"` 可恢复旧行为；详见 `MIGRATION_GUIDE_0.7.0.md`。
+
+**相机旋转**：`WorldCameraState` / `Camera2D` 增可选 `rotation`（弧度，缺省 0，向后兼容），已进 `getViewState` / `restoreViewState` 快照契约（旧快照无此字段照常工作）。
+
+### 4.3.2 `@main-ui/view-formula`（数学公式视图 + 变量级锚点）
+
+组件 `FormulaView`（KaTeX `output:'html'` 渲染）+ 变量级锚点工具（`scanVariableTokens` / `attachVariableAnchors` / `resolveAnchorFromEvent`）。依赖 `katex`。
+
+**定位**：面向「公式即交互对象」的场景——公式内的变量可悬停/点击，映射到宿主的**符号条目 id**（契约4 符号寻址）。符号解析与规范化在宿主/后端，本包**只消费映射结果**、不做符号解析、不含领域语义、**零网络**。
+
+**为何需要 LaTeX 扫描器**：KaTeX 只产出排版好的 DOM，**不保留源 token → DOM 的映射**；故本包自带 `scanner.ts` 扫出「第 n 个变量」的顺序表，再由 `anchor.ts` 与 DOM 候选**按字母名贪心对齐**（KaTeX 会把多字母下标如 `ij` 合并进单个节点，纯位置对齐会错位）。
+
+`FormulaView` Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `latex` | `string` | 必填 | LaTeX 源（不含 `$$` 定界符） |
+| `displayMode` | `boolean` | `true` | 行间模式；`false` 为行内 |
+| `anchors` | `FormulaVarAnchor[]` | `[]` | 变量锚点声明：`{ name, symbolId, occurrence?, hint? }` |
+| `throwOnError` | `boolean` | `false` | 渲染失败时是否抛出（默认容错，渲染为错误文本） |
+
+Emits：`anchor-hover` / `anchor-click`，载荷 `FormulaAnchorIntent = { name, symbolId, occurrence, clientX, clientY }`。
+
+### 4.3.3 `@main-ui/view-canvas`（DOM/SVG 画布视口）
+
+组件 `ViewportCanvas`（画布视口）+ `ViewportCanvasShell`（三栏业务壳）+ `useViewportHostBridge`（宿主自绘坐标桥）。内核为 `@main-ui/core/rendering` 的**相机纯函数**（**纯 DOM/SVG，不依赖 PixiJS**）。
+
+**定位**：与 `view-world` 互补 —— `view-world` 面向「图元自动渲染 / 手动 PixiJS」，`view-canvas` 面向「**宿主自绘 SVG/DOM**」；后者取代已废弃的 `viewport-2d-kit/vue`。
+
+`ViewportCanvas` Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `viewBox` | `ViewBox` | 必填 | 世界范围（相机 fit 目标） |
+| `minScale` / `maxScale` | `number` | `0.2` / `4` | 缩放边界 |
+| `paddingPx` | `number` | `40` | fit 留白 |
+| `disablePan` | `boolean` | `false` | 禁止左键拖拽平移（宿主用左键做框选等时置 true） |
+| `zoomOnWheel` | `boolean` | `true` | 是否启用滚轮缩放 |
+
+Emits：`zoomPercentChange(percent)` / `interactingChange(boolean)` / `cameraChange(camera, { width, height })`。
+
+默认插槽回传：`{ width, height, cameraTransform, scale, camera }` —— 宿主在插槽内自绘 SVG/DOM，用 `cameraTransform` 施加相机变换。
+
+Exposes（模板 ref）：`fitToBounds()` / `zoomIn()` / `zoomOut()` / `getCamera()` / `setCamera(camera)` / `screenToWorld(point)` / `worldToScreen(point)` / `getSize()`。
+
+```vue
+<ViewportCanvas
+  ref="viewportRef"
+  :view-box="viewBox"
+  :min-scale="0.2" :max-scale="2.8" :padding-px="70"
+  :disable-pan="marqueeActive"
+  @zoom-percent-change="(v) => (zoomPercent = v)"
+  @camera-change="(camera, size) => { cameraState = camera; viewportSize = size }"
+>
+  <template #default="{ width, height, cameraTransform }">
+    <svg :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`">
+      <rect :width="width" :height="height" @click="clearSelection" />
+      <g :transform="cameraTransform">
+        <circle v-for="n in nodes" :key="n.id" :cx="n.x" :cy="n.y" :r="n.r" />
+      </g>
+    </svg>
+  </template>
+</ViewportCanvas>
+```
+
+`ViewportCanvasShell` Props：`leftPanelWidth` / `rightPanelWidth` / `toolbarHeight` / `collapseEmptySidePanels`；插槽：`left` / `default`（舞台主体）/ `right` / `toolbarLeading` / `toolbarCenter` / `toolbarTrailing`。
+
+> **迁移提示**：从 `viewport-2d-kit/vue` 迁移只需把 `Viewport2DCanvas`→`ViewportCanvas`、`Viewport2DCanvasExpose`→`ViewportCanvasExpose`、`ViewportBusinessCanvasShell`→`ViewportCanvasShell`，API 完全兼容。
 
 ### 4.4 `@main-ui/view-table`（虚拟滚动表格）
 
