@@ -70,6 +70,38 @@ installShellPolicy(resolveShellPolicy(detectEnvironment()))
 createApp(App).mount('#root')
 ```
 
+### 步骤 2b：右键被屏蔽后，如何弹自己的菜单
+
+浏览器策略下 `suppressContextMenu = true`，原生菜单会被拦截——这正是「Web 构建
+表现得像桌面 App」的关键。宿主若要自己的右键菜单，监听自定义事件即可：
+
+```ts
+window.addEventListener('main-ui-contextmenu', (event) => {
+  const { clientX, clientY, target } = (event as CustomEvent).detail
+  // 在此打开你自己的上下文菜单（例如 MUI 的 ContextMenu 组件）
+  showMyContextMenu({ x: clientX, y: clientY, target })
+})
+```
+
+**豁免**：若某块区域需自行处理右键（例如自定义菜单容器内部再次右键），
+在其元素或祖先上加标记即可放行原生行为：
+
+```html
+<div data-main-ui-contextmenu="own">…</div>
+```
+
+也可直接用导出的处理器自定义安装范围：
+
+```ts
+import { createContextMenuHandler } from '@main-ui/core/environment'
+someElement.addEventListener('contextmenu', createContextMenuHandler(window))
+```
+
+> **为什么要屏蔽**：Web 构建里露出浏览器右键菜单（"查看网页源代码"、"检查"等）
+> 会立刻暴露"这是个网页"，破坏 App 观感。屏蔽后由宿主接管，观感与 Electron 一致，
+> 而调试体验仍是 Web 的（Playwright 直连、HMR 免重启、console 直读）——
+> 这是**刻意不引入 Electron** 的原因。
+
 ### 步骤 3：按需消费原生能力
 
 ```ts
@@ -129,7 +161,7 @@ ShellPolicy ← resolveShellPolicy(detectEnvironment())
 | 字段 | 浏览器 | Electron |
 | ---- | ------ | -------- |
 | `preventPageZoom` | `true` | `true` |
-| `suppressContextMenu` | `true` | `false` |
+| `suppressContextMenu` | `true`（并派发 `main-ui-contextmenu`） | `false`（交原生菜单） |
 | `suppressTextSelection` | `true` | `false` |
 | `suppressImageDrag` | `true` | `true` |
 | `interceptShortcuts` | `['cmd+w','ctrl+w','cmd+p','ctrl+p','ctrl+shift+i']` | `[]` |
