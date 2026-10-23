@@ -5,6 +5,7 @@ export default defineConfig({
     index: 'src/index.ts',
     'rendering/index': 'src/rendering/index.ts',
     'primitives/index': 'src/primitives/index.ts',
+    'environment/index': 'src/environment/index.ts',
   },
   format: ['esm'],
   dts: true,

@@ -25,7 +25,6 @@
 | `@main-ui/view-world` | 0.7.0 | `@main-ui/core/rendering`（pixi） | 2D 世界可视化：相机状态进 `getViewState` |
 | `@main-ui/view-canvas` | 0.7.0 | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互；取代已废弃的 `viewport-2d-kit/vue` |
 | `@main-ui/view-table` | 0.3.0 | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
-| `@main-ui/view-formula` | 0.1.0 | `katex` | 数学公式视图：KaTeX 渲染 + 变量级锚点（token→符号 id；契约4 符号寻址） |
 | `@main-ui/view-form` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出 |
 | `@main-ui/view-node` | 0.4.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
 | `@main-ui/view-console` | 0.4.0 | 自研虚拟滚动 | 日志/控制台追加列表：过滤、自动跟随/锁滚 |
@@ -45,7 +44,7 @@
 pnpm add @main-ui/view-tree @main-ui/view-table main-ui vue
 
 # 全量安装
-pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-canvas @main-ui/view-table @main-ui/view-formula \
+pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-canvas @main-ui/view-table \
          @main-ui/view-form @main-ui/view-node @main-ui/view-console \
          @main-ui/view-flow @main-ui/view-sandbox @main-ui/view-host-engine main-ui vue
 
@@ -228,26 +227,7 @@ Emits：`ready(api)`（手动模式逃生舱，宿主可直接操作 PixiJS worl
 
 **相机旋转**：`WorldCameraState` / `Camera2D` 增可选 `rotation`（弧度，缺省 0，向后兼容），已进 `getViewState` / `restoreViewState` 快照契约（旧快照无此字段照常工作）。
 
-### 4.3.2 `@main-ui/view-formula`（数学公式视图 + 变量级锚点）
-
-组件 `FormulaView`（KaTeX `output:'html'` 渲染）+ 变量级锚点工具（`scanVariableTokens` / `attachVariableAnchors` / `resolveAnchorFromEvent`）。依赖 `katex`。
-
-**定位**：面向「公式即交互对象」的场景——公式内的变量可悬停/点击，映射到宿主的**符号条目 id**（契约4 符号寻址）。符号解析与规范化在宿主/后端，本包**只消费映射结果**、不做符号解析、不含领域语义、**零网络**。
-
-**为何需要 LaTeX 扫描器**：KaTeX 只产出排版好的 DOM，**不保留源 token → DOM 的映射**；故本包自带 `scanner.ts` 扫出「第 n 个变量」的顺序表，再由 `anchor.ts` 与 DOM 候选**按字母名贪心对齐**（KaTeX 会把多字母下标如 `ij` 合并进单个节点，纯位置对齐会错位）。
-
-`FormulaView` Props：
-
-| Prop | 类型 | 默认 | 说明 |
-| --- | --- | --- | --- |
-| `latex` | `string` | 必填 | LaTeX 源（不含 `$$` 定界符） |
-| `displayMode` | `boolean` | `true` | 行间模式；`false` 为行内 |
-| `anchors` | `FormulaVarAnchor[]` | `[]` | 变量锚点声明：`{ name, symbolId, occurrence?, hint? }` |
-| `throwOnError` | `boolean` | `false` | 渲染失败时是否抛出（默认容错，渲染为错误文本） |
-
-Emits：`anchor-hover` / `anchor-click`，载荷 `FormulaAnchorIntent = { name, symbolId, occurrence, clientX, clientY }`。
-
-### 4.3.3 `@main-ui/view-canvas`（DOM/SVG 画布视口）
+### 4.3.2 `@main-ui/view-canvas`（DOM/SVG 画布视口）
 
 组件 `ViewportCanvas`（画布视口）+ `ViewportCanvasShell`（三栏业务壳）+ `useViewportHostBridge`（宿主自绘坐标桥）。内核为 `@main-ui/core/rendering` 的**相机纯函数**（**纯 DOM/SVG，不依赖 PixiJS**）。
 

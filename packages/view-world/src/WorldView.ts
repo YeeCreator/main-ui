@@ -24,6 +24,7 @@ import {
   type ViewBox,
   type WheelMode,
 } from '@main-ui/core/rendering';
+import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
 import {
   createGrid,
   createPolygonLayer,
@@ -80,8 +81,8 @@ export const WorldView = defineComponent({
     wheelMode: { type: String as PropType<WorldWheelMode>, default: 'auto' },
     /** `world-click` 抛出策略：left（默认，仅左键）/ any（旧行为）。 */
     clickButtonPolicy: { type: String as PropType<WorldClickButtonPolicy>, default: 'left' },
-    /** 是否启用内置原生手势隔离（user-select / preventDefault / contextmenu 抑制）。默认 true。 */
-    nativeGestureGuard: { type: Boolean, default: true },
+    /** 是否启用内置原生手势隔离（user-select / preventDefault / contextmenu 抑制）。缺省取环境 ShellPolicy。 */
+    nativeGestureGuard: { type: Boolean as PropType<boolean | null>, default: null },
     /** 是否启用双指旋转手势（“单指按住 + 另一指拖动”）。默认 false（相机模型已支持 rotation）。 */
     rotateOnGesture: { type: Boolean, default: false },
     /** 键盘旋转步长（弧度）：供宿主自行绑定快捷键时复用默认步长。 */
@@ -102,6 +103,9 @@ export const WorldView = defineComponent({
     let viewport: PixiViewport | null = null;
     let sceneLayer: Container | null = null;
     let destroyed = false;
+
+    /** 内置手势隔离开关：显式 prop 优先，缺省取自环境 ShellPolicy（浏览器/Electron 统一口径）。 */
+    const gestureGuard = computed(() => props.nativeGestureGuard ?? resolveShellPolicy(detectEnvironment()).canvasGestureGuard);
 
     // 拖拽状态
     const drag = { pointerId: -1, active: false, button: 0, startX: 0, startY: 0, lastX: 0, lastY: 0, moved: false };
@@ -237,7 +241,7 @@ export const WorldView = defineComponent({
       const local = toLocal(event);
       if (!local) return;
 
-      if (props.nativeGestureGuard) {
+      if (gestureGuard.value) {
         // 抑制原生文本选区 / 图片拖拽（拖拽期间浏览器默认行为会抢焦点）。
         event.preventDefault();
       }
@@ -350,9 +354,9 @@ export const WorldView = defineComponent({
       }
     };
 
-    /** 右键原生菜单：默认（nativeGestureGuard）在交互层内抑制，宿主无需再兜底。 */
+    /** 右键原生菜单：缺省（gestureGuard 开）在交互层内抑制，宿主无需再兜底。 */
     const onContextMenu = (event: MouseEvent): void => {
-      if (props.nativeGestureGuard) event.preventDefault();
+      if (gestureGuard.value) event.preventDefault();
     };
 
     // ---------- 视图生命周期契约（四成员，onDestroy 幂等；相机进快照，纯值） ----------
@@ -456,10 +460,10 @@ export const WorldView = defineComponent({
     const overlayStyle: CSSProperties = {
       position: 'absolute', inset: '0',
       pointerEvents: props.interactive ? 'auto' : 'none',
-      touchAction: props.nativeGestureGuard ? 'none' : 'auto',
-      userSelect: props.nativeGestureGuard ? 'none' : 'auto',
-      WebkitUserSelect: props.nativeGestureGuard ? 'none' : 'auto',
-      WebkitTouchCallout: props.nativeGestureGuard ? 'none' : 'auto',
+      touchAction: gestureGuard.value ? 'none' : 'auto',
+      userSelect: gestureGuard.value ? 'none' : 'auto',
+      WebkitUserSelect: gestureGuard.value ? 'none' : 'auto',
+      WebkitTouchCallout: gestureGuard.value ? 'none' : 'auto',
       WebkitTapHighlightColor: 'transparent',
     } as CSSProperties;
 

@@ -16,6 +16,7 @@ import {
   type Vec2,
   type ViewBox,
 } from '@main-ui/core/rendering';
+import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
 import type { ViewportCanvasExpose, ViewportContainerSize } from './types';
 import { ZOOM_STEP, cameraTransformOf, fitCamera, panCamera, zoomByFactor, wheelZoomFactor } from './viewport-state';
 
@@ -31,6 +32,10 @@ export const ViewportCanvas = defineComponent({
     disablePan: { type: Boolean, default: false },
     /** 是否启用滚轮缩放。默认 true。 */
     zoomOnWheel: { type: Boolean, default: true },
+    /** 是否启用内置原生手势隔离（user-select / preventDefault）。缺省取环境 ShellPolicy。 */
+    nativeGestureGuard: { type: Boolean as PropType<boolean | null>, default: null },
+    /** 是否右键抑制原生菜单（缺省取 ShellPolicy.suppressContextMenu）。 */
+    suppressContextMenu: { type: Boolean as PropType<boolean | null>, default: null },
   },
   emits: {
     zoomPercentChange: (value: number) => Number.isFinite(value),
@@ -43,6 +48,11 @@ export const ViewportCanvas = defineComponent({
     const containerRef = ref<HTMLElement | null>(null);
     const containerSize = reactive<ViewportContainerSize>({ width: 0, height: 0 });
     const camera = ref<Camera2D>({ scale: 1, pan: { x: 0, y: 0 } });
+
+    /** 环境策略（单一真相源）：浏览器/Electron 差异由此统一解析，无需下游各自判断。 */
+    const shellPolicy = resolveShellPolicy(detectEnvironment());
+    const gestureGuard = computed(() => props.nativeGestureGuard ?? shellPolicy.canvasGestureGuard);
+    const contextMenuGuard = computed(() => props.suppressContextMenu ?? shellPolicy.suppressContextMenu);
 
     const pointerState = reactive({ pointerId: -1, lastX: 0, lastY: 0, active: false });
     let resizeObserver: ResizeObserver | null = null;
@@ -79,6 +89,7 @@ export const ViewportCanvas = defineComponent({
 
     const onPointerDown = (event: PointerEvent): void => {
       if (event.button !== 0 || props.disablePan) return;
+      if (gestureGuard.value) event.preventDefault();
       pointerState.pointerId = event.pointerId;
       pointerState.lastX = event.clientX;
       pointerState.lastY = event.clientY;
@@ -110,6 +121,10 @@ export const ViewportCanvas = defineComponent({
       applyCamera(zoomByFactor(camera.value, containerSize, wheelZoomFactor(event.deltaY), anchor, props.minScale, props.maxScale));
     };
 
+    const onContextMenu = (event: MouseEvent): void => {
+      if (contextMenuGuard.value) event.preventDefault();
+    };
+
     const updateContainerSize = (): void => {
       const el = containerRef.value;
       if (!el) return;
@@ -132,6 +147,7 @@ export const ViewportCanvas = defineComponent({
       el.addEventListener('pointerup', finishPointer);
       el.addEventListener('pointercancel', finishPointer);
       el.addEventListener('wheel', onWheel, { passive: false });
+      el.addEventListener('contextmenu', onContextMenu);
     });
 
     onBeforeUnmount(() => {
@@ -144,6 +160,7 @@ export const ViewportCanvas = defineComponent({
       el.removeEventListener('pointerup', finishPointer);
       el.removeEventListener('pointercancel', finishPointer);
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('contextmenu', onContextMenu);
     });
 
     expose<ViewportCanvasExpose>({
@@ -161,7 +178,15 @@ export const ViewportCanvas = defineComponent({
       getSize: () => ({ width: containerSize.width, height: containerSize.height }),
     });
 
-    const surfaceStyle: CSSProperties = { position: 'relative', width: '100%', height: '100%', overflow: 'hidden' };
+    const surfaceStyle = computed<CSSProperties>(() => ({
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      overflow: 'hidden',
+      touchAction: gestureGuard.value ? 'none' : 'auto',
+      userSelect: gestureGuard.value ? 'none' : 'auto',
+      WebkitUserSelect: gestureGuard.value ? 'none' : 'auto',
+    }) as CSSProperties);
 
     return () => {
       const children: VNode[] = slots.default
@@ -173,7 +198,7 @@ export const ViewportCanvas = defineComponent({
             camera: snapshotCamera(),
           })
         : [];
-      return h('div', { ref: containerRef, class: 'viewport-2d-surface', style: surfaceStyle }, children);
+      return h('div', { ref: containerRef, class: 'viewport-2d-surface', style: surfaceStyle.value }, children);
     };
   },
 });

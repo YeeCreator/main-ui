@@ -14,7 +14,8 @@
       "main-ui/vue": ["../main-ui/src/vue/index.ts"],
       "@main-ui/core": ["../core/src/index.ts"],
       "@main-ui/core/rendering": ["../core/src/rendering/index.ts"],
-      "@main-ui/core/primitives": ["../core/src/primitives/index.ts"]
+      "@main-ui/core/primitives": ["../core/src/primitives/index.ts"],
+      "@main-ui/core/environment": ["../core/src/environment/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]
