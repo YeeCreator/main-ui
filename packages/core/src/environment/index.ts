@@ -21,6 +21,7 @@ export {
   BROWSER_SHELL_POLICY,
   ELECTRON_SHELL_POLICY,
   installShellPolicy,
+  createContextMenuHandler,
   resolveShellPolicy,
   type ShellPolicyDisposer,
 } from './policy';

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, it } from 'vitest';
 import {
   BROWSER_SHELL_POLICY,
   ELECTRON_SHELL_POLICY,
@@ -10,6 +10,8 @@ import {
   readRuntimePayload,
   resetEnvironmentCache,
   resolveShellPolicy,
+  installShellPolicy,
+  createContextMenuHandler,
   setEnvironmentProvider,
 } from '../src/environment';
 
@@ -103,5 +105,63 @@ describe('core/environment bridge', () => {
     expect(bridge.window).toBeDefined();
     expect(bridge.fs).toBeUndefined();
     expect(hasNativeBridge(scope)).toBe(true);
+  });
+});
+
+describe('suppressContextMenu 类 App 行为', () => {
+  test('浏览器策略默认屏蔽右键（Electron 交给原生）', () => {
+    expect(BROWSER_SHELL_POLICY.suppressContextMenu).toBe(true);
+    expect(ELECTRON_SHELL_POLICY.suppressContextMenu).toBe(false);
+  });
+
+  test('handler 阻止默认并派发 main-ui-contextmenu', () => {
+    const dispatched: Event[] = [];
+    const fakeWindow = { dispatchEvent: (e: Event) => (dispatched.push(e), true) } as unknown as Window;
+    const handler = createContextMenuHandler(fakeWindow);
+
+    let prevented = false;
+    const target = { closest: () => null } as unknown as Element;
+    const event = {
+      target,
+      clientX: 12,
+      clientY: 34,
+      shiftKey: true,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      preventDefault: () => {
+        prevented = true;
+      },
+    } as unknown as MouseEvent;
+
+    handler(event);
+
+    expect(prevented).toBe(true);
+    expect(dispatched).toHaveLength(1);
+    const custom = dispatched[0] as CustomEvent;
+    expect(custom.type).toBe('main-ui-contextmenu');
+    expect(custom.detail).toMatchObject({ clientX: 12, clientY: 34, shiftKey: true });
+  });
+
+  test('data-main-ui-contextmenu="own" 豁免（宿主自管菜单）', () => {
+    const dispatched: Event[] = [];
+    const fakeWindow = { dispatchEvent: (e: Event) => (dispatched.push(e), true) } as unknown as Window;
+    const handler = createContextMenuHandler(fakeWindow);
+
+    let prevented = false;
+    const ownTarget = { closest: () => ({}) } as unknown as Element;
+    const event = {
+      target: ownTarget,
+      clientX: 0,
+      clientY: 0,
+      preventDefault: () => {
+        prevented = true;
+      },
+    } as unknown as MouseEvent;
+
+    handler(event);
+
+    expect(prevented).toBe(false);
+    expect(dispatched).toHaveLength(0);
   });
 });

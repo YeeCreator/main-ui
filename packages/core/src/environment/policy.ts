@@ -42,6 +42,44 @@ export function resolveShellPolicy(env?: RuntimeEnvironment, overrides?: Partial
   return overrides ? { ...base, ...overrides } : { ...base };
 }
 
+/**
+ * 构造右键处理器（Web 端「类 App」行为的核心）。
+ *
+ * 行为：屏蔽浏览器原生菜单，并派发 `main-ui-contextmenu` 自定义事件供宿主接管。
+ * 豁免：目标元素或其祖先声明 `data-main-ui-contextmenu="own"` 时放行
+ * （宿主自管菜单的场景，例如自定义菜单容器内部再次右键）。
+ *
+ * 抽成导出函数是为了可独立单测——`installShellPolicy` 依赖真实 `document`
+ * 注入样式，在 node 测试环境下不便验证事件路径。
+ *
+ * @param win 事件派发目标（通常为 `window`）。
+ * @returns 可挂到 `contextmenu` 的处理器。
+ * @example
+ * window.addEventListener('contextmenu', createContextMenuHandler(window));
+ */
+export function createContextMenuHandler(win: Window): (event: MouseEvent) => void {
+  return (event: MouseEvent) => {
+    const target = event.target as Element | null;
+    if (target && typeof target.closest === 'function' && target.closest('[data-main-ui-contextmenu="own"]')) {
+      return;
+    }
+    event.preventDefault();
+    win.dispatchEvent(
+      new CustomEvent('main-ui-contextmenu', {
+        detail: {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          target,
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          altKey: event.altKey,
+        },
+      }),
+    );
+  };
+}
+
 /** 安装句柄：调用即卸载。 */
 export type ShellPolicyDisposer = () => void;
 
@@ -49,7 +87,8 @@ export type ShellPolicyDisposer = () => void;
  * 安装外壳策略到 `document` / `window`。
  *
  * - `preventPageZoom`：拦截 Ctrl/Cmd+wheel（非 passive）与 Safari gesture 事件。
- * - `suppressContextMenu`：全局 `contextmenu` 阻止默认。
+ * - `suppressContextMenu`：全局 `contextmenu` 阻止默认，并派发 `main-ui-contextmenu`
+ *   自定义事件供宿主接管（Web 构建因此表现得像桌面 App，不露出浏览器菜单）。
  * - `suppressTextSelection` / `suppressImageDrag`：注入基础样式。
  * - `interceptShortcuts`：拦截指定浏览器快捷键。
  *
@@ -83,7 +122,7 @@ export function installShellPolicy(
     }
 
     if (policy.suppressContextMenu) {
-      const onContextMenu = (event: MouseEvent) => event.preventDefault();
+      const onContextMenu = createContextMenuHandler(win);
       win.addEventListener('contextmenu', onContextMenu);
       cleanups.push(() => win.removeEventListener('contextmenu', onContextMenu));
     }
