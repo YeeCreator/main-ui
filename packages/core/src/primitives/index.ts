@@ -16,3 +16,4 @@ export {
   type TextureResolver,
 } from './sprite';
 export { createPolygon, createPolygonLayer, renderPolygons } from './polygon';
+export { createPolyline, createPolylineLayer, renderPolylines } from './polyline';

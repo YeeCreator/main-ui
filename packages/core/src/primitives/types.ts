@@ -6,7 +6,7 @@
  */
 
 /** 图元几何类型。 */
-export type EntityGeometry = 'point' | 'sprite' | 'text' | 'polygon';
+export type EntityGeometry = 'point' | 'sprite' | 'text' | 'polygon' | 'polyline';
 
 /** 世界坐标下的矩形范围。 */
 export interface WorldBounds {
@@ -85,6 +85,32 @@ export interface SpriteItem {
   texture?: string;
   /** 占位形状（无纹理时）。默认 'circle'。 */
   shape?: 'circle' | 'rect';
+}
+
+/**
+ * 折线图元项（世界坐标）。
+ *
+ * 与 `PolygonItem` 的分工：`polygon` 用于**闭合填充**（面），
+ * `polyline` 用于**开放描边**（线/网络）。二者的列结构一致（`points`），
+ * 差别只在语义与默认 `closed`；需要填充的闭合轮廓用 `polygon`，
+ * 需要描绘网络/路径的用 `polyline`。
+ */
+export interface PolylineItem {
+  points: ReadonlyArray<{ x: number; y: number }>;
+  /** 描边颜色。 */
+  stroke?: Color;
+  /** 描边宽度（世界单位）。 */
+  strokeWidth?: number;
+  /** 是否闭合（默认 false = 开放折线）。 */
+  closed?: boolean;
+  /** 顶点圆点半径（世界单位）；0/缺省 = 不画顶点。 */
+  vertexRadius?: number;
+  /** 顶点圆点颜色（缺省同 stroke）。 */
+  vertexColor?: Color;
+  /** 可选填充色（闭合折线才生效）。 */
+  fill?: Color;
+  /** 填充透明度 0..1。 */
+  fillAlpha?: number;
 }
 
 /** 多边形/路径图元项（世界坐标）。 */

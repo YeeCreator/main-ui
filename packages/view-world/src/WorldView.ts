@@ -28,6 +28,7 @@ import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment
 import {
   createGrid,
   createPolygonLayer,
+  createPolylineLayer,
   createSpriteLayer,
   createTextLayer,
   hitTestGrid,
@@ -154,6 +155,7 @@ export const WorldView = defineComponent({
         const items = snapshotToItems(props.snapshot);
         // 层序：多边形（底）→ 精灵 → 文字（顶）
         if (items.polygons.length) sceneLayer.addChild(createPolygonLayer(items.polygons));
+        if (items.polylines.length) sceneLayer.addChild(createPolylineLayer(items.polylines));
         if (items.sprites.length) sceneLayer.addChild(createSpriteLayer(items.sprites, props.textureResolver ?? undefined));
         if (items.texts.length) sceneLayer.addChild(createTextLayer(items.texts));
       }

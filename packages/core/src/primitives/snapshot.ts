@@ -4,7 +4,14 @@
  * view-world 的自动渲染模式据此把 EntitySnapshot 的每个批次映射为
  * TextItem[] / SpriteItem[] / PolygonItem[]，再交给对应图元渲染器。
  */
-import type { EntityBatch, EntitySnapshot, PolygonItem, SpriteItem, TextItem } from './types';
+import type {
+  EntityBatch,
+  EntitySnapshot,
+  PolygonItem,
+  PolylineItem,
+  SpriteItem,
+  TextItem,
+} from './types';
 
 function numColumn(batch: EntityBatch, key: string, index: number, fallback = 0): number {
   const col = batch.columns[key];
@@ -71,6 +78,28 @@ export function batchToPolygonItems(batch: EntityBatch): PolygonItem[] {
   return items;
 }
 
+/** 从 polyline 几何批次解析折线项（columns.points 为 number[] 扁平数组或 {x,y}[] ）。 */
+export function batchToPolylineItems(batch: EntityBatch): PolylineItem[] {
+  const items: PolylineItem[] = [];
+  const pointsCol = batch.columns.points;
+  for (let i = 0; i < batch.count; i++) {
+    const raw = pointsCol ? pointsCol[i] : undefined;
+    const points = normalizePoints(raw);
+    if (points.length < 2) continue;
+    items.push({
+      points,
+      stroke: batch.columns.stroke ? numColumn(batch, 'stroke', i) : undefined,
+      strokeWidth: batch.columns.strokeWidth ? numColumn(batch, 'strokeWidth', i, 1) : 1,
+      closed: batch.columns.closed ? Boolean(batch.columns.closed[i]) : false,
+      vertexRadius: batch.columns.vertexRadius ? numColumn(batch, 'vertexRadius', i) : undefined,
+      vertexColor: batch.columns.vertexColor ? numColumn(batch, 'vertexColor', i) : undefined,
+      fill: batch.columns.fill ? numColumn(batch, 'fill', i) : undefined,
+      fillAlpha: batch.columns.fillAlpha ? numColumn(batch, 'fillAlpha', i, 1) : undefined,
+    });
+  }
+  return items;
+}
+
 function normalizePoints(raw: unknown): Array<{ x: number; y: number }> {
   if (!Array.isArray(raw)) return [];
   // 扁平数组 [x0,y0,x1,y1,...]
@@ -92,10 +121,11 @@ export interface SnapshotItems {
   texts: TextItem[];
   sprites: SpriteItem[];
   polygons: PolygonItem[];
+  polylines: PolylineItem[];
 }
 
 export function snapshotToItems(snapshot: EntitySnapshot): SnapshotItems {
-  const result: SnapshotItems = { texts: [], sprites: [], polygons: [] };
+  const result: SnapshotItems = { texts: [], sprites: [], polygons: [], polylines: [] };
   for (const batch of Object.values(snapshot.batches)) {
     switch (batch.geometry) {
       case 'text':
@@ -107,6 +137,9 @@ export function snapshotToItems(snapshot: EntitySnapshot): SnapshotItems {
         break;
       case 'polygon':
         result.polygons.push(...batchToPolygonItems(batch));
+        break;
+      case 'polyline':
+        result.polylines.push(...batchToPolylineItems(batch));
         break;
       default:
         break;

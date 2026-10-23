@@ -1,6 +1,10 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { gridCellCenter, hitTestCircle, hitTestGrid, hitTestPolygon } from '../src/primitives/hitTest';
-import { batchToTextItems, snapshotToItems } from '../src/primitives/snapshot';
+import {
+  batchToPolylineItems,
+  batchToTextItems,
+  snapshotToItems,
+} from '../src/primitives/snapshot';
 import type { EntitySnapshot, GridSpec } from '../src/primitives/types';
 
 const grid: GridSpec = { x: 0, y: 0, cols: 8, rows: 8, cellWidth: 60, cellHeight: 60 };
@@ -68,5 +72,79 @@ describe('core/primitives snapshot parsing', () => {
     expect(items.sprites[0].shape).toBe('circle'); // point geometry -> circle
     expect(items.polygons).toHaveLength(1);
     expect(items.polygons[0].points).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }]);
+  });
+});
+
+describe('polyline 折线图元', () => {
+  const batch = (columns: Record<string, unknown[]>, count: number) =>
+    ({ kind: 'road', count, geometry: 'polyline' as const, columns });
+
+  it('batchToPolylineItems 解析扁平坐标', () => {
+    const items = batchToPolylineItems(
+      batch({ points: [[0, 0, 10, 0, 10, 10]] }, 1),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0].points).toEqual([
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+    ]);
+  });
+
+  it('batchToPolylineItems 解析对象坐标', () => {
+    const items = batchToPolylineItems(
+      batch({ points: [[{ x: 1, y: 2 }, { x: 3, y: 4 }]] }, 1),
+    );
+    expect(items[0].points).toEqual([
+      { x: 1, y: 2 },
+      { x: 3, y: 4 },
+    ]);
+  });
+
+  it('少于两个点则跳过（无法构成折线）', () => {
+    expect(batchToPolylineItems(batch({ points: [[5, 5]] }, 1))).toHaveLength(0);
+  });
+
+  it('缺省为开放折线（closed=false）', () => {
+    const items = batchToPolylineItems(batch({ points: [[0, 0, 1, 1]] }, 1));
+    expect(items[0].closed).toBe(false);
+  });
+
+  it('读取 closed 列', () => {
+    const items = batchToPolylineItems(
+      batch({ points: [[0, 0, 1, 1]], closed: [true] }, 1),
+    );
+    expect(items[0].closed).toBe(true);
+  });
+
+  it('读取描边与顶点配置', () => {
+    const items = batchToPolylineItems(
+      batch(
+        {
+          points: [[0, 0, 1, 1]],
+          stroke: [0xff0000],
+          strokeWidth: [2],
+          vertexRadius: [3],
+          vertexColor: [0x00ff00],
+        },
+        1,
+      ),
+    );
+    expect(items[0].stroke).toBe(0xff0000);
+    expect(items[0].strokeWidth).toBe(2);
+    expect(items[0].vertexRadius).toBe(3);
+    expect(items[0].vertexColor).toBe(0x00ff00);
+  });
+
+  it('snapshotToItems 把 polyline 批次归入 polylines', () => {
+    const snapshot: EntitySnapshot = {
+      bounds: { x: 0, y: 0, width: 100, height: 100 },
+      batches: {
+        road: batch({ points: [[0, 0, 10, 10]] }, 1),
+      },
+    };
+    const items = snapshotToItems(snapshot);
+    expect(items.polylines).toHaveLength(1);
+    expect(items.polygons).toHaveLength(0);
   });
 });
