@@ -263,6 +263,34 @@ registerTreeViewEditor(
 5. **Slot 契约**：叶子插槽经 `runtime.core.slots`（`SlotRegistry`）类型化管理，`resolve(viewType)` 永不抛错，未注册类型返回显式 `{ status: 'missing' }`，由 `MissingViewSurface` 渲染「视图不可用（类型缺失）」占位，保留原标题、payload 与 restoreKey，类型重新注册后可恢复。
 6. **视图状态收集**：模板库视图可自愿实现 `MainUiViewLifecycle`（`getViewState` / `restoreViewState` / `onDestroy`），经 `runtime.core.viewLifecycles` 登记；布局保存时宿主可经收集槽统一收集视图内部状态（相机、展开节点、滚动等）。
 
+## 图元与几何类型（`@main-ui/core/primitives`）
+
+列式 `EntitySnapshot` 的每个批次声明一种 `geometry`：
+
+| `EntityGeometry` | 图元项 | 语义 |
+| --- | --- | --- |
+| `'point'` | `SpriteItem`（`shape: 'circle'`） | 点 |
+| `'sprite'` | `SpriteItem` | 精灵 / 矩形 |
+| `'text'` | `TextItem` | 文字 |
+| `'polygon'` | `PolygonItem` | **面**（闭合填充） |
+| `'polyline'` | `PolylineItem` | **线 / 网络**（开放描边） |
+
+**`polygon` 与 `polyline` 不可混用**：前者用于区域/范围，后者用于折线网络与路径。
+`polyline` 的填充只对 `closed === true` 生效——开放折线刻意只描边，避免把网络连成一片。
+
+```ts
+import {batchToPolylineItems, snapshotToItems} from '@main-ui/core/primitives';
+
+const items = snapshotToItems(snapshot);   // → {texts, sprites, polygons, polylines}
+```
+
+渲染层（`@main-ui/view-world`）自动模式会为 `polylines` 批次建 `createPolylineLayer`。
+`PolylineItem` 字段：`points` · `stroke` · `strokeWidth` · `closed` · `vertexRadius` ·
+`vertexColor` · `fill` / `fillAlpha`（仅闭合生效）。
+
+> 结构网络（位置列是弧长 `t` 而非 `x/y`）的宿主适配层需先解析出折线点列，
+> 再按 `polyline` 批次交付；**不要**按「有 label 无坐标 → 文本」推断几何。
+
 ## Menu、Command Palette 与 Quick Open
 
 通过 `registerMenu` 注册 `menubar`、`editor/tab`、`workspace`、`view`、`panel` 或 `context` 入口；菜单项的 `when` 和 command enablement 与快捷键共享同一上下文。Vue 层导出 `MenuBar`、`CommandPalette`、`QuickOpen` 和 `ContextMenu`，`WorkbenchShell` 默认提供 `Ctrl/Cmd+Shift+P` 命令面板与 `Ctrl/Cmd+P` Quick Open。宿主只需注册 command/menu contribution 即可获得入口。`menubar` 顶层项若未配置 `submenu` 而是直接挂 `commandId`，会渲染为可直接点击执行的命令按钮（点击即触发命令）；配置 `submenu` 的项则展开为下拉子菜单。

@@ -193,7 +193,31 @@ Props：
 
 Emits：`ready(api)`（手动模式逃生舱，宿主可直接操作 PixiJS world 容器）/ `camera-change(camera)` / `world-pointerdown` / `world-pointerup` / `world-click`（默认仅左键）/ `world-contextmenu`（右键） / `cell-pointerdown` / `cell-click` / `cell-contextmenu`。
 
-自动渲染图元：Grid / Sprite / Text / Polygon；`screen→world` 命中由 InteractionLayer 提供，抛出 world/cell 意图。
+自动渲染图元：Grid / Sprite / Text / Polygon / **Polyline**；`screen→world` 命中由 InteractionLayer 提供，抛出 world/cell 意图。
+
+**Polygon 与 Polyline 的分工**（易混，务必按语义选）：
+
+| 图元 | `EntityGeometry` | 语义 | 默认 `closed` | 典型用途 |
+| --- | --- | --- | --- | --- |
+| Polygon | `'polygon'` | **面**（闭合填充） | — | 区域、势力范围、命中区 |
+| Polyline | `'polyline'` | **线 / 网络**（开放描边） | `false` | 折线网络、路径、连线 |
+
+`PolylineItem` 字段：`points`（`number[]` 扁平数组或 `{x,y}[]`，与 Polygon 一致）· `stroke` · `strokeWidth` · `closed` · `vertexRadius` · `vertexColor` · `fill`（**仅 `closed === true` 生效**）· `fillAlpha`。
+
+> 开放折线刻意**只描边、不填充**：把网络填充会把整张图连成一片，语义错误。
+> 需要填充的闭合轮廓请用 `Polygon`。
+
+批量数据来源示例（结构网络，位置列是弧长 `t` 而非 `x/y`）：
+
+```ts
+// 宿主适配层把结构本体解析成折线点列后，按 polyline 批次交付
+batches.road = {
+  kind: 'road',
+  count: 1,
+  geometry: 'polyline',
+  columns: { points: [[0, 0, 40, 0, 40, 40, 0, 40, 0, 0]], stroke: [0x9aa4b2], strokeWidth: [1.5] },
+};
+```
 
 #### 4.3.1 Web 手势隔离与鼠标键语义（游戏宿主推荐配置）
 
