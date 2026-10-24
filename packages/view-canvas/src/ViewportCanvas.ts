@@ -10,6 +10,8 @@
  */
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, type CSSProperties, type PropType, type VNode } from 'vue';
 import {
+  DEFAULT_TAP_TOLERANCE_PX,
+  createPointerGestureTracker,
   screenToWorld,
   worldToScreen,
   type Camera2D,
@@ -18,7 +20,17 @@ import {
 } from '@main-ui/core/rendering';
 import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
 import type { ViewportCanvasExpose, ViewportContainerSize } from './types';
-import { ZOOM_STEP, cameraTransformOf, fitCamera, panCamera, zoomByFactor, wheelZoomFactor } from './viewport-state';
+import {
+  ZOOM_STEP,
+  cameraTransformOf,
+  classifyWheel,
+  fitCamera,
+  panCamera,
+  pinchZoomFactor,
+  wheelPanDelta,
+  wheelZoomFactor,
+  zoomByFactor,
+} from './viewport-state';
 
 export const ViewportCanvas = defineComponent({
   name: 'ViewportCanvas',
@@ -30,6 +42,12 @@ export const ViewportCanvas = defineComponent({
     paddingPx: { type: Number, default: 40 },
     /** 禁止左键拖拽平移（宿主用左键做框选等时置 true）。 */
     disablePan: { type: Boolean, default: false },
+    /**
+     * 轻点容差（CSS 像素）：位移不超过该值才算「轻点」，此时不建立指针捕获，
+     * 宿主在画布子元素上的原生 `click` 照常命中；越过容差即拖拽，捕获接管，
+     * 原生 `click` 被重定向到容器（因此「拖动平移」不会误触发宿主的背景 click）。
+     */
+    tapTolerancePx: { type: Number, default: DEFAULT_TAP_TOLERANCE_PX },
     /** 是否启用滚轮缩放。默认 true。 */
     zoomOnWheel: { type: Boolean, default: true },
     /** 是否启用内置原生手势隔离（user-select / preventDefault）。缺省取环境 ShellPolicy。 */
@@ -54,7 +72,8 @@ export const ViewportCanvas = defineComponent({
     const gestureGuard = computed(() => props.nativeGestureGuard ?? shellPolicy.canvasGestureGuard);
     const contextMenuGuard = computed(() => props.suppressContextMenu ?? shellPolicy.suppressContextMenu);
 
-    const pointerState = reactive({ pointerId: -1, lastX: 0, lastY: 0, active: false });
+    const pointerState = reactive({ pointerId: -1, lastX: 0, lastY: 0, active: false, captured: false });
+    const gesture = createPointerGestureTracker({ tolerancePx: props.tapTolerancePx });
     let resizeObserver: ResizeObserver | null = null;
 
     const cameraTransform = computed(() => cameraTransformOf(camera.value));
@@ -94,31 +113,61 @@ export const ViewportCanvas = defineComponent({
       pointerState.lastX = event.clientX;
       pointerState.lastY = event.clientY;
       pointerState.active = true;
+      pointerState.captured = false;
+      gesture.down({ x: event.clientX, y: event.clientY });
       emit('interactingChange', true);
-      containerRef.value?.setPointerCapture(event.pointerId);
+      // 注意：**不在此处**建立指针捕获。捕获会把原生 click 重定向到容器，
+      // 使宿主在画布子元素（如背景 rect、节点）上的 @click 全部失效。
+      // 捕获改在「越过轻点容差」时建立，见 onPointerMove。
     };
 
     const onPointerMove = (event: PointerEvent): void => {
-      if (!pointerState.active || pointerState.pointerId !== event.pointerId || props.disablePan) return;
+      if (!pointerState.active || pointerState.pointerId !== event.pointerId) return;
       const dx = event.clientX - pointerState.lastX;
       const dy = event.clientY - pointerState.lastY;
       pointerState.lastX = event.clientX;
       pointerState.lastY = event.clientY;
+
+      if (props.disablePan) return;
+
+      // 越过容差才算拖拽：此刻建立捕获，使拖出容器仍能续上平移，
+      // 同时把随后的原生 click 重定向到容器（不误触背景 click）。
+      if (!pointerState.captured && gesture.move({ x: event.clientX, y: event.clientY })) {
+        pointerState.captured = true;
+        containerRef.value?.setPointerCapture(event.pointerId);
+      }
+
       applyCamera(panCamera(camera.value, { x: dx, y: dy }));
     };
 
     const finishPointer = (event: PointerEvent): void => {
       if (pointerState.pointerId !== event.pointerId) return;
+      const el = containerRef.value;
+      if (pointerState.captured && el?.hasPointerCapture?.(event.pointerId)) {
+        el.releasePointerCapture(event.pointerId);
+      }
       pointerState.pointerId = -1;
       pointerState.active = false;
+      pointerState.captured = false;
+      gesture.reset();
       emit('interactingChange', false);
     };
 
     const onWheel = (event: WheelEvent): void => {
-      if (!props.zoomOnWheel || !containerRef.value) return;
+      if (!containerRef.value) return;
+      const gesture = classifyWheel(event);
+      // 触控板双指平移：不缩放，改为平移视口（鼠标滚轮永远不会走到这里）。
+      if (gesture === 'pan') {
+        event.preventDefault();
+        applyCamera(panCamera(camera.value, wheelPanDelta({ deltaX: event.deltaX, deltaY: event.deltaY })));
+        return;
+      }
+      if (!props.zoomOnWheel) return;
       event.preventDefault();
       const anchor = toLocalPoint(event);
-      applyCamera(zoomByFactor(camera.value, containerSize, wheelZoomFactor(event.deltaY), anchor, props.minScale, props.maxScale));
+      // 捏合与鼠标滚轮用不同灵敏度：捏合 deltaY 只有 ±1..±30，套滚轮系数会「几乎没反应」。
+      const factor = gesture === 'pinch' ? pinchZoomFactor(event.deltaY) : wheelZoomFactor(event.deltaY);
+      applyCamera(zoomByFactor(camera.value, containerSize, factor, anchor, props.minScale, props.maxScale));
     };
 
     const onContextMenu = (event: MouseEvent): void => {
@@ -146,6 +195,10 @@ export const ViewportCanvas = defineComponent({
       el.addEventListener('pointermove', onPointerMove);
       el.addEventListener('pointerup', finishPointer);
       el.addEventListener('pointercancel', finishPointer);
+      // 兜底：未越过容差时不建捕获，指针可能在元素外抬起（pointerup 到不了 el）。
+      // 窗口级监听保证交互状态一定归零，避免 active 卡在 true 后「悬停即平移」。
+      window.addEventListener('pointerup', finishPointer);
+      window.addEventListener('pointercancel', finishPointer);
       el.addEventListener('wheel', onWheel, { passive: false });
       el.addEventListener('contextmenu', onContextMenu);
     });
@@ -159,6 +212,8 @@ export const ViewportCanvas = defineComponent({
       el.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('pointerup', finishPointer);
       el.removeEventListener('pointercancel', finishPointer);
+      window.removeEventListener('pointerup', finishPointer);
+      window.removeEventListener('pointercancel', finishPointer);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('contextmenu', onContextMenu);
     });

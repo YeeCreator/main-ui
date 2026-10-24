@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import {
   cameraTransformOf,
+  classifyWheel,
   constrainScale,
   fitCamera,
   panCamera,
+  pinchZoomFactor,
+  wheelPanDelta,
   wheelZoomFactor,
   zoomByFactor,
 } from '../src/viewport-state';
@@ -48,5 +51,53 @@ describe('view-canvas viewport-state', () => {
 
   test('cameraTransformOf renders translate+scale', () => {
     expect(cameraTransformOf({ scale: 2, pan: { x: 5, y: 6 } })).toBe('translate(5 6) scale(2)');
+  });
+});
+
+describe('滚轮手势分类（触控板 vs 鼠标）', () => {
+  const base = { ctrlKey: false, metaKey: false, deltaX: 0, deltaY: 0, deltaMode: 0 };
+  const at = (patch: Partial<typeof base>) => ({ ...base, ...patch });
+
+  test('触控板双指捏合（浏览器置 ctrlKey）→ pinch', () => {
+    expect(classifyWheel(at({ ctrlKey: true, deltaY: 4 }))).toBe('pinch');
+    expect(classifyWheel(at({ metaKey: true, deltaY: -6 }))).toBe('pinch');
+  });
+
+  test('Ctrl/Cmd + 大 deltaY 仍是 pinch（缩放），不被滚轮分支截走', () => {
+    expect(classifyWheel(at({ ctrlKey: true, deltaY: 120 }))).toBe('pinch');
+  });
+
+  test('触控板横向平移（deltaX≠0）→ pan', () => {
+    expect(classifyWheel(at({ deltaX: 12, deltaY: -3 }))).toBe('pan');
+  });
+
+  test('纵向浮点小量（触控板特征）→ pan', () => {
+    expect(classifyWheel(at({ deltaY: 7.5 }))).toBe('pan');
+  });
+
+  test('鼠标滚轮（整数大刻度）→ zoom', () => {
+    expect(classifyWheel(at({ deltaY: -100 }))).toBe('zoom');
+    expect(classifyWheel(at({ deltaY: 120 }))).toBe('zoom');
+  });
+
+  test('行/页模式（老式鼠标）→ zoom', () => {
+    expect(classifyWheel(at({ deltaY: 3, deltaMode: 1 }))).toBe('zoom');
+  });
+
+  test('小幅整数滚动（< 阈值）按触控板平移处理', () => {
+    expect(classifyWheel(at({ deltaY: 12 }))).toBe('pan');
+    expect(classifyWheel(at({ deltaY: 40 }))).toBe('zoom');
+  });
+
+  test('捏合灵敏度高于鼠标滚轮（否则捏合几乎没反应）', () => {
+    const deltaY = 4;
+    expect(pinchZoomFactor(deltaY)).toBeLessThan(wheelZoomFactor(deltaY));
+    // 捏合单次至少 3% 变化，滚轮系数下不足 1%
+    expect(1 - pinchZoomFactor(deltaY)).toBeGreaterThan(0.03);
+    expect(1 - wheelZoomFactor(deltaY)).toBeLessThan(0.01);
+  });
+
+  test('平移位移取负（双指推内容的方向）', () => {
+    expect(wheelPanDelta({ deltaX: 10, deltaY: -20 })).toEqual({ x: -10, y: 20 });
   });
 });

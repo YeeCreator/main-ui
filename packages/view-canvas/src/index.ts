@@ -18,9 +18,13 @@ export {
   WHEEL_ZOOM_SPEED,
   buildHostBridge,
   cameraTransformOf,
+  classifyWheel,
+  pinchZoomFactor,
+  wheelPanDelta,
   constrainScale,
   fitCamera,
   panCamera,
   wheelZoomFactor,
+  type WheelGesture,
   zoomByFactor,
 } from './viewport-state';
