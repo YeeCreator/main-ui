@@ -17,6 +17,17 @@ export const WorkbenchShell = defineComponent({
   props: {
     /** opt-in：隐藏工作区活动栏（app 型宿主用主菜单/landing 入口替代）。默认 true = 既有行为不变。 */
     activityBar: { type: Boolean, default: true },
+    /**
+     * 受控的侧栏 view id（宿主按视角预设面板）。
+     *
+     * 透传给 `Sidebar`：非 null 时优先于用户点击，宿主改它即可强制切面板。
+     * 不传则沿用侧栏自身的「用户选择 → defaultVisible → 首个」规则（既有行为不变）。
+     */
+    sidebarViewId: { type: String, default: null },
+    /** 侧栏作用域键；变化时清空用户选择，使 `sidebarViewId` 建议重新生效。 */
+    sidebarScopeKey: { type: String, default: '' },
+    /** 侧栏建议宽度（px）。专精型面板需要更多横向空间，否则控件会被截断。 */
+    sidebarWidth: { type: Number, default: null },
   },
   setup(props) {
     const { document } = useWorkbench();
@@ -34,7 +45,7 @@ export const WorkbenchShell = defineComponent({
 
     return () => h('div', { class: ['main-ui-shell', themeClass.value, props.activityBar ? null : 'main-ui-shell--no-activity-bar'], 'data-mui-theme': document.value.theme.resolvedMode, role: 'application', 'aria-label': 'main-ui workbench' }, [
       props.activityBar ? h(ActivityBar) : null,
-      h(Sidebar),
+      h(Sidebar, { activeViewId: props.sidebarViewId, scopeKey: props.sidebarScopeKey, preferredWidth: props.sidebarWidth }),
       h('div', { class: 'main-ui-shell__body' }, [
         h(TitleBar),
         h(MenuBar),

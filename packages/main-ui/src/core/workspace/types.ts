@@ -56,6 +56,14 @@ export type WorkspaceDescriptor = {
   defaultOpenRequests: EditorOpenRequest[];
   createDefaultLayout: (context: WorkspaceCreateContext) => LayoutDocument;
   allowUserReset: boolean;
+  /**
+   * 把该 workspace 归入活动栏**下半区**（辅助工具组）。
+   *
+   * 用途：区分「同级的多个主视角」与「辅助工具」。全放上半区会让活动栏
+   * 读起来像「一堆并列的 App」——正是 GeoGebra 分裂式入口被诟病之处。
+   * 上半区放视角，下半区放文件/分析之类辅助入口，层级一眼可辨。
+   */
+  pinToBottom?: boolean;
 };
 
 export type WorkbenchDocument = {
