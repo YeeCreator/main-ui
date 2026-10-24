@@ -303,6 +303,37 @@ const items = snapshotToItems(snapshot);   // → {texts, sprites, polygons, pol
 
 宿主可通过 `registerViewContribution`、`registerPanelContribution`、`registerActivityContribution` 和 `registerStatusContribution` 声明工作区辅助视图。Vue `WorkbenchShell` 自动提供 `Sidebar` 与 `BottomPanel` 容器；视图没有注册 renderer/provider 时显示稳定空态，不会让 shell 崩溃。Sidebar/BottomPanel 支持折叠、默认可见、尺寸调节和宿主在 workspace 切换时恢复自己的 active 状态。
 
+### 侧栏：一次只显示一个 view
+
+`Sidebar` 是 rail + 内容区，**只渲染当前激活的那一个 view**。注册的 view 多起来时，
+用户靠点 rail 切换，而不是把所有面板竖着堆成一列（那会让侧栏高度失控）。
+
+宿主可受控指定激活项与宽度：
+
+| Props | 作用 |
+| --- | --- |
+| `activeViewId` | 宿主的**建议**面板（通常是「当前视角默认看哪块」） |
+| `scopeKey` | 作用域键（一般传 workspace id）。变化时清空用户手动选择，使建议重新生效 |
+| `preferredWidth` | 建议宽度；用户拖动过滑块后以用户宽度为准 |
+
+分权规则由纯函数 `resolveSidebarActiveViewId` 决定，顺序不可调换：
+
+1. **用户在当前作用域内点过 → 听用户的**。若让建议值永久优先，表现为「rail 点了没反应」；
+2. 否则用 `activeViewId` 建议；
+3. 再否则 `defaultVisible` / 首个。
+
+`Sidebar` 与 `WorkbenchShell` 分别暴露 `activeViewId` / `sidebarViewId`、
+`scopeKey` / `sidebarScopeKey`、`preferredWidth` / `sidebarWidth` 三对同名 prop。
+
+### 活动栏分区：`WorkspaceDescriptor.pinToBottom`
+
+活动栏分上下两区：上半区是**主视角**（共享同一份文档的不同布局预设），
+下半区是**辅助入口**（文件、分析等）与设置。
+
+若不分区、全部并列，活动栏会读成「一堆并列的 App」。设 `pinToBottom: true`
+即可把某个 workspace 归入下半区。`IconToken` 已补齐 `math` / `folder` / `chart` /
+`grid` / `layers` 等领域图标——缺映射时会退化成渲染原始英文串，与中文标题并列时很突兀。
+
 ## Layout persistence 与 tabs
 
 持久化读取会自动将 `WorkbenchDocument.version: 1` 迁移到 v2，保留原 layout、tabs、editor payload，并补齐 chrome 状态、tab history、recent workspace/editor。新增 `editor/setTabState`（pinned/preview/dirty）、`editor/reorderTab` 和 `layout/setChromeState` action；tab 支持原生拖拽排序与跨 group 移动。
