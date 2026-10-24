@@ -8,6 +8,7 @@ export * from './settings/types';
 export * from './settings/store';
 export * from './contribution/types';
 export * from './contribution/registry';
+export * from './contribution/sidebar';
 export * from './feedback';
 export * from './floatingWindow';
 export * from './documentFactory';
