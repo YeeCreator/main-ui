@@ -75,10 +75,16 @@ export const PINCH_ZOOM_SPEED = 0.01;
  * 6. `|deltaY| < TRACKPAD_PAN_MAX_DELTA_Y` → 小幅滚动，按触控板平移处理。
  * 7. 其余 → 鼠标滚轮 → 缩放。
  *
- * **第 5 条为何必需**：只有 1–4、6、7 时，「双指快速轻扫」完全依赖
- * `|deltaY| < 40` 这条启发式；触控板快扫容易越过它，于是「一快扫就变成缩放」。
- * 加入事件流密度后，判定不再依赖单次 delta 大小 —— 对触控板用户，
- * 阈值 40 只在「无法测间隔」的合成/降级场景下才生效。
+ * ## 关于流首事件（`intervalMs === undefined`）
+ *
+ * 一次手势的**第一个事件天然没有前驱**，故它只能走 6/7 的 delta 判据。
+ * 对触控板快扫而言，首个事件的大整数 delta 会被判成 `zoom` —— 表现为
+ * 「快扫的第一下会轻微缩放，随后才平移」。
+ *
+ * 这是**已知残余**，不是遗漏：要修它必须让首个事件延迟一个窗口等后续
+ * （约 24ms），而滚轮在滚动界面下**每一个格都是新突发的首事件**，
+ * 全局加延迟会伤到最常见场景。取舍需使用者在真机上手后裁决，
+ * 不由实现方单方面决定。真机若确认「首下跳一下」不可接受，再加突发分类器。
  *
  * @param event 具备 `ctrlKey` / `metaKey` / `deltaX` / `deltaY` / `deltaMode`，
  *   可选 `intervalMs` 的事件。
@@ -87,7 +93,7 @@ export const PINCH_ZOOM_SPEED = 0.01;
  * classifyWheel({ ctrlKey: true, metaKey: false, deltaX: 0, deltaY: 4, deltaMode: 0 }) // 'pinch'
  * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 12, deltaY: -3, deltaMode: 0 }) // 'pan'
  * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 }) // 'zoom'
- * // 触控板快扫：大整数 delta，但间隔仅 8ms → 仍判平移（旧逻辑会误判为缩放）
+ * // 触控板快扫（流中间的事件）：大整数 delta，但间隔仅 8ms → 平移
  * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -55, deltaMode: 0, intervalMs: 8 }) // 'pan'
  * // 鼠标滚轮：一格，间隔 120ms → 缩放
  * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: 120 }) // 'zoom'
