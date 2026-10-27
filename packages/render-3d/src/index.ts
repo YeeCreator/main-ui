@@ -97,3 +97,17 @@ export {
   type ExternalTier,
   type PureRenderBridge,
 } from './external';
+
+export {
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_SUPER_SAMPLE,
+  createSpriteText,
+  orientAxisBillboard,
+  orientFullBillboard,
+  syncTextBillboard,
+  rasterizeText,
+  type CanvasFactory,
+  type RasterizedText,
+  type SpriteTextObject,
+  type SpriteTextOptions,
+} from './text-sprite';
