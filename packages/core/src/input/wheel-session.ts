@@ -22,10 +22,31 @@ export type WheelLike = {
   deltaX: number;
   deltaY: number;
   deltaMode: number;
+  /**
+   * 与上一滚轮事件的间隔（毫秒）。**可选**：提供时启用「事件流密度」判据；
+   * 缺失时退回按单次 delta 大小判（见 {@link classifyWheel}）。
+   */
+  intervalMs?: number;
 };
 
 /** 触控板平移判定阈值：像素模式下纵向滚轮小于此值视为触控板。 */
 export const TRACKPAD_PAN_MAX_DELTA_Y = 40;
+
+/**
+ * 触控板事件流密度阈值（毫秒）。
+ *
+ * **为什么需要第二个判据**：单看 `|deltaY|` 无法区分「触控板快扫」与「鼠标滚轮」——
+ * 触控板快速轻扫可以产生 `|deltaY| ≥ 40` 的整数事件，于是被判成鼠标滚轮
+ * → 表现为「一快扫就变成缩放」（2026-10-24 起一直记为「阈值 40 待真机判读」）。
+ *
+ * 但**事件流形态**是可区分的：触控板是连续的 60/120Hz 流（间隔通常 < 16ms），
+ * 鼠标滚轮是离散的「一格一个事件」（人手极限约 10 格/秒，间隔 ≥ 100ms）。
+ * 故当 `intervalMs` 可用时，**密集流优先按触控板处理**，不再依赖单次 delta 大小。
+ *
+ * 取值 24ms：120Hz 一帧约 8.3ms、60Hz 约 16.7ms，24ms 留一帧余量；
+ * 既不会把 60Hz 流误判成鼠标，也不会把快速连拨滚轮误判成触控板。
+ */
+export const TRACKPAD_STREAM_MAX_INTERVAL_MS = 24;
 
 /** 鼠标滚轮缩放灵敏度（指数底数系数）。 */
 export const WHEEL_ZOOM_SPEED = 0.0016;
@@ -49,21 +70,42 @@ export const PINCH_ZOOM_SPEED = 0.01;
  * 2. `deltaMode !== 0`（行/页模式）→ 老式鼠标滚轮 → 缩放。
  * 3. `deltaX !== 0` → 触控板横向平移。鼠标滚轮**不产生**横向分量，故这是可靠的触控板特征。
  * 4. `|deltaY|` 非整数 → 触控板（其上报为浮点）；鼠标滚轮上报整数刻度。
- * 5. `|deltaY| < TRACKPAD_PAN_MAX_DELTA_Y` → 小幅滚动，按触控板平移处理。
- * 6. 其余 → 鼠标滚轮 → 缩放。
+ * 5. `intervalMs` 可用且 ≤ {@link TRACKPAD_STREAM_MAX_INTERVAL_MS} → **触控板流** → 平移。
+ *    **这条在 `|deltaY|` 判据之前**，专治「触控板快扫被当成鼠标滚轮」。
+ * 6. `|deltaY| < TRACKPAD_PAN_MAX_DELTA_Y` → 小幅滚动，按触控板平移处理。
+ * 7. 其余 → 鼠标滚轮 → 缩放。
  *
- * @param event 具备 `ctrlKey` / `metaKey` / `deltaX` / `deltaY` / `deltaMode` 的事件。
+ * **第 5 条为何必需**：只有 1–4、6、7 时，「双指快速轻扫」完全依赖
+ * `|deltaY| < 40` 这条启发式；触控板快扫容易越过它，于是「一快扫就变成缩放」。
+ * 加入事件流密度后，判定不再依赖单次 delta 大小 —— 对触控板用户，
+ * 阈值 40 只在「无法测间隔」的合成/降级场景下才生效。
+ *
+ * @param event 具备 `ctrlKey` / `metaKey` / `deltaX` / `deltaY` / `deltaMode`，
+ *   可选 `intervalMs` 的事件。
  * @returns 手势语义。
  * @example
  * classifyWheel({ ctrlKey: true, metaKey: false, deltaX: 0, deltaY: 4, deltaMode: 0 }) // 'pinch'
  * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 12, deltaY: -3, deltaMode: 0 }) // 'pan'
  * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 }) // 'zoom'
+ * // 触控板快扫：大整数 delta，但间隔仅 8ms → 仍判平移（旧逻辑会误判为缩放）
+ * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -55, deltaMode: 0, intervalMs: 8 }) // 'pan'
+ * // 鼠标滚轮：一格，间隔 120ms → 缩放
+ * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: 120 }) // 'zoom'
  */
 export function classifyWheel(event: WheelLike): WheelGesture {
   if (event.ctrlKey || event.metaKey) return 'pinch';
   if (event.deltaMode !== 0) return 'zoom';
   if (event.deltaX !== 0) return 'pan';
   if (!Number.isInteger(event.deltaY)) return 'pan';
+  // 事件流密度：密集流必是触控板（鼠标滚轮不会 24ms 内连发）
+  if (
+    typeof event.intervalMs === 'number'
+    && Number.isFinite(event.intervalMs)
+    && event.intervalMs >= 0
+    && event.intervalMs <= TRACKPAD_STREAM_MAX_INTERVAL_MS
+  ) {
+    return 'pan';
+  }
   if (Math.abs(event.deltaY) < TRACKPAD_PAN_MAX_DELTA_Y) return 'pan';
   return 'zoom';
 }

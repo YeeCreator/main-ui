@@ -123,6 +123,45 @@ describe('滚轮判型（设计验收 ④）', () => {
   test('小幅纵向滚动按触控板处理', () => {
     expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -30, deltaMode: 0 })).toBe('pan');
   });
+
+  /**
+   * **事件流密度判据**（2026-10-27 新增）。
+   *
+   * 只按 `|deltaY| < 40` 判时，「双指快速轻扫」会因 delta 越过 40 而被当成
+   * 鼠标滚轮 → 表现为「一快扫就变成缩放」（这一项自 2026-10-24 起一直挂着
+   * 「阈值 40 待真机判读」）。但触控板与鼠标滚轮的**事件流形态**天然不同：
+   * 前者是 60/120Hz 连续流（间隔 < 16ms），后者是离散一格一个（间隔 ≥ 100ms）。
+   * 故提供 `intervalMs` 时按密度判，不再依赖单次 delta 大小。
+   *
+   * 这一组用例同时锁住「不破坏既有行为」：不给 `intervalMs` 时判定与旧逻辑逐字一致。
+   */
+  test('触控板快扫：大整数 delta + 密集流 → 仍判 pan（旧逻辑会误判 zoom）', () => {
+    // 55 >= 40 且是整数 → 旧逻辑判 zoom；但间隔 8ms 是 120Hz 触控板流
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -55, deltaMode: 0, intervalMs: 8 })).toBe('pan');
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: 80, deltaMode: 0, intervalMs: 16 })).toBe('pan');
+  });
+
+  test('鼠标滚轮：大整数 delta + 稀疏流 → zoom', () => {
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: 120 })).toBe('zoom');
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: 100, deltaMode: 0, intervalMs: 250 })).toBe('zoom');
+  });
+
+  test('密度阈值边界：24ms 判触控板，25ms 交给 delta 判据', () => {
+    // 24ms = 阈值内 → pan
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: 24 })).toBe('pan');
+    // 25ms = 阈值外，delta 100 >= 40 → zoom
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: 25 })).toBe('zoom');
+  });
+
+  test('不给 intervalMs 时判定与旧逻辑逐字一致（向后兼容）', () => {
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 })).toBe('zoom');
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -30, deltaMode: 0 })).toBe('pan');
+  });
+
+  test('非有限/负 intervalMs 不触发密度判据（脏数据不改变判定）', () => {
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: Number.NaN })).toBe('zoom');
+    expect(classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: -5 })).toBe('zoom');
+  });
 });
 
 describe('滚轮累积', () => {

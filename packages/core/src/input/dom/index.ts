@@ -202,14 +202,27 @@ export function createDomInputSource(options: DomInputSourceOptions = {}): Input
         });
       };
 
+      /**
+       * 上一次 wheel 事件的时间戳（毫秒），用于「事件流密度」判据。
+       *
+       * **为什么必须记**：`classifyWheel` 的快速扫判据依赖 `intervalMs`；
+       * 不传这个字段就永远是 `undefined`，新判据等于没写 —— 触控板快扫仍会被
+       * 当成鼠标滚轮（表现为「一快扫就变成缩放」）。
+       */
+      let lastWheelAt: number | null = null;
+
       const onWheel = (event: Event) => {
         const wheel = event as WheelEvent;
+        const stamp = now();
+        const intervalMs = lastWheelAt === null ? undefined : stamp - lastWheelAt;
+        lastWheelAt = stamp;
         const like: WheelLike = {
           ctrlKey: wheel.ctrlKey,
           metaKey: wheel.metaKey,
           deltaX: wheel.deltaX,
           deltaY: wheel.deltaY,
           deltaMode: wheel.deltaMode,
+          ...(intervalMs === undefined ? {} : {intervalMs}),
         };
         const kind = classifyWheel(like);
         if (preventWheelDefault) wheel.preventDefault();
