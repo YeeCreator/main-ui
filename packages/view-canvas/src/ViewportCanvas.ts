@@ -152,9 +152,32 @@ export const ViewportCanvas = defineComponent({
       emit('interactingChange', false);
     };
 
+    /**
+     * 上一次 wheel 事件的时间戳（毫秒），供 `classifyWheel` 的**事件流密度**判据用。
+     *
+     * **不记就等于新判据没写**：`classifyWheel` 的 `intervalMs` 缺失时退回
+     * 「按单次 delta 大小判」，于是触控板快扫（大整数 delta）仍会被当成鼠标滚轮
+     * → 表现为「一快扫就变成缩放」。
+     */
+    let lastWheelAt: number | null = null;
+
     const onWheel = (event: WheelEvent): void => {
       if (!containerRef.value) return;
-      const gesture = classifyWheel(event);
+      const stamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const intervalMs = lastWheelAt === null ? undefined : stamp - lastWheelAt;
+      lastWheelAt = stamp;
+      // **不能写 `{ ...event }`**：DOM 事件的属性在原型上、不可枚举，
+      // 展开只能拿到 `{ isTrusted: true }`，`deltaY` / `ctrlKey` 全部丢失，
+      // 于是 `deltaY` 变成 `undefined` → 被判定为 zoom（实测：任何滚轮都缩放）。
+      // 必须显式取值。
+      const gesture = classifyWheel({
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        ...(intervalMs === undefined ? {} : { intervalMs }),
+      });
       // 触控板双指平移：不缩放，改为平移视口（鼠标滚轮永远不会走到这里）。
       if (gesture === 'pan') {
         event.preventDefault();
