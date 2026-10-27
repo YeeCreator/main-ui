@@ -28,9 +28,9 @@ export interface FidelityMeasurement {
 /** 四判据的稳定键。 */
 export type FidelityCriterionKey =
   | 'line-width'      // 线条宽度：同缩放比下截图像素级比对（含斜视角一档）
-  | 'text-clarity'    // 文字清晰度：汉字在 1× / 2× / 4× 缩放下是否发虚
-  | 'piece-edge'      // 棋子边缘：单色圆盘边缘锯齿与抗锯齿表现
-  | 'cell-hit-accuracy'; // 命中格准确率：网格边缘与角点的 col/row 命中一致性
+  | 'text-clarity'    // 文字清晰度：中日韩文字在 1× / 2× / 4× 缩放下是否发虚
+  | 'entity-edge'     // 实体边缘：单色圆盘边缘锯齿与抗锯齿表现
+  | 'cell-hit-accuracy'; // 网格命中准确率：边缘与角点的 col/row 一致性
 
 /** 条款说明（与设计 §十九 8 一一对应，防止键名与语义脱钩）。 */
 export const FIDELITY_CRITERIA: ReadonlyArray<{
@@ -48,19 +48,19 @@ export const FIDELITY_CRITERIA: ReadonlyArray<{
   {
     key: 'text-clarity',
     title: '文字清晰度',
-    method: '汉字标签在 1× / 2× / 4× 缩放下是否发虚；量字形边缘的梯度锐度或人工分级',
+    method: '中日韩文字标签在 1× / 2× / 4× 缩放下是否发虚；量字形边缘的渐变锐度或人工分级',
     higherIsBetter: true,
   },
   {
-    key: 'piece-edge',
-    title: '棋子边缘',
+    key: 'entity-edge',
+    title: '实体边缘',
     method: '单色圆盘边缘锯齿与抗锯齿表现；量边缘像素的二值化跳变数（越少越平滑）',
     higherIsBetter: false,
   },
   {
     key: 'cell-hit-accuracy',
-    title: '命中格准确率',
-    method: '网格边缘与角点的 col/row 命中与二维一致（含边界抖动）；量一致命中占比 0..1',
+    title: '网格命中准确率',
+    method: '网格边缘与角点的 col/row 与二维一致（含边界抖动）；量一致命中占比 0..1',
     higherIsBetter: true,
   },
 ];
@@ -76,7 +76,7 @@ export interface FidelityVerdict {
 
 /** 条目级放行结论。 */
 export interface FidelityReport {
-  /** 条目名（如「飞行棋」「五子棋」）。 */
+  /** 内容条目名（宿主自定义的稳定标识，如 `overview` / `level-01`）。 */
   entry: string;
   /** 是否允许切三维后端（四项全过）。 */
   allowed: boolean;
@@ -129,10 +129,10 @@ export function judgeMeasurement(m: FidelityMeasurement): FidelityVerdict {
  * @returns 放行报告（可直接登记进迁移清单）。
  * @example
  * ```ts
- * const report = buildFidelityReport('飞行棋', [
+ * const report = buildFidelityReport('overview', [
  *   { key: 'line-width', baseline: 2, candidate: 2, higherIsBetter: false },
  *   { key: 'text-clarity', baseline: 0.8, candidate: 0.85, higherIsBetter: true },
- *   { key: 'piece-edge', baseline: 12, candidate: 10, higherIsBetter: false },
+ *   { key: 'entity-edge', baseline: 12, candidate: 10, higherIsBetter: false },
  *   { key: 'cell-hit-accuracy', baseline: 1, candidate: 1, higherIsBetter: true },
  * ]);
  * report.allowed; // true

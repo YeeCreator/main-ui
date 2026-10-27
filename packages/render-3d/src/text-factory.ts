@@ -45,7 +45,7 @@ export const SDF_GLYPH_SIZE_FALLBACK = 64;
  * @returns troika `Text`（`Object3D` 子类；`visible` 待就绪后置 true）。
  * @example
  * ```ts
- * const label = createText({ text: '黑棋', fontSize: 12, color: '#111', position: { x: 0, y: 0.1, z: 0 } });
+ * const label = createText({ text: '示例', fontSize: 12, color: '#111', position: { x: 0, y: 0.1, z: 0 } });
  * ```
  */
 export function createText(options: TextOptions): Text {

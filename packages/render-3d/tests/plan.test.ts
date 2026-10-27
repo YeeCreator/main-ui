@@ -17,11 +17,11 @@ import { camera2DToOrbit } from '@main-ui/core/rendering';
  * 但"是否合规"（实例化、正交、DPR、层偏移）可以在这里钉死。
  */
 
-const piecesSnapshot: EntitySnapshot = {
+const entitiesSnapshot: EntitySnapshot = {
   bounds: { x: 0, y: 0, width: 400, height: 400 },
   batches: {
-    pieces: {
-      kind: 'pieces',
+    entities: {
+      kind: 'entities',
       count: 3,
       geometry: 'point',
       columns: {
@@ -62,7 +62,7 @@ describe('render-3d 常量与颜色换算', () => {
 
 describe('render-3d 绘制计划：实例化硬规矩', () => {
   test('同类实体归并到一个原型（不 materialize 逐实体几何）', () => {
-    const plan = buildScenePlan({ snapshot: piecesSnapshot });
+    const plan = buildScenePlan({ snapshot: entitiesSnapshot });
     expect(plan.prototypeCount).toBe(1);
     expect(plan.instanceCount).toBe(3);
     expect(plan.instanced.size).toBe(1);
@@ -75,8 +75,8 @@ describe('render-3d 绘制计划：实例化硬规矩', () => {
     const snapshot: EntitySnapshot = {
       bounds: { x: 0, y: 0, width: 100, height: 100 },
       batches: {
-        pieces: {
-          kind: 'pieces',
+        entities: {
+          kind: 'entities',
           count: 2,
           geometry: 'point',
           columns: { x: [0, 10], y: [0, 10], color: [0x111111, 0x222222] },
@@ -89,7 +89,7 @@ describe('render-3d 绘制计划：实例化硬规矩', () => {
   });
 
   test('违规检测：每个实体一个原型时判违规', () => {
-    const plan = buildScenePlan({ snapshot: piecesSnapshot });
+    const plan = buildScenePlan({ snapshot: entitiesSnapshot });
     // 伪造一个"每实体独立原型"的计划
     const violating = {
       ...plan,
@@ -112,8 +112,8 @@ describe('render-3d 绘制计划：实例化硬规矩', () => {
       bounds: { x: 0, y: 0, width: 100, height: 100 },
       dimensions: 3,
       batches: {
-        pieces: {
-          kind: 'pieces',
+        entities: {
+          kind: 'entities',
           count: 1,
           geometry: 'point',
           columns: { x: [0], y: [0], z: [5], extrude: [2], width: [4], height: [4] },
@@ -132,13 +132,13 @@ describe('render-3d 绘制计划：实例化硬规矩', () => {
       batches: {
         labels: {
           kind: 'labels', count: 1, geometry: 'text',
-          columns: { x: [5], y: [6], text: ['黑棋'], fontSize: [14], color: [0x000000] },
+          columns: { x: [5], y: [6], text: ['样本'], fontSize: [14], color: [0x000000] },
         },
       },
     };
     const plan = buildScenePlan({ snapshot });
     expect(plan.texts).toHaveLength(1);
-    expect(plan.texts[0].text).toBe('黑棋');
+    expect(plan.texts[0].text).toBe('样本');
     expect(plan.texts[0].z).toBeCloseTo(LAYER_Z.text, 6);
   });
 
@@ -153,8 +153,8 @@ describe('render-3d 绘制计划：实例化硬规矩', () => {
     const snapshot: EntitySnapshot = {
       bounds: { x: 0, y: 0, width: 100, height: 100 },
       batches: {
-        tiles: {
-          kind: 'tiles', count: 1, geometry: 'polygon',
+        shapes: {
+          kind: 'shapes', count: 1, geometry: 'polygon',
           columns: { points: [[{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }]], extrude: [1.5] },
         },
         paths: {

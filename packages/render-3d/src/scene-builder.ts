@@ -94,7 +94,7 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
     }
 
     if (grid.cellFill) {
-      // 棋盘交替填充：**同一颜色共享一个原型几何 + InstancedMesh**。
+      // 网格交替填充：**同一颜色共享一个原型几何 + InstancedMesh**。
       // 早期写成「逐格 new Mesh」会逐数字符串违反实例化硬规矩（设计 §十九 7）。
       const [fillA, fillB] = grid.cellFill;
       const cellsByColor = new Map<string, Array<{ x: number; y: number }>>();

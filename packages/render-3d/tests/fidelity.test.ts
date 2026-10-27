@@ -19,7 +19,7 @@ import {
 const passAll: FidelityMeasurement[] = [
   { key: 'line-width', baseline: 2, candidate: 2, higherIsBetter: false },
   { key: 'text-clarity', baseline: 0.8, candidate: 0.85, higherIsBetter: true },
-  { key: 'piece-edge', baseline: 12, candidate: 10, higherIsBetter: false },
+  { key: 'entity-edge', baseline: 12, candidate: 10, higherIsBetter: false },
   { key: 'cell-hit-accuracy', baseline: 1, candidate: 1, higherIsBetter: true },
 ];
 
@@ -28,19 +28,19 @@ describe('render-3d 保真对照四判据', () => {
     expect(FIDELITY_CRITERIA.map((c) => c.key)).toEqual([
       'line-width',
       'text-clarity',
-      'piece-edge',
+      'entity-edge',
       'cell-hit-accuracy',
     ]);
     // 方向：线条宽度/边缘锯齿越小越好；文字清晰度/命中率越大越好
     const dir = Object.fromEntries(FIDELITY_CRITERIA.map((c) => [c.key, c.higherIsBetter]));
     expect(dir['line-width']).toBe(false);
     expect(dir['text-clarity']).toBe(true);
-    expect(dir['piece-edge']).toBe(false);
+    expect(dir['entity-edge']).toBe(false);
     expect(dir['cell-hit-accuracy']).toBe(true);
   });
 
   test('四项全不劣 → 允许放行', () => {
-    const report = buildFidelityReport('飞行棋', passAll);
+    const report = buildFidelityReport('entry-a', passAll);
     expect(report.allowed).toBe(true);
     expect(report.missing).toEqual([]);
     expect(report.verdicts.every((v) => v.passed)).toBe(true);
@@ -57,14 +57,14 @@ describe('render-3d 保真对照四判据', () => {
   });
 
   test('容差比例生效（允许小幅劣化）', () => {
-    const strict = judgeMeasurement({ key: 'piece-edge', baseline: 100, candidate: 105, higherIsBetter: false });
+    const strict = judgeMeasurement({ key: 'entity-edge', baseline: 100, candidate: 105, higherIsBetter: false });
     expect(strict.passed).toBe(false);
-    const lenient = judgeMeasurement({ key: 'piece-edge', baseline: 100, candidate: 105, higherIsBetter: false, toleranceRatio: 0.1 });
+    const lenient = judgeMeasurement({ key: 'entity-edge', baseline: 100, candidate: 105, higherIsBetter: false, toleranceRatio: 0.1 });
     expect(lenient.passed).toBe(true);
   });
 
   test('任一项不达标 → 整条不放行', () => {
-    const report = buildFidelityReport('五子棋', [
+    const report = buildFidelityReport('entry-b', [
       ...passAll.filter((m) => m.key !== 'text-clarity'),
       { key: 'text-clarity', baseline: 0.9, candidate: 0.7, higherIsBetter: true },
     ]);
@@ -72,14 +72,14 @@ describe('render-3d 保真对照四判据', () => {
   });
 
   test('缺项不得视为通过', () => {
-    const report = buildFidelityReport('跳棋', passAll.filter((m) => m.key !== 'cell-hit-accuracy'));
+    const report = buildFidelityReport('entry-c', passAll.filter((m) => m.key !== 'cell-hit-accuracy'));
     expect(report.allowed).toBe(false);
     expect(report.missing).toEqual(['cell-hit-accuracy']);
     expect(formatFidelityReport(report)).toContain('未测项');
   });
 
   test('参照值为 0 时判不通过并要求人工复核', () => {
-    const verdict = judgeMeasurement({ key: 'piece-edge', baseline: 0, candidate: 0, higherIsBetter: false });
+    const verdict = judgeMeasurement({ key: 'entity-edge', baseline: 0, candidate: 0, higherIsBetter: false });
     expect(verdict.passed).toBe(false);
     expect(verdict.detail).toContain('参照值为 0');
   });
@@ -90,8 +90,8 @@ describe('render-3d 保真对照四判据', () => {
   });
 
   test('人读摘要含结论与逐项结果', () => {
-    const text = formatFidelityReport(buildFidelityReport('飞行棋', passAll));
-    expect(text).toContain('飞行棋');
+    const text = formatFidelityReport(buildFidelityReport('entry-a', passAll));
+    expect(text).toContain('entry-a');
     expect(text).toContain('允许切三维后端');
     expect(text.split('\n').length).toBeGreaterThanOrEqual(5);
   });

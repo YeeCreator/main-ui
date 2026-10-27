@@ -73,7 +73,7 @@ export interface TextPlan {
   anchorY: number;
 }
 
-/** 网格（棋盘）图元：程序化距离函数或平面贴图。 */
+/** 网格图元（程序化距离函数或平面贴图）。 */
 export interface GridPlan {
   x: number;
   y: number;

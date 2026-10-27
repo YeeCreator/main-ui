@@ -65,7 +65,7 @@ export const WorldView = defineComponent({
   props: {
     /** 自动渲染模式：通用实体快照（不绑定 scene-kit）。 */
     snapshot: { type: Object as PropType<EntitySnapshot | null>, default: null },
-    /** 自动渲染模式：网格/棋盘图元规格。 */
+    /** 自动渲染模式：网格图元规格。 */
     grid: { type: Object as PropType<GridSpec | null>, default: null },
     /** 精灵纹理键解析器（可选）。 */
     textureResolver: { type: Function as PropType<TextureResolver>, default: null },
@@ -79,7 +79,7 @@ export const WorldView = defineComponent({
     antialias: { type: Boolean, default: false },
     /** 是否启用 InteractionLayer（点击/拖拽命中）。默认 true。 */
     interactive: { type: Boolean, default: true },
-    /** 左键拖拽是否平移相机；棋类通常为 false（左键用于选子/落子）。默认 false。 */
+    /** 左键拖拽是否平移相机；左键用于「点选」的宿主通常为 false。默认 false。 */
     panOnDrag: { type: Boolean, default: false },
     /** 滚轮是否缩放（保留兼容；优先看 wheelMode）。默认 true。 */
     zoomOnWheel: { type: Boolean, default: true },
@@ -98,8 +98,8 @@ export const WorldView = defineComponent({
      * 轻点容差（CSS 像素）：松手时位移不超过该值才算 `world-click`。
      *
      * - 缺省（`null`）= **自动**：`panOnDrag=true` 取 4px；`panOnDrag=false` 取「不参与判别」
-     *   （棋类等「轻点落子」宿主手指微抖不会吞点击）——与原行为逐字节等价。
-     * - 显式数值 = 该值参与判别。编辑器「拖拽移动实体」应传 4，触摸端棋盘可传 10–12。
+     *   （「轻点选中」宿主手指微抖不会吞点击）——与原行为逐字节等价。
+     * - 显式数值 = 该值参与判别。编辑器「拖拽移动实体」应传 4，触摸端可传 10–12。
      */
     tapTolerancePx: { type: Number as PropType<number | null>, default: null },
     /** 键盘旋转步长（弧度）：供宿主自行绑定快捷键时复用默认步长。 */
