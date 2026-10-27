@@ -1,6 +1,6 @@
 # PRESET_VIEWS_GUIDE
 
-> 官方视图模板库（preset-views）统一指南。对应模板库 `0.9.0`（`@main-ui/core` 0.8.0 / 内核主包 `main-ui` 0.9.0）。本文档随 `main-ui` 包分发（`node_modules/main-ui/docs/PRESET_VIEWS_GUIDE.md`）；每个模板包自身的 `README.md` 是安装后的第一入口，内容与本文一致。
+> 官方视图模板库（preset-views）统一指南。对应模板库 `0.10.0`（`@main-ui/core` 0.9.0 / 内核主包 `main-ui` 0.10.0）。本文档随 `main-ui` 包分发（`node_modules/main-ui/docs/PRESET_VIEWS_GUIDE.md`）；每个模板包自身的 `README.md` 是安装后的第一入口，内容与本文一致。
 
 ## 1. 定位
 
@@ -20,14 +20,15 @@
 
 | 包 | 版本 | 内核 | 用途 |
 | --- | --- | --- | --- |
-| `@main-ui/view-tree` | 0.3.0 | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
-| `@main-ui/view-inspector` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 属性检视：对象 + schema，变更经 Emits 抛出 |
+| `@main-ui/view-tree` | 0.4.0 | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、**多选** |
+| `@main-ui/view-inspector` | 0.5.0 | schema 表单（`@main-ui/core` 基座） | 属性检视：**`readonly` 字段**、分组 schema |
 | `@main-ui/view-world` | 0.8.0 | `@main-ui/core/rendering`（pixi）+ 可插拔后端 | 世界视口：二维/三维两档共用同一模板；相机状态进 `getViewState` |
 | `@main-ui/view-canvas` | 0.8.0 | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互；取代已废弃的 `viewport-2d-kit/vue` |
-| `@main-ui/view-table` | 0.3.0 | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
-| `@main-ui/view-form` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：含数组字段与条件显隐；提交/预设存取以意图抛出 |
+| `@main-ui/view-table` | 0.4.0 | 自研虚拟滚动 | 表格浏览/编辑：**多选 + 列宽拉伸** |
+| `@main-ui/view-asset` | 0.1.0 | 自研网格虚拟滚动 | **资产网格 / 列表**：缩略图由宿主注入（零网络）、搜索过滤、布局切换 |
+| `@main-ui/view-form` | 0.5.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：含数组字段与条件显隐；提交/预设存取以意图抛出 |
 | `@main-ui/view-node` | 0.4.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
-| `@main-ui/view-console` | 0.4.0 | 自研虚拟滚动 | 日志/控制台追加列表：过滤、自动跟随/锁滚 |
+| `@main-ui/view-console` | 0.5.0 | 自研虚拟滚动 | 日志/控制台：**换行开关 + 导出意图 + `autoScroll` prop** |
 | `@main-ui/view-flow` | 0.5.0 | `@vue-flow/core`（peer `^1.48`）+ FSM 纯库 | 流程/状态机文档：类型化端口、数据流/控制流双边（三件套：内核 + `FlowCanvas` 组件 + 薄壳） |
 | `@main-ui/view-sandbox` | 0.6.0 | 自研 `SandboxKernel`（无头纯 TS） | 自由沙盘画布（旗舰复合）：异构元素 + 嵌入任意 View + 嵌套保护 |
 | `@main-ui/view-host-engine` | 0.6.0 | 无（纯 DOM 挂载点） | 外部引擎转播窗口：布局归我方、渲染归外部引擎 |
@@ -36,13 +37,13 @@
 | `@main-ui/view-timeline` | 0.1.0 | 自研 | 时间轴：刻度 + 游标 + 区间选中 |
 | `@main-ui/view-storyboard` | 0.1.0 | 自研 | 分镜/序列板：卡片序列 + 拖拽排序意图 |
 | `@main-ui/render-3d` | 0.1.0 | `three`（peer，`WebGPURenderer` + TSL） | **渲染后端（非模板）**：无 editorKind，只实现 `ViewportBackend`，被 `view-world` 解析 |
-| `@main-ui/preset-views` | 0.9.0 | — | 聚合包：命名空间重导出（无逻辑） |
+| `@main-ui/preset-views` | 0.10.0 | — | 聚合包：命名空间重导出（无逻辑） |
 
-配套基座：`@main-ui/core`（0.7.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含**数组字段**与**条件显隐**）+ 虚拟滚动基座（`computeVirtualWindow` / `isNearBottom`）+ 嵌入 View 托管（`createEmbeddedViewHost` / `checkNestingDepth`）+ 渲染基础设施（`core/rendering`：`ViewportBackend` 契约、后端注册表、相机桥）+ 图元系统（`core/primitives`），供各模板共用，宿主亦可单独消费。
+配套基座：`@main-ui/core`（0.9.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含**数组字段**与**条件显隐**）+ 虚拟滚动基座 + 嵌入 View 托管 + 渲染基础设施（`core/rendering`）+ 图元系统（`core/primitives`），供各模板共用，宿主亦可单独消费。
 
 ### 2.2 安装矩阵
 
-所有模板包把 `main-ui`（`^0.9.0`）与 `vue` 声明为 peerDependency，重型内核留在各包 peer 中，需显式安装：
+所有模板包把 `main-ui`（`^0.10.0`）与 `vue` 声明为 peerDependency，重型内核留在各包 peer 中，需显式安装：
 
 ```bash
 # 按需安装（示例：只要树和表格）
@@ -668,6 +669,40 @@ configureTextRendering({ defaultFontURL: '/fonts/label.ttf', unicodeFontsURL: nu
 
 硬规矩（违反即返工）：不写 GLSL、不用 `onBeforeCompile`（自定义着色器一律 TSL）· 同类实体必须共享原型几何再实例化 · 线不得独立成几何贴在平面上 · **文字不出现在 `core` 与主包的公开签名里**（three 类型止于本包内部）。
 
+### 4.16 `@main-ui/view-asset`（资产网格 / 列表，v0.1）
+
+组件 `AssetView`；注册 `registerAssetViewEditor`。**零网络**：缩略图 URL 与三态状态由宿主注入，模板只把 URL 塞进 `<img src>`。
+
+```ts
+const items: AssetItem[] = [
+  { id: 'a1', title: 'Granite', thumbnailUrl: '/thumbs/a1.png', badges: ['png'] },
+  { id: 'a2', title: 'Pine', thumbnailState: 'loading' },   // 骨架条
+  { id: 'a3', title: 'Broken', thumbnailState: 'error' },   // 错误占位，不重试
+]
+```
+
+Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `items` | `AssetItem[]` | 必填 | 资产条目（`id` / `title` / `description?` / `thumbnailUrl?` / `thumbnailState?` / `badges?` / `payload?`） |
+| `layout` | `'grid' \| 'list'` | `'grid'` | 受控布局 |
+| `selectedIds` | `string[] \| null` | `null` | 受控选中集 |
+| `multiSelect` | `boolean` | `false` | 多选开关（修饰键点击切换） |
+| `filterable` | `boolean` | `true` | 搜索框（标题 / 描述 / 徽标） |
+| `layoutSwitchable` | `boolean` | `true` | 允许切换网格/列表 |
+| `cardHeight` | `number` | `132` | 卡片高度（px，定高保证虚拟滚动与网格对齐） |
+| `loading` / `error` | — | — | 三态 |
+| `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期 |
+
+Emits：`select(AssetSelectPayload)`（含 `id` / `additive` / `payload` 原样回传）/ `selection-change(ids)` / `open(id)`（双击）/ `layout-change(layout)`。
+
+视图状态（`AssetViewState`）：`{ layout, selectedIds, scrollTop, previewId }`。**实现了可选 `onResize`**（尺寸走 main-ui 统一下发，不自挂观察器）。
+
+**缩略图三态由宿主声明**（`thumbnailState`）：`loading` 骨架条 · `ready`（缺省）正常 · `error` 错误占位。**视图不重试** —— 重试策略属适配层职责，塞进视图会让每个宿主各写一套且互相不可见。省略 `thumbnailUrl` 且非错误态时呈现「标题首字」占位，**不算错误**。
+
+**列数由断点表决定**（`resolveGridColumns`，1200/960/720/480 → 6/5/4/3/2 列），不用 CSS `auto-fill`：虚拟滚动必须知道「第 N 项在第几行」，而自动填充的结果 JS 拿不到。
+
 ## 5. 宿主适配层职责（模板不承担）
 
 1. 取数、缓存、三态管理（参考实现：`demo/src/adapter/` 的 `mockApi` + `presetViewStore` + `registerPresetViewEditors`）。
@@ -687,7 +722,8 @@ configureTextRendering({ defaultFontURL: '/fonts/label.ttf', unicodeFontsURL: nu
 
 ## 7. 顺延与规划
 
-- `view-asset`（资产网格）：v0.5 / v0.6 两度顺延（缩略图契约待下游信箱回执），继续顺延。
-- 既有模板剩余增强（table 列拉伸/冻结/多选、tree 多选/懒加载、inspector 嵌套/数组、node 小地图、console 换行/导出等）与 `view-flow` 增强（diff/invert 撤销、反向 FSM 解析、自动布局、小地图）：见任务文档顺延清单。
+- `view-asset`（资产网格）：已于 2026-10-27 交付（`@main-ui/view-asset 0.1.0`），见 §4.16。
+- 既有模板剩余增强（table 列冻结/分页/列分组、tree 懒加载/拖拽、inspector 嵌套数组、node 小地图、flow 增强等）：见任务文档顺延清单。
+  > 已交付的增强：table 多选 / 列宽拉伸；tree 多选；console 换行 / 导出 / `autoScroll` prop；inspector `readonly` 字段 / 分组。
 - **三维能力 = `view-world` 的可插拔后端**（`render-*` lane）。不新建 `view-3d` 模板包：维度是**后端属性**，不是包名属性；模板永远只有 `view-world` 一个 editorKind。首个三维后端为 `@main-ui/render-3d`（three.js），二维档是它内部写死的预设（正交 · 无光照 · 线条禁贴图 · DPR 对齐 · 网格命中优先 · 悬停反馈规定）。详见 `design-main-ui-20260922-001` **§十九** 与 `HOST_INTEGRATION_GUIDE.md` 的包边界四条判据。
 - 长期候选：`view-dashboard` / `view-chat` / `view-whiteboard` / `view-terminal`，按需求信号滚动（`view-timeline` / `view-storyboard` 已交付，见 §4.13 / §4.14）。

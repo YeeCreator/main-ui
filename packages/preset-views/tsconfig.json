@@ -18,6 +18,7 @@
       "@main-ui/view-inspector": ["../view-inspector/src/index.ts"],
       "@main-ui/view-world": ["../view-world/src/index.ts"],
       "@main-ui/view-table": ["../view-table/src/index.ts"],
+      "@main-ui/view-asset": ["../view-asset/src/index.ts"],
       "@main-ui/core": ["../core/src/index.ts"],
       "@main-ui/core/rendering": ["../core/src/rendering/index.ts"],
       "@main-ui/core/primitives": ["../core/src/primitives/index.ts"],

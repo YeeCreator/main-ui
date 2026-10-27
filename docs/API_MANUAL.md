@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.9.0`（`@main-ui/core 0.8.0`，官方视图模板库 0.9.0）。API 以本地 `.tgz` 版本包交付；本版本新增 `view-form` 的数组字段与条件显隐、统一输入与手势系统、应用面（Surface）编排原语、渲染后端抽象与三维后端（`@main-ui/render-3d`）；既有注册方式继续有效，持久化文档版本不变（仍为 3）。
+本文档对应 `main-ui 0.10.0`（`@main-ui/core 0.9.0`，官方视图模板库 0.10.0）。API 以本地 `.tgz` 版本包交付；本版本新增焦点服务、局部微件契约、实例绑定查询、五区布局模板、宿主透传元数据、可选的 `onResize` 生命周期成员、官方模板 `@main-ui/view-asset`，以及多个模板增强；既有注册方式继续有效，持久化文档版本升至 **v4**（向后自动迁移）。
 
 ## 入口
 
@@ -181,12 +181,21 @@ tab 可拖出为浮动窗口，与主布局树同构（每个浮动窗口持有�
 
 ## Layout Helper
 
-核心提供三种默认布局：
+核心提供四种默认布局：
 
 ```ts
 createSingleGroupLayout(options)
 createTwoPaneLayout(options)
 createThreePaneLayout(options)
+createFiveZoneLayout({ weights?, withSides? })   // 上 / 中 / 下 / 左 / 右
+```
+
+`createFiveZoneLayout` 生成的是一份**普通的 `LayoutDocument`**（不是特殊机制）：装配后与用户手工拖出来的布局完全等价，同样可拖拽、可持久化、可重置。
+
+```ts
+const layout = createFiveZoneLayout({ weights: { top: 0.1, bottom: 0.2 } })
+layout.activeGroupId;   // 'five-group-center'
+LAYOUT_TEMPLATES;       // [{ id: 'single' }, { id: 'three-zone' }, { id: 'five-zone' }]
 ```
 
 宿主也可以直接构造 `LayoutDocument`。要求：
@@ -197,6 +206,93 @@ createThreePaneLayout(options)
 4. `targetGroupId` 只能指向实际 group。
 
 这些规则已由 `tests/core/hostProfiles.test.ts` 覆盖。
+
+## 焦点服务（FocusService）
+
+**焦点是唯一的事实源，且由布局派生** —— 不自持状态，因此不可能出现「布局关了页签但焦点还指着它」。
+
+```ts
+runtime.getFocus()        // FocusSnapshot（同步、无副作用）
+runtime.onFocusChange((next, previous) => { ... })
+runtime.leaveFocus()      // 焦点离开工作台（进入宿主自有面板）
+```
+
+`FocusSnapshot`：`{ viewInstanceId, viewType, groupId, tabId, workspaceId, reason }`。`reason` 取值 `'click' | 'programmatic' | 'close' | 'restore' | 'leave'`。
+
+纯函数：`deriveFocus(document)`。
+
+**订阅时不立即回调**（与 `runtime.subscribe` 刻意不同）：订阅者通常在挂载时才需要变更通知，首帧焦点由布局渲染自行处理；立即回调会造成「挂载即触发一次假变更」。
+
+**keybinding 的 `when` 上下文已并入同一焦点源**，新增两个 key：
+
+```
+focusedView        // 当前焦点的编辑实例 id
+focusedViewType    // 当前焦点的视图类型（= editor kind）
+```
+
+```ts
+runtime.registerKeybinding({ commandId: 'world.reset', keybinding: 'F5', when: "focusedViewType == 'view-world'" })
+```
+
+## 实例绑定查询（宿主校验）
+
+```ts
+runtime.listSlotBindings(workspaceId?)          // 全部绑定（主树 + 浮动子树）
+runtime.findBindingsByInstance(instanceId)      // 同一实例的多个表面
+runtime.findBindingsByViewType('view-world')    // 同类型已打开的全部实例
+runtime.checkInstanceQuota('view-world', 1)     // { status: 'ok' } | { status: 'duplicated', existing }
+```
+
+`SlotBinding`：`{ viewInstanceId, viewType, groupId, tabId, workspaceId, floating }`。
+
+纯函数同名导出（`listSlotBindings` / `findBindingsByInstance` / `findBindingsByViewType` / `checkInstanceQuota`），可脱离 runtime 使用。
+
+## 局部微件（视图附属部件）
+
+视图可选实现 `ViewAuxiliaryContract`，向外输出**声明式数据模型**（不是 DOM、不是回调）：
+
+```ts
+const aux: ViewAuxiliaryContract = {
+  getAuxiliaryItems: () => ({
+    toolbar: [{ id: 'zoom-in', commandId: 'world.zoomIn', label: '放大', group: 0 }],
+    status:  [{ id: 'zoom', commandId: 'world.showZoom', label: '100%' }],
+  }),
+}
+```
+
+`AuxiliaryItem` 字段：`id` · `commandId`（**唯一行为入口，禁 inline 回调**）· `label?` · `icon?` · `enabled?` · `checked?` · `danger?` · `group?` · `order?` · `tooltip?`。
+
+纯函数：`normalizeAuxiliaryModel(model)`（去无效、去重、按 group/order 排序）· `mergeAuxiliaryModels(entries)`（多视图合并，id 冲突加视图前缀）。
+
+**微件是展示，不是能力** —— 若某东西需要自己的注册表、生命周期、调度，它是 contribution，不是微件。
+
+配置持久化（进布局快照）：
+
+```ts
+runtime.getAuxiliaryConfig()                  // AuxiliaryConfig | undefined
+runtime.setAuxiliaryConfig({ toolbar: { visible: false } })
+```
+
+## 宿主透传元数据
+
+```ts
+runtime.getMeta<{ projectId: string }>()
+runtime.setMeta({ projectId: 'p1' })
+```
+
+红线：**main-ui 不解释、不读取、不校验其内容**。一旦内核逻辑依赖其中字段，它就不再是「宿主元数据」而变成了内核契约。
+
+## 视图尺寸回调
+
+`MainUiViewLifecycle` 新增**可选**成员：
+
+```ts
+onResize?(width: number, height: number): void
+```
+
+不实现则行为完全不变。尺寸由 Vue 层的 `EditorSurfaceResizeBoundary` 统一观察（content box）并经 `runtime.notifyViewResize()` 下发 —— 视图不必自挂 `ResizeObserver`（那会造出 N 个观察器，且首次尺寸与布局计算存在竞态）。
+
+纯渲染层也可直接调 `runtime.notifyViewResize(instanceId, width, height)`。
 
 ## Vue API
 
@@ -342,11 +438,12 @@ export type EditorMountAdapter = {
 
 | 包 | 内核 | 用途 |
 | --- | --- | --- |
-| `@main-ui/view-tree` | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
-| `@main-ui/view-inspector` | schema 驱动表单 | 属性检视：对象 + schema，变更经 Emits 抛出 |
+| `@main-ui/view-tree` | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、多选 |
+| `@main-ui/view-inspector` | schema 驱动表单 | 属性检视：`readonly` 字段、分组 schema，变更经 Emits 抛出 |
 | `@main-ui/view-world` | `@main-ui/core/rendering`（pixi）+ 可插拔后端 | 世界视口：二维/三维两档共用同一模板，`dimension` 开关切换 |
 | `@main-ui/view-canvas` | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互 |
-| `@main-ui/view-table` | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
+| `@main-ui/view-table` | 自研虚拟滚动 | 表格浏览/编辑：多选 + 列宽拉伸 + 行内编辑意图 |
+| `@main-ui/view-asset` | 自研网格虚拟滚动 | 资产网格 / 列表：缩略图由宿主注入（零网络）、搜索过滤、布局切换 |
 | `@main-ui/view-form` | schema 驱动表单（`@main-ui/core` 基座） | 配置面板：含数组字段与条件显隐；提交/预设存取以意图抛出 |
 | `@main-ui/view-node` | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState`，移动/连线以意图抛出 |
 | `@main-ui/view-console` | 自研虚拟滚动 | 日志/控制台追加列表：等级/文本过滤、自动跟随/锁滚、清空意图 |

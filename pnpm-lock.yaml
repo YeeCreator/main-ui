@@ -114,6 +114,9 @@ importers:
       '@main-ui/core':
         specifier: workspace:*
         version: link:../core
+      '@main-ui/view-asset':
+        specifier: workspace:*
+        version: link:../view-asset
       '@main-ui/view-canvas':
         specifier: workspace:*
         version: link:../view-canvas
@@ -201,6 +204,27 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4
+
+  packages/view-asset:
+    devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
+      main-ui:
+        specifier: workspace:*
+        version: link:../main-ui
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.8)(typescript@5.7.3)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.32(typescript@5.7.3)
 
   packages/view-canvas:
     devDependencies:

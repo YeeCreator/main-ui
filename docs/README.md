@@ -1,13 +1,13 @@
 # main-ui 文档入口
 
-> 本文档对应 `main-ui 0.9.0`（`@main-ui/core 0.8.0`，官方视图模板库 0.9.0）。安装 `main-ui` 后，可在包目录的 `docs/`（`node_modules/main-ui/docs/`）中直接查看全部文档；官方视图模板包（`@main-ui/view-*`）的文档随各包 README 分发。
+> 本文档对应 `main-ui 0.10.0`（`@main-ui/core 0.9.0`，官方视图模板库 0.10.0）。安装 `main-ui` 后，可在包目录的 `docs/`（`node_modules/main-ui/docs/`）中直接查看全部文档；官方视图模板包（`@main-ui/view-*`）的文档随各包 README 分发。
 
 ## 我是谁，该读哪份文档
 
 | 角色 | 推荐阅读路径 |
 | --- | --- |
 | 终端用户（试用 demo） | [USER_MANUAL.md](USER_MANUAL.md) |
-| 宿主项目开发者（接入/升级） | [HOST_INTEGRATION_GUIDE.md](HOST_INTEGRATION_GUIDE.md) → [API_MANUAL.md](API_MANUAL.md) → [MIGRATION_GUIDE_0.9.0.md](MIGRATION_GUIDE_0.9.0.md) |
+| 宿主项目开发者（接入/升级） | [HOST_INTEGRATION_GUIDE.md](HOST_INTEGRATION_GUIDE.md) → [API_MANUAL.md](API_MANUAL.md) → [MIGRATION_GUIDE_0.10.0.md](MIGRATION_GUIDE_0.10.0.md) |
 | 使用官方视图模板的开发者 | [PRESET_VIEWS_GUIDE.md](PRESET_VIEWS_GUIDE.md)（模板库统一指南）+ 各 `@main-ui/view-*` 包 README |
 | main-ui 内核贡献者 | [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) → [API_MANUAL.md](API_MANUAL.md) |
 | 需要对接后端的宿主 | [HOST_INTEGRATION_GUIDE.md](HOST_INTEGRATION_GUIDE.md) 附录 A「对接后端」 |
@@ -19,9 +19,9 @@
 
 - [USER_MANUAL.md](USER_MANUAL.md)：用户手册。demo 启动、界面区域、基本操作、浮动窗口与停靠引导拖拽、官方模板演示。
 - [API_MANUAL.md](API_MANUAL.md)：API 手册。Core 类型、Registry、Action、Vue API、应用面（Surface）、Mount Adapter、Persistence、纯 UI 边界与数据契约、图元与几何类型、主题变量。
-- [PRESET_VIEWS_GUIDE.md](PRESET_VIEWS_GUIDE.md)：官方视图模板库统一指南。15 个模板包 + 聚合包 + 三维渲染后端的安装矩阵、接入契约、每模板 Props/Emits/视图状态全量 API。
+- [PRESET_VIEWS_GUIDE.md](PRESET_VIEWS_GUIDE.md)：官方视图模板库统一指南。16 个模板包 + 聚合包 + 三维渲染后端的安装矩阵、接入契约、每模板 Props/Emits/视图状态全量 API。
 - [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)：开发者指南。架构边界、目录地图、开发约定（reducer / renderer / 主题变量）、命令与测试。
-- [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md)：完整开发记录（0.0.2 → 0.9.0 全部版本）。
+- [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md)：完整开发记录（0.0.2 → 0.10.0 全部版本）。
 - [ENVIRONMENT_GUIDE.md](ENVIRONMENT_GUIDE.md)：环境与依赖说明。
 
 ### 宿主文档
@@ -45,6 +45,7 @@
 - [MIGRATION_GUIDE_0.7.0.md](MIGRATION_GUIDE_0.7.0.md)：0.6.0 → 0.7.0（view-world 交互层契约增补：相机旋转、滚轮分流、鼠标键语义）。
 - [MIGRATION_GUIDE_0.8.0.md](MIGRATION_GUIDE_0.8.0.md)：0.7.0 → 0.8.0（应用面 Surface 编排原语、统一输入与手势系统）。
 - [MIGRATION_GUIDE_0.9.0.md](MIGRATION_GUIDE_0.9.0.md)：0.8.0 → 0.9.0（`view-form` 数组字段与条件显隐、渲染后端抽象与三维后端）。
+- [MIGRATION_GUIDE_0.10.0.md](MIGRATION_GUIDE_0.10.0.md)：0.9.0 → 0.10.0（docking 结构性增量、模板增强、`view-asset` 新模板、快照 v4）。
 
 ### 归档
 
@@ -55,7 +56,7 @@
 | 安装来源 | 文档位置 |
 | --- | --- |
 | `main-ui` | `node_modules/main-ui/docs/`（本目录）+ 包根 README |
-| `@main-ui/view-*`（15 个模板） | `node_modules/@main-ui/view-*/README.md` |
+| `@main-ui/view-*`（16 个模板） | `node_modules/@main-ui/view-*/README.md` |
 | `@main-ui/render-3d`（三维渲染后端） | `node_modules/@main-ui/render-3d/README.md` |
 | `@main-ui/preset-views`（聚合包） | `node_modules/@main-ui/preset-views/README.md` |
 | `@main-ui/core`（表单基座 + 渲染基础设施 + 图元） | `node_modules/@main-ui/core/README.md` |
