@@ -1,56 +1,70 @@
 /**
- * render-3d/text-tsl —— 三维档文字材质（自建 TSL 实现）· **未启用**
+ * render-3d/text-tsl —— 三维档文字材质（自建 TSL 实现）· **实验件，默认不接入**
  *
- * ## 当前状态：实验性，**默认不接入**
+ * ## 一句话状态
  *
- * 本文件是「用 TSL 重写文字材质」这一路线的完整实现与实测记录。
- * **它没有修好三维档的文字渲染**，因此 `text-factory.ts` 已回退到 troika 原材质
- * + 明确的「三维档文字不可用」声明。保留本文件的价值是：它把这条路线能走多远、
- * 卡在哪一层，用可复现的方式钉死了，后人不必从头再走一遍。
+ * 顶点/朝向/varying/图集绑定**全部打通并逐层验证过**；
+ * 只剩最后一层未通：**片元里 SDF 采样值恒为 0**，故文字仍不显示。
+ * `text-factory.ts` 因此继续走 troika 原材质，并如实声明「三维档文字不可用」。
  *
- * ## 已实测确认的四个坑（都是真坑，不是猜测）
+ * ## 已逐层验证通过的（每层都有独立判定手段，不是推测）
+ *
+ * | 层 | 判定方式 | 结果 |
+ * | --- | --- | --- |
+ * | 对象进入渲染列表 | 切 `visible` 看 draw call 变化 | ✅ 会变（20 → 29 → 42） |
+ * | `positionNode` 生效 | 顶点写成常量方块 + 同步跳过 `Discard` | ✅ 出现两个红块 |
+ * | `varying` 传到片元 | 输出 `glyphUV` 当颜色 | ✅ 红绿渐变 |
+ * | 图集绑定 | 读材质 uniform 的纹理对象 | ✅ `HTMLCanvasElement 2048×128` |
+ * | 图集坐标 | 输出 `atlasUV` | ✅ 数值合理 |
+ * | **SDF 采样值** | 输出 `alphaPacked` 灰度 | ❌ **恒为 0（全黑）** |
+ *
+ * ## 四个必须知道的接口差异（解掉这四个才有上面那些判定）
  *
  * 1. **必须设 `isTroikaTextMaterial = true`**
- *    `Text.js:483` 的 `onBeforeRender` 里写着
- *    `if (material.isTroikaTextMaterial) this._prepareForRender(material)`。
- *    缺这个标记 → SDF 图集、字形包围盒、裁剪矩形等 uniform 永不写入，
- *    全是初值（`clipRect` 为 0/0/0/0）→ 顶点被 clamp 压平 → 文字塌成一个点。
+ *    `Text.js:483` 的 `onBeforeRender` 里是
+ *    `if (material.isTroikaTextMaterial) this._prepareForRender(material)`；
+ *    缺标记 → 图集/包围盒/裁剪矩形等 uniform 永不写入。
  *
- * 2. **`MeshBasicNodeMaterial` 没有 `material.uniforms`**
- *    troika 的 `_prepareForRender` 直接写 `material.uniforms.uTroikaXxx.value`，
- *    故须在材质上自挂一个同形状兼容对象。
+ * 2. **`WebGPURenderer` 不会自动调 `Object3D.onBeforeRender`**
+ *    实测调用次数恒为 0。绕法：在 `text.sync()` 回调里手动调一次。
+ *    调过之后 uniform 立刻全部正确（`sdfGlyphSize=64`、图集 `2048×128`、
+ *    `clipRect=-2400.5..2431.5`）。
  *
- * 3. **`WebGPURenderer` 下 `Object3D.onBeforeRender` 不保证被调用**
- *    实测 `_prepareForRender` 调用次数恒为 0，即便把 `frustumCulled` 设为 false、
- *    `layers` 与相机匹配、`visible` 为 true、对象确实在场景内（draw call 会随
- *    可见性变化，证明它在渲染列表里）。**绕法**：在 `text.sync()` 回调里手动调一次
- *    `text.onBeforeRender(...)`，uniform 立刻全部正确
- *    （`sdfGlyphSize=64`、`sdfTextureSize=2048×128`、`clipRect=-2400.5..2431.5`）。
+ * 3. **`MeshBasicNodeMaterial` 没有 `material.uniforms`**
+ *    troika 直接写 `material.uniforms.uTroikaXxx.value`，故须自挂同形状对象。
  *
- * 4. **`positionNode` 对 `InstancedBufferGeometry` 不生效（本次的硬阻塞）**
- *    即便把顶点位置写成与任何属性无关的常量（`uv()*60+120`），渲染结果仍是一个点；
- *    换纯色 `colorNode` 且不设任何自定义 node 时是一个 1×1 的点（符合预期 ——
- *    troika 的模板几何是 `PlaneGeometry(1,1,1)`，靠实例属性展开）。
- *    结论：**自定义 `positionNode` 未参与该几何的顶点构建**，
- *    实例展开必须走 three 支持的其它途径（`setupPosition` 钩子、
- *    或改成非实例化的展开几何）。
+ * 4. **纹理必须用 `uniformTexture`，且初值要是真 `Texture` 实例**
+ *    - `uniform(undefined/null)` → 编译期推不出 sampler，绑定落空；
+ *    - `texture(tex)` → 构造时就把纹理引用固化进 `TextureNode`，
+ *      troika 之后改写 `.value` 换图集**不生效**（实测采样恒 0）；
+ *    - 正解：`uniformTexture(placeholderDataTexture)` 再让 troika 覆盖 `.value`。
  *
- * ## 再往下走的三条候选路线（都需要重新评估，不要再逐点试）
+ * ## 最后一层没通的排查方向（下次从这里接，别再从头走）
+ *
+ * 图集已确认绑定正确、`atlasUV` 已确认落在合理区间，但采样结果为 0。可能原因：
+ *
+ * 1. **`atlasUV` 的行列算错**：troika 的图集是「横向排格子、每格 4 个通道」，
+ *    我的 `txCols`/`txUvPerSquare` 推算可能与实际布局差一列/一行。
+ *    验证办法：把 `atlasUV` 直接当颜色输出，看格子边界是否与字形位置对齐。
+ * 2. **Canvas 纹理在 WebGPU 下的采样限制**：troika 用 `Texture(canvas)`，
+ *    某些 WebGPU 后端对 Canvas 源的格式/采样状态有额外要求。
+ *    验证办法：把同一 Canvas 转成 `DataTexture` 再采样对比。
+ * 3. **`texture()` 对 `uniformTexture` 节点的采样重载**：
+ *    `texture(uSDFTexture, uv)` 是否被正确编译成「动态纹理 + 动态 uv」。
+ *    验证办法：改用 `.sample(uv)` 或手写 `textureLoad` 对比。
+ *
+ * ## 若要在三维档保留文字，三条更稳的路线
  *
  * | 路线 | 做法 | 主要风险 |
  * | --- | --- | --- |
- * | A1 | 用 `material.setupPosition(builder)` 覆写，而不是赋 `positionNode` | 属 three 内部 API，版本升级易碎 |
- * | A2 | 抛弃 troika 的实例几何，向 troika 只取字形图集与 `glyphBounds` 数组，自己建**非实例化**几何 | 字形多时顶点数线性增长（N 字 ≈ 4N 顶点，1 万字 4 万顶点仍可接受） |
- * | A3 | 文字不进三维场景，改二维叠加层 | 失去深度遮挡与透视变形，但不是「不可用」 |
+ * | B | 换 WebGPU 原生文字库 | 失去 MSDF 任意缩放锐利度，CJK 需预烘 |
+ * | C | 文字走二维叠加层 | 失去深度遮挡与透视变形 |
+ * | A2 | 只取 troika 的图集与 `glyphBounds`，自建**非实例化**几何 | 顶点数随字数线性增长（1 万字 ≈ 4 万顶点，可接受），但绕开整个实例化路径 |
  *
- * ## 结论对下游的含义
- *
- * **三维档文字目前不可用**（不是"更差"，是"不显示"）。
- * 保真对照的 `text-clarity` 一项在三维档判为未通过，这是设计 §十九 7 的已知缺口，
- * 不是回归。含文字的条目在三维档放行前必须先解决本条。
+ * 已实测：**三维档文字当前不显示**；保真对照 `text-clarity` 判为未通过。
  */
 
-import { Color, Matrix3, Texture, Vector2, Vector4 } from 'three';
+import { Color, DataTexture, Matrix3, RGBAFormat, Texture, Vector2, Vector4 } from 'three';
 import {
   Discard,
   Fn,
@@ -133,7 +147,16 @@ export function createTslTextMaterial(baseMaterial?: unknown): TslTextMaterial {
   // 注：纹理不能用 `uniform(null)` —— 从 `null` 推不出节点类型，采样会拿到空值。
   // `uniformTexture` 专为「先声明、后赋值」的纹理通道而设（troika 在渲染前才把
   // SDF 图集写进来）。其余 uniform 都从初值直接推断，无需断言。
-  const uSDFTexture = uniformTexture(undefined);
+  // 初值必须是**真的 Texture 实例**：传 undefined/null 时 three 在编译期推断不出
+  // sampler 类型，绑定会落成空纹理 —— 表现为采样恒为 0（实测：alpha 全黑、
+  // atlas 全黑，但 uv/varying/位置全部正常）。troika 随后会把 `_value` 覆盖成
+  // 它自己的 SDF 图集 DataTexture。
+  const placeholderTexture = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, RGBAFormat);
+  placeholderTexture.needsUpdate = true;
+  // 必须用 `uniformTexture`（可变 uniform），**不能**用 `texture(tex)`：
+  // 后者在构造时就把纹理引用固定进 TextureNode，troika 之后改写 `.value`
+  // 换上面集，节点仍指向占位纹理 → 采样恒为 0（实测 alpha/atlas 模式全黑）。
+  const uSDFTexture = uniformTexture(placeholderTexture);
   const uSDFTextureSize = uniform(new Vector2(1, 1));
   const uSDFGlyphSize = uniform(0);
   const uSDFExponent = uniform(0);
@@ -161,6 +184,8 @@ export function createTslTextMaterial(baseMaterial?: unknown): TslTextMaterial {
   // 注：troika 只在传了 `glyphColors` 时才建 `aTroikaGlyphColor`；多数场景没有这个
   // 属性。声明它会让 three 报 "Vertex attribute not found" 并可能影响着色器链接，
   // 故不声明；文字颜色改用材质的 `color`（见下方 uFillColor）。
+
+  // 验证开关（临时；判定完即删）
 
   // ---- 3. 顶点：把单位四边形展开到各字形的平面包围盒，并算 uv 与图集格子 ----
   const vGlyphUV = varying(vec2(0, 0), 'vTroikaGlyphUV');
@@ -327,17 +352,6 @@ export function createTslTextMaterial(baseMaterial?: unknown): TslTextMaterial {
   // 缺了它 uniform 永远不会被写入（实测：全为初值 → 顶点被 clamp 压成 0 → 整段文字消失）。
   (material as unknown as { isTroikaTextMaterial: boolean }).isTroikaTextMaterial = true;
 
-  // 诊断计数：确认 troika 的 _prepareForRender 有没有真的跑到本材质上
-  const prepCount = { n: 0 };
-  const origUniforms = material.uniforms;
-  Object.defineProperty(material, 'uniforms', {
-    get() {
-      prepCount.n += 1;
-      return origUniforms;
-    },
-    configurable: true,
-  });
-  (material as unknown as { __prepCount?: () => number }).__prepCount = () => prepCount.n;
 
   const base = baseMaterial as { uuid?: string } | undefined;
   material.isDerivedFrom = (candidate: unknown): boolean => {
@@ -350,18 +364,6 @@ export function createTslTextMaterial(baseMaterial?: unknown): TslTextMaterial {
     // TSL uniform node 的 value 已是活引用，此处仅留显式入口便于调试。
   };
 
-  // 诊断：读出材质当前 uniform 的实际值（排查"troika 有没有写进来"）
-  (material as unknown as { __readUniforms?: () => unknown }).__readUniforms = () => ({
-    clipRect: (uClipRect.value as Vector4).toArray?.() ?? String(uClipRect.value),
-    totalBounds: (uTotalBounds.value as Vector4).toArray?.() ?? String(uTotalBounds.value),
-    sdfGlyphSize: uSDFGlyphSize.value,
-    sdfExponent: uSDFExponent.value,
-    sdfTextureSize: (uSDFTextureSize.value as Vector2).toArray?.() ?? String(uSDFTextureSize.value),
-    hasTexture: !!uSDFTexture.value,
-    edgeOffset: uEdgeOffset.value,
-    fillOpacity: uFillOpacity.value,
-    useGlyphColors: uUseGlyphColors.value,
-  });
 
   return material;
 }
