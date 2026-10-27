@@ -1,7 +1,7 @@
 /**
- * primitives/grid —— 网格/棋盘图元渲染（PixiJS v8）。
+ * primitives/grid —— 网格图元渲染（PixiJS v8）。
  *
- * 在给定 PIXI.Container 上绘制一个 cols×rows 的网格；可选棋盘交替填充。
+ * 在给定 PIXI.Container 上绘制一个 cols×rows 的网格；可选交替填充。
  * 所有坐标为世界坐标，随相机缩放。
  */
 import { Container, Graphics } from 'pixi.js';
@@ -23,7 +23,7 @@ export function createGrid(spec: GridSpec): Container {
   const totalW = cols * cellWidth;
   const totalH = rows * cellHeight;
 
-  // 棋盘交替填充
+  // 交替填充
   if (cellFill) {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {

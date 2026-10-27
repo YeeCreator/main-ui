@@ -1,7 +1,7 @@
 /**
  * primitives/types —— 通用实体快照与图元规格（框架无关，不绑定 scene-kit）。
  *
- * 宿主适配层负责把自己的数据（如 SK 的 WorldSnapshot、对局宿主 的棋盘 state）
+ * 宿主适配层负责把自己的数据结构（如上游引擎的世界快照、网格状态）
  * 映射为 `EntitySnapshot`，view-world 据此自动渲染图元。
  */
 
@@ -58,7 +58,7 @@ export interface EntitySnapshot {
 /** 数值色（0xRRGGBB）。 */
 export type Color = number;
 
-/** 网格/棋盘图元规格（世界坐标）。 */
+/** 网格图元规格（世界坐标）。 */
 export interface GridSpec {
   x: number;
   y: number;
@@ -70,7 +70,7 @@ export interface GridSpec {
   lineColor?: Color;
   /** 网格线宽（世界单位）。 */
   lineWidth?: number;
-  /** 棋盘交替填充色 [偶格, 奇格]；省略则不填充。 */
+  /** 交替填充色 [偶格, 奇格]；省略则不填充。 */
   cellFill?: [Color, Color];
 }
 
@@ -116,7 +116,15 @@ export interface SpriteItem {
  * 需要描绘网络/路径的用 `polyline`。
  */
 export interface PolylineItem {
-  points: ReadonlyArray<{ x: number; y: number }>;
+  /**
+   * 点列。每点可带**独立 `z`**（缺省则回落到 `item.z`）。
+   *
+   * **为什么逐点而不是整条一个 z**：一维复形（弯到空间里的弧）在三维下
+   * 每个采样点的高度各不相同。整条统一 `z` 只能画出平躺在某一高度的线，
+   * 三维弧会被画成一条平面直线——那等于「呈现的三维」与「记下的三维」不一致。
+   * 二维后端忽略 `z`，故带 `z` 的点列在二维下与不带时逐像素一致。
+   */
+  points: ReadonlyArray<{ x: number; y: number; z?: number }>;
   /** 描边颜色。 */
   stroke?: Color;
   /** 描边宽度（世界单位）。 */
@@ -131,7 +139,11 @@ export interface PolylineItem {
   fill?: Color;
   /** 填充透明度 0..1。 */
   fillAlpha?: number;
-  /** 深度（可选，缺省 0；二维后端忽略）。 */
+  /**
+   * 整条线的缺省深度（可选，缺省 0；二维后端忽略）。
+   *
+   * 逐点的 `points[].z` 优先；本字段是「整条线同高」时的简写。
+   */
   z?: number;
 }
 

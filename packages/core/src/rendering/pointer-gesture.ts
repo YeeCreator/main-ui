@@ -6,7 +6,7 @@
  * 三份实现的容差、捕获时机与「松手算不算点击」判定互不一致，导致同一类缺陷反复出现：
  *
  * - 拖拽结束后仍抛出「点击」，宿主在松手点重算命中为 null 而清空刚选中的对象；
- * - 或反之，轻点时位移被误判为拖拽，触摸端的落子/选中被吞掉。
+ * - 或反之，轻点时位移被误判为拖拽，触摸端的点选被吞掉。
  *
  * 本模块把该判定收敛为一处：调用方只负责喂坐标与「是否捕获、是否平移」等宿主策略，
  * 判别本身不再各写一份。
@@ -47,8 +47,8 @@ export type PointerGestureTracker = {
 /**
  * 解析容差。`null` / `undefined` / 非有限值 = **不参与判别**（位移再大也算轻点）。
  *
- * 「不参与判别」必须可表达：棋类等「轻点落子」宿主在触摸端的位移抖动常达 5–10px，
- * 若强行要求位移参与判定，落子会被吞掉。
+ * 「不参与判别」必须可表达：「轻点选中」类宿主在触摸端的位移抖动常达 5–10px，
+ * 若强行要求位移参与判定，点选会被吞掉。
  */
 export function normalizeTolerance(tolerancePx: number | null | undefined): number {
   if (typeof tolerancePx !== 'number' || !Number.isFinite(tolerancePx)) return Number.POSITIVE_INFINITY;
@@ -75,10 +75,10 @@ export function classifyPointerGesture(
  *
  * 这是**默认行为等价性**的落点，必须显式可测：
  *
- * - 显式数值 → 原样返回（编辑器传 4，触摸端棋盘可传 10–12）；
+ * - 显式数值 → 原样返回（编辑器传 4，触摸端可传 10–12）；
  * - 缺省 + `panOnDrag=true` → {@link DEFAULT_TAP_TOLERANCE_PX}（拖的是相机，位移即意图）；
  * - 缺省 + `panOnDrag=false` → `null`，即**不参与判别** ——
- *   棋类「轻点落子」的既有语义，不能被「拖拽 ≠ 点击」的正确性顺手改掉。
+ *   「轻点选中」的既有语义，不能被「拖拽 ≠ 点击」的正确性顺手改掉。
  *
  * @param options `panOnDrag` 与宿主显式容差。
  * @returns 参与判别的容差，或 `null`（不参与判别）。

@@ -2,7 +2,7 @@
  * pointer-gesture 的行为契约测试。
  *
  * 三条硬纪律：
- * 1. 「不参与判别」（`null`）必须可表达 —— 棋类轻点落子不能被手指微抖吞掉；
+ * 1. 「不参与判别」（`null`）必须可表达 —— 「轻点选中」不能被手指微抖吞掉；
  * 2. 越过容差即为拖拽，且容差**逐次传入**（宿主 prop 可响应式变化）；
  * 3. 判别与「是否捕获 / 是否平移」解耦 —— 本模块不碰 DOM。
  */
@@ -40,7 +40,7 @@ describe('classifyPointerGesture', () => {
     expect(classifyPointerGesture(start, { x: 110, y: 100 }, DEFAULT_TAP_TOLERANCE_PX)).toBe('drag');
   });
 
-  test('不参与判别时位移再大也是轻点（棋类落子）', () => {
+  test('不参与判别时位移再大也是轻点（轻点选中）', () => {
     expect(classifyPointerGesture(start, { x: 400, y: 400 }, null)).toBe('tap');
   });
 
@@ -104,7 +104,7 @@ describe('resolveTapTolerance（默认行为等价性的落点）', () => {
     expect(resolveTapTolerance({ panOnDrag: true })).toBe(DEFAULT_TAP_TOLERANCE_PX);
   });
 
-  test('缺省 + panOnDrag=false → null（棋类轻点落子的原行为，零改动保证）', () => {
+  test('缺省 + panOnDrag=false → null（轻点选中的原行为，零改动保证）', () => {
     expect(resolveTapTolerance({ panOnDrag: false })).toBeNull();
   });
 
