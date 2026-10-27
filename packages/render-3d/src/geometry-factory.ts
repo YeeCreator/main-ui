@@ -111,18 +111,35 @@ export function getExtrudedPolygonGeometry(
  * 折线几何（用于粗线 addon 的 `LineGeometry.setPositions`）。
  *
  * 返回扁平坐标数组而非 `BufferGeometry`：粗线 addon 有自己的几何类型，
- * 这里只负责把二维平面点映射到三维地面（`x, y, z` → `x, 0, y`）。
+ * 这里只负责把平面点映射到三维空间（`x, y` → `x, z, y`）。
+ *
+ * **逐点 `z` 优先，整条 `fallbackZ` 兜底。** 早先是「整条线一个 `z`」
+ * （`out.push(pt.x, z, pt.y)`）：那只够画平躺在某一高度的线。一维复形是有
+ * **不同高度**的弧（每个采样点高度各不相同），统一 `z` 会把三维弧压成一条
+ * 平面直线——呈现的三维与记下的三维不一致，且不报错。点在缺 `z` 时回落到
+ * 整条缺省值，故既有只给整条 `z` 的调用方逐像素不变。
+ *
+ * @param points 点列（每点可带独立 `z`）。
+ * @param fallbackZ 缺省深度（点自身无 `z` 时用）。
+ * @param closed 是否闭合（首点重复一遍收尾）。
+ * @returns 扁平位置数组 `[x0, z0, y0, x1, z1, y1, ...]`。
+ *
+ * @example
+ * polylinePositions([{ x: 0, y: 0 }, { x: 1, y: 0 }], 2, false)
+ * // -> [0, 2, 0, 1, 2, 0]
  */
 export function polylinePositions(
-  points: ReadonlyArray<{ x: number; y: number }>,
-  z: number,
+  points: ReadonlyArray<{ x: number; y: number; z?: number }>,
+  fallbackZ: number,
   closed: boolean,
 ): number[] {
   const out: number[] = [];
-  for (const pt of points) out.push(pt.x, z, pt.y);
+  const zAt = (point: { z?: number }): number =>
+    typeof point.z === 'number' && Number.isFinite(point.z) ? point.z : fallbackZ;
+  for (const pt of points) out.push(pt.x, zAt(pt), pt.y);
   if (closed && points.length > 0) {
     const first = points[0];
-    out.push(first.x, z, first.y);
+    out.push(first.x, zAt(first), first.y);
   }
   return out;
 }

@@ -5,8 +5,30 @@
  * （汉字数千字无法预烘）。`troika-three-text` 正是这条路线：
  * 运行时用 `webgl-sdf-generator` 生成距离场，按需向图集追加字形。
  *
- * **健壮性硬要求（2026-10-27 浏览器实测教训）**：字体未就绪时 troika 的文字几何
- * bounds 会是 NaN，WebGPU 的 `drawIndexed` 收到 Infinity 会抛错并**中断整帧渲染**。
+ * ## ⚠️ 已知不兼容：troika 在 WebGPU 后端下不渲染（2026-10-27 实测确认）
+ *
+ * `troika-three-text` 的文字材质是用 `createDerivedMaterial` 从 `MeshBasicMaterial`
+ * **派生 GLSL 着色器**（`onBeforeCompile` 路线，片段里写 `gl_FragColor`）。
+ * 而本后端的渲染器是 `WebGPURenderer`（节点材质 / TSL），**不消费 GLSL 派生材质**。
+ *
+ * 实测表现：文字对象的几何、包围盒（32×25.7 world）、`visible` 全部正确，
+ * 但画面上只剩一个小点 —— 即几何进了场景却没被正确着色。
+ *
+ * **这是本项目硬规矩「不写 GLSL、不用 onBeforeCompile」与上游库的冲突**，不是我们的代码缺陷。
+ * 三条出路（尚未实施，需裁决）：
+ * 1. **自研 TSL 文字材质**：用 `three/tsl` 实现 SDF 采样，仍走 MSDF 图集；
+ *    代价是重写一份文字材质，但完全落在硬规矩内（推荐）。
+ * 2. 换支持 WebGPU 的文字库（如 `three` 官方 `TextGeometry` + 预烘焙字形）：
+ *    失去 MSDF 的任意缩放锐利度，CJK 需预生成全套字形，与 §十九 7 冲突。
+ * 3. 文字退回二维合成层（DOM/SVG 叠加）：绕开三维渲染，但失去深度与遮挡。
+ *
+ * 在此之前：**宿主若在三维档使用文字，须知悉文字不会显示**；保真对照的
+ * 「文字清晰度」一项在三维档判为 **未通过**（不是"更差"，是"不可用"）。
+ *
+ * ## 健壮性硬要求（同次实测教训）
+
+ * 字体未就绪时 troika 的文字几何 bounds 会是 NaN，WebGPU 的 `drawIndexed`
+ * 收到 Infinity 会抛错并**中断整帧渲染**。
  * 因此本模块：
  * 1. 文字对象创建后**先不可见**（`visible = false`），等 `sync()` 回调确认就绪；
  * 2. 未就绪/失败时保持不可见，永不让 NaN 几何进入渲染队列；

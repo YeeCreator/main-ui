@@ -48,8 +48,13 @@ export interface InstancePlan {
 export interface UniqueGeometryPlan {
   key: string;
   kind: 'polygon' | 'polyline';
-  /** 平面点（世界坐标；three 侧映射到 XZ）。 */
-  points: ReadonlyArray<{ x: number; y: number }>;
+  /**
+   * 点（世界坐标；three 侧映射到 XZ 平面，`z` 抬升高度）。
+   *
+   * 折线**逐点可带 `z`**：一维复形是有不同高度的弧，整条统一 `z` 会把三维弧
+   * 压成平面直线。多边形（面）仍是平面点，`z` 只作整条的层偏移。
+   */
+  points: ReadonlyArray<{ x: number; y: number; z?: number }>;
   z: number;
   extrude: number;
   fill?: string;

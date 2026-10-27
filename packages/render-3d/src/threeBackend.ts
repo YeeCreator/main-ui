@@ -91,6 +91,8 @@ export class ThreeViewportBackend implements ViewportBackend {
   private projection: 'orthographic' | 'perspective';
   private size = { width: 1, height: 1 };
   private viewBox: ViewBox = { x: 0, y: 0, width: 800, height: 600 };
+  /** 取景留白（像素），与二维后端 `paddingPx` 同语义。 */
+  private paddingPx = 0;
   private grid: GridSpec | null = null;
   private snapshot: EntitySnapshot | null = null;
   private listeners: Array<(camera: Camera2D) => void> = [];
@@ -109,6 +111,7 @@ export class ThreeViewportBackend implements ViewportBackend {
   async mount(container: HTMLElement, options: ViewportBackendMountOptions): Promise<void> {
     if (this.mounted) return;
     this.viewBox = { ...options.viewBox };
+    this.paddingPx = options.paddingPx ?? 0;
     this.size = {
       width: Math.max(1, Math.round(container.clientWidth || 1)),
       height: Math.max(1, Math.round(container.clientHeight || 1)),
@@ -138,8 +141,15 @@ export class ThreeViewportBackend implements ViewportBackend {
     scene.add(world);
     this.world = world;
 
+    // setSize(..., false) 只改绘图缓冲，不一定同步 viewport；而屏幕空间粗线
+    // （webgpu 版 LineSegments2）在 onBeforeRender 里用 renderer.getViewport() 换算线宽，
+    // viewport 为 0 时线宽也变 0 → 线完全不可见（2026-10-27 实测）。故显式设置。
     renderer.setSize(this.size.width, this.size.height, false);
-    this.applyCameraToThree();
+    renderer.setViewport(0, 0, this.size.width, this.size.height);
+    // 必须先按传入的 viewBox 适配一次：否则相机会停在构造默认值，
+    // 表现为「画面空 + pickCell 全 null」（2026-10-27 保真对照实测踩到）。
+    // 二维后端（PixiViewport.init）在装配时就 fit，两边语义必须一致。
+    this.fitToBounds();
     this.rebuildScene();
     this.renderOnce();
     this.startLoop();
@@ -225,6 +235,7 @@ export class ThreeViewportBackend implements ViewportBackend {
   resize(width: number, height: number): void {
     this.size = { width: Math.max(1, width), height: Math.max(1, height) };
     this.renderer?.setSize(this.size.width, this.size.height, false);
+    this.renderer?.setViewport(0, 0, this.size.width, this.size.height);
     this.applyCameraToThree();
     this.built?.syncLineResolution(this.size.width, this.size.height);
     this.renderOnce();
@@ -243,20 +254,33 @@ export class ThreeViewportBackend implements ViewportBackend {
     };
   }
 
+  /**
+   * 适配世界范围到容器（与二维后端 `fitCameraToViewBox` **逐字节同语义**）。
+   *
+   * 早期实现用硬编码的 1.1 倍系数，导致两个后端的取景不一致：
+   * 同一 viewBox 下三维档整体缩小 10% 并偏移约 18px —— 保真对照里表现为
+   * 「画面偏、命中格错位」（2026-10-27 实测）。
+   *
+   * 对齐算法：`scale = min((W-2p)/boxW, (H-2p)/boxH)`，视锥高度 `= H / scale`。
+   */
   fitToBounds(viewBox?: ViewBox): void {
     if (viewBox) this.viewBox = { ...viewBox };
+    const W = Math.max(1, this.size.width);
+    const H = Math.max(1, this.size.height);
+    const pad = Math.max(0, this.paddingPx);
+    const boxW = Math.max(1, this.viewBox.width);
+    const boxH = Math.max(1, this.viewBox.height);
+
+    // 与 fitCameraToViewBox 一致：padding 从两边扣除
+    const usableW = Math.max(1, W - pad * 2);
+    const usableH = Math.max(1, H - pad * 2);
+    const scale = Math.min(usableW / boxW, usableH / boxH);
+    const viewHeight = H / scale;
+
     const center = {
       x: this.viewBox.x + this.viewBox.width / 2,
       y: this.viewBox.y + this.viewBox.height / 2,
     };
-    const aspect = this.size.width > 0 && this.size.height > 0 ? this.size.width / this.size.height : 1;
-    // 等比适配（与二维 fitCameraToViewBox 同语义）：正交相机的可见**高度**固定，
-    // 可见宽度 = 高度 × aspect。要完整容纳 box，必须取两者所需高度的较大者：
-    //   needByHeight = box.height
-    //   needByWidth  = box.width / aspect   ← 窄容器下这一项才起作用
-    // 早期只按 height 取，窄长容器里内容会被横向裁掉（2026-10-27 实测）。
-    const padding = 1.1;
-    const viewHeight = Math.max(this.viewBox.height, this.viewBox.width / (aspect > 0 ? aspect : 1)) * padding;
     this.orbit = {
       target: { x: center.x, y: 0, z: center.y },
       azimuth: 0,

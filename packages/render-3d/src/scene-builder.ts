@@ -35,7 +35,7 @@ import {
   polylinePositions,
   positionsToLineGeometry,
 } from './geometry-factory';
-import { applyLineResolution, createWideLine, createWideSegments } from './wide-lines';
+import { createWideLine, createWideSegments, wideLinesAvailable } from './wide-lines';
 import { createText } from './text-factory';
 import { LAYER_Z } from './units';
 
@@ -86,11 +86,21 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
       z: LAYER_Z.polygon,
     });
     if (positions.length >= 6) {
-      const segments = createWideSegments(positions, grid.lineWidth, grid.lineColor);
-      const material = segments.material as unknown as { resolution?: { set(x: number, y: number): void } };
-      if (material.resolution) wideLines.push(material);
-      root.add(segments);
-      disposables.push(segments.geometry, segments.material as unknown as { dispose(): void });
+      // 线宽 ≤ 1 一律走**原生线段**：粗线 addon（webgpu 版）在实测中不渲染（见下方说明），
+      // 而 1px 恰是二维档预设要的观感（线条禁贴图、与二维后端一致）。
+      // 粗线只在需要 >1px 时启用；失败则降级。
+      const useWide = grid.lineWidth > 1 && wideLinesAvailable();
+      if (useWide) {
+        const segments = createWideSegments(positions, grid.lineWidth, grid.lineColor);
+        const material = segments.material as unknown as { resolution?: { set(x: number, y: number): void } };
+        if (material.resolution) wideLines.push(material);
+        root.add(segments);
+        disposables.push(segments.geometry, segments.material as unknown as { dispose(): void });
+      } else {
+        const fallback = buildFallbackLine(positions, grid.lineColor);
+        root.add(fallback);
+        disposables.push(fallback.geometry, fallback.material as unknown as { dispose(): void });
+      }
     }
 
     if (grid.cellFill) {
@@ -168,17 +178,26 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
     if (!Number.isFinite(item.strokeWidth ?? 1) || (item.strokeWidth ?? 1) <= 0) continue;
     const positions = polylinePositions(item.points, item.z, item.closed);
     if (positions.length < 6) continue;
-    const line = createWideLine({
-      positions,
-      lineWidth: item.strokeWidth ?? 1,
-      color: item.stroke ?? '#333333',
-      worldUnits: false,
-      opacity: item.fillAlpha ?? 1,
-    });
-    const material = line.material as unknown as { resolution?: { set(x: number, y: number): void } };
-    if (material.resolution) wideLines.push(material);
-    root.add(line);
-    disposables.push(line.geometry, line.material as unknown as { dispose(): void });
+    const strokeWidth = item.strokeWidth ?? 1;
+    const useWide = strokeWidth > 1 && wideLinesAvailable();
+    if (useWide) {
+      const line = createWideLine({
+        positions,
+        lineWidth: strokeWidth,
+        color: item.stroke ?? '#333333',
+        worldUnits: false,
+        opacity: item.fillAlpha ?? 1,
+      });
+      const material = line.material as unknown as { resolution?: { set(x: number, y: number): void } };
+      if (material.resolution) wideLines.push(material);
+      root.add(line);
+      disposables.push(line.geometry, line.material as unknown as { dispose(): void });
+    } else {
+      // 1px 或不支持粗线：降级到原生线段（保证可见，不保证线宽可变）
+      const fallback = buildFallbackLine(positions, item.stroke ?? '#333333');
+      root.add(fallback);
+      disposables.push(fallback.geometry, fallback.material as unknown as { dispose(): void });
+    }
   }
 
   // ---- 实例化分组（同类实体共享原型几何） ----
@@ -204,9 +223,15 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
       anchorX: text.anchorX,
       anchorY: text.anchorY,
     });
-    // 文字默认铺在 XY 平面；绕 X 轴 -90° 后落在 XZ 地面，与其它图元同一平面。
-    // 旋转后局部 +Y 映射到世界 -Z，**文字朝向（reading direction）仍沿世界 +X**，
-    // 俯视下从左往右读，与二维档一致。
+
+    // 文字与其它图元同在 XZ 地面：绕 X 轴 -90°。
+    // 旋转后局部 +X→世界 +X（阅读方向），局部 +Y→世界 -Z（字高方向朝屏幕上方）。
+    // 这与二维档「屏幕 Y 向下」的语义一致：俯视相机 up=(0,0,-1) 时，
+    // 世界 -Z 正好映射到屏幕上方，故字形正立可读。
+    //
+    // ⚠️ 历史缺陷（2026-10-27 实测）：早期也写了 -90°，但**同时**用了默认 up=(0,1,0)
+    // 之外的错误组合，导致字形侧向、画面上只剩一条细线。修改时要**同时**核对
+    // `cameraUpForPolar` 的 up 选择，二者必须成对成立。
     object.rotation.x = -Math.PI / 2;
     root.add(object);
   }

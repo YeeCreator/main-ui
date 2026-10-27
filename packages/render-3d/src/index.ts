@@ -73,3 +73,27 @@ export {
 
 /** 后端注册键（`view-world` 按此键解析三维后端）。 */
 export const THREE_BACKEND_KEY = 'three-3d';
+
+export {
+  benchScenePlan,
+  createFrameSampler,
+  makeBenchSnapshot,
+  readRendererStats,
+  type FrameSampler,
+  type FrameStats,
+  type RendererStats,
+  type ScenePlanBenchResult,
+} from './benchmark';
+
+export {
+  detectTier,
+  isPureRender,
+  runExternalContractSmoke,
+  validateExternalRegistry,
+  type ContractSmokeResult,
+  type ExternalEngineBridge,
+  type ExternalEngineEntry,
+  type ExternalGranularity,
+  type ExternalTier,
+  type PureRenderBridge,
+} from './external';
