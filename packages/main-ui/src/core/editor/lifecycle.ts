@@ -16,6 +16,19 @@ export interface MainUiViewLifecycle {
   restoreViewState(state: Record<string, unknown>): void;
   /** 关闭/迁移/销毁时释放资源，必须幂等 */
   onDestroy(): void;
+  /**
+   * 尺寸变更回调（**可选**，不实现则行为完全不变）。
+   *
+   * 为什么放在生命周期里而不是让每个视图自挂 `ResizeObserver`：
+   * 尺寸来源是布局层的已知事实（叶组尺寸），视图各自观察会造出 N 个观察器，
+   * 且首次尺寸与布局计算存在竞态。由渲染层统一在尺寸变化时下发，是单点。
+   *
+   * 红线：core **不监听任何 DOM** —— 尺寸值由 Vue 层供给，本契约只定义接口。
+   *
+   * @param width 内容区宽度（CSS 像素）。
+   * @param height 内容区高度（CSS 像素）。
+   */
+  onResize?(width: number, height: number): void;
 }
 
 /**
@@ -62,6 +75,25 @@ export class ViewLifecycleRegistry {
   /** 向指定实例回放快照状态；未登记的实例静默跳过（视图未挂载时由宿主自行缓存）。 */
   restore(editorInstanceId: EditorInstanceId, state: Record<string, unknown>): void {
     this.handles.get(editorInstanceId)?.restoreViewState(state);
+  }
+
+  /**
+   * 向指定实例下发尺寸变更；视图未实现 `onResize` 或未登记时静默跳过。
+   *
+   * 静默跳过而非抛错，是因为「不实现 onResize」是完全合法的选择 ——
+   * 大量模板不需要知道自己的尺寸，不该因为它们没实现就让渲染层报错。
+   *
+   * @param editorInstanceId 编辑实例 id。
+   * @param width 内容区宽度（CSS 像素）。
+   * @param height 内容区高度（CSS 像素）。
+   */
+  notifyResize(editorInstanceId: EditorInstanceId, width: number, height: number): void {
+    this.handles.get(editorInstanceId)?.onResize?.(width, height);
+  }
+
+  /** 已登记句柄的实例 id 列表（供渲染层在尺寸变化时批量下发）。 */
+  instanceIds(): EditorInstanceId[] {
+    return [...this.handles.keys()];
   }
 
   /** 销毁全部句柄（运行时重置场景）；幂等。 */

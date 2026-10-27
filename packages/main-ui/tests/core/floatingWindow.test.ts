@@ -190,7 +190,7 @@ describe('clampFloatingGeometry', () => {
 });
 
 describe('floating window migration', () => {
-  test('migrating a v2 document yields version 3 with an empty floatingWindows slot', () => {
+  test('migrating a v2 document yields current version with an empty floatingWindows slot', () => {
     const migrated = migrateWorkbenchDocument({
       version: 2,
       activeWorkspaceId: 'demo',
@@ -199,7 +199,7 @@ describe('floating window migration', () => {
       },
     });
     expect(migrated).not.toBeNull();
-    expect(migrated?.version).toBe(3);
+    expect(migrated?.version).toBe(4);
     expect(migrated?.workspaceStates.demo.floatingWindows).toEqual({});
   });
 });

@@ -25,6 +25,16 @@ import type { EditorDescriptor } from './editor/types';
 import { SlotRegistry } from './editor/slot';
 import { ViewLifecycleRegistry } from './editor/lifecycle';
 import type { MainUiViewLifecycle } from './editor/lifecycle';
+import { FocusService } from './editor/focus-service';
+import type { FocusChangeReason, FocusSnapshot } from './editor/focus-service';
+import {
+  checkInstanceQuota,
+  findBindingsByInstance,
+  findBindingsByViewType,
+  listSlotBindings,
+} from './editor/bindings';
+import type { SlotBinding } from './editor/bindings';
+import type { AuxiliaryConfig } from './workspace/types';
 import { createWorkbenchDocument } from './documentFactory';
 import type { PersistenceAdapter } from './persistence/types';
 import { CommandRegistry, EditorRegistry, WorkspaceRegistry } from './registry';
@@ -54,6 +64,21 @@ const createDefaultId: IdFactory = (prefix) => {
 
 const defaultNow = () => new Date().toISOString();
 
+/**
+ * 从「前后两份文档」推断焦点变更原因。
+ *
+ * 为什么不把 reason 交给每个 action 自己传：那要求 reducer 的每个分支都记得这件事，
+ * 而漏传的后果是「关闭页签导致焦点转移」被当成 `programmatic` —— 订阅者就不知道
+ * 该不该把界面切走。改为**结果导向推断**：比较实例数量，少则为 close，否则为
+ * programmatic。click 这类交互语义由渲染层调 `syncFocus('click')` 显式覆盖。
+ */
+const inferFocusReason = (previous: WorkbenchDocument, next: WorkbenchDocument): FocusChangeReason => {
+  const countEditors = (document: WorkbenchDocument): number =>
+    Object.values(document.workspaceStates)
+      .reduce((total, workspace) => total + Object.keys(workspace.editors).length, 0);
+  return countEditors(next) < countEditors(previous) ? 'close' : 'programmatic';
+};
+
 export class MainUiCoreRuntime {
   readonly editors = new EditorRegistry();
   readonly slots = new SlotRegistry();
@@ -70,6 +95,13 @@ export class MainUiCoreRuntime {
   readonly menus = new MenuRegistry();
   readonly settings: SettingsStore;
   readonly contributions = new ContributionRegistry();
+  /**
+   * 焦点事实源：唯一权威的「当前激活视图」。
+   *
+   * 由布局状态推导（`syncFrom` 在每次 dispatch 后自动调用），不另立状态 ——
+   * 因此不可能出现「布局关了页签但焦点还指着它」这类两份真相。
+   */
+  readonly focus = new FocusService();
 
   private document: WorkbenchDocument | null = null;
   /** 快照中带回的视图状态待回放队列：实例表面挂载后按需回放。 */
@@ -95,6 +127,9 @@ export class MainUiCoreRuntime {
         const activeWorkspaceId = this.document?.activeWorkspaceId ?? '';
         const workspaceState = this.document?.workspaceStates[activeWorkspaceId];
         const overlayActive = workspaceState ? Object.keys(workspaceState.overlays).length > 0 : false;
+        // 焦点事实源统一：keybinding 的 when 上下文与焦点服务同源，
+        // 不再各自推导「当前激活的是谁」—— 否则两套判断会静默分叉。
+        const focus = this.focus.current();
         return evaluateWhen(binding.when, {
           keys: {
             workspaceId: activeWorkspaceId,
@@ -103,6 +138,8 @@ export class MainUiCoreRuntime {
             inputEmpty: this.inputRouter ? this.inputRouter.session().pressedKeys.size === 0 : true,
             overlayActive,
             platform: detectEnvironment().platform,
+            focusedView: focus.viewInstanceId,
+            focusedViewType: focus.viewType,
           },
         });
       },
@@ -176,6 +213,105 @@ export class MainUiCoreRuntime {
       this.pendingViewStates.delete(editorInstanceId);
       lifecycle.restoreViewState(pending);
     }
+  }
+
+  /**
+   * 向指定视图下发尺寸变更（渲染层在叶组尺寸变化时调用）。
+   *
+   * 统一走这里而不是让视图各自挂 `ResizeObserver`：尺寸是布局层的已知事实，
+   * 视图各自观察会造出 N 个观察器，且首次尺寸与布局计算存在竞态。
+   *
+   * @param editorInstanceId 编辑实例 id。
+   * @param width 内容区宽度（CSS 像素）。
+   * @param height 内容区高度（CSS 像素）。
+   */
+  notifyViewResize(editorInstanceId: EditorInstanceId, width: number, height: number): void {
+    this.viewLifecycles.notifyResize(editorInstanceId, width, height);
+  }
+
+  /** 当前焦点事实（同步读取，无副作用）。 */
+  getFocus(): FocusSnapshot {
+    return this.focus.current();
+  }
+
+  /** 订阅焦点变更；返回取消订阅函数。 */
+  onFocusChange(listener: Parameters<FocusService['subscribe']>[0]): () => void {
+    return this.focus.subscribe(listener);
+  }
+
+  /** 显式声明焦点离开工作台（如焦点进入宿主自有面板）。 */
+  leaveFocus(): void {
+    this.focus.leave();
+  }
+
+  /** 列出当前全部视图实例绑定（主布局树 + 浮动窗口）。 */
+  listSlotBindings(workspaceId?: string): SlotBinding[] {
+    return listSlotBindings(this.document, workspaceId);
+  }
+
+  /** 查询某实例的全部挂载位置（同一实例可能被多个表面显示）。 */
+  findBindingsByInstance(viewInstanceId: EditorInstanceId): SlotBinding[] {
+    return findBindingsByInstance(this.document, viewInstanceId);
+  }
+
+  /** 查询某视图类型当前已打开的实例（宿主做实例独占校验用）。 */
+  findBindingsByViewType(viewType: string): SlotBinding[] {
+    return findBindingsByViewType(this.document, viewType);
+  }
+
+  /** 实例独占校验：某视图类型是否已达允许的同时打开数量。 */
+  checkInstanceQuota(viewType: string, limit = 1): ReturnType<typeof checkInstanceQuota> {
+    return checkInstanceQuota(this.document, viewType, limit);
+  }
+
+  /**
+   * 读取宿主透传元数据（内核只原样存取，**不解释其内容**）。
+   *
+   * 红线：main-ui 的任何逻辑都不得依赖 `meta` 里的字段 —— 一旦依赖，
+   * 它就不再是「宿主元数据」而变成了内核契约，会造成两份真相。
+   */
+  getMeta<T = Record<string, unknown>>(): T | undefined {
+    return this.getSnapshot().meta as T | undefined;
+  }
+
+  /** 写入宿主透传元数据；`undefined` 表示清除。 */
+  async setMeta(meta: Record<string, unknown> | undefined): Promise<Result<WorkbenchDocument>> {
+    const current = this.getSnapshot();
+    const next: WorkbenchDocument = { ...current };
+    if (meta) next.meta = meta;
+    else delete next.meta;
+    this.document = next;
+    await this.persistence?.save(this.document);
+    this.emit();
+    return ok(this.document);
+  }
+
+  /** 读取某 workspace 的微件配置（未设置时返回 undefined，消费方用默认显隐）。 */
+  getAuxiliaryConfig(workspaceId?: string): AuxiliaryConfig | undefined {
+    const snapshot = this.getSnapshot();
+    return snapshot.workspaceStates[workspaceId ?? snapshot.activeWorkspaceId]?.auxiliary;
+  }
+
+  /** 写入某 workspace 的微件配置（进快照持久化）。 */
+  async setAuxiliaryConfig(config: AuxiliaryConfig, workspaceId?: string): Promise<Result<WorkbenchDocument>> {
+    const current = this.getSnapshot();
+    const targetId = workspaceId ?? current.activeWorkspaceId;
+    const workspace = current.workspaceStates[targetId];
+    if (!workspace) {
+      return fail('workspace.notFound', `Workspace ${targetId} does not exist.`);
+    }
+    const next: WorkbenchDocument = {
+      ...current,
+      workspaceStates: {
+        ...current.workspaceStates,
+        [targetId]: { ...workspace, auxiliary: config, updatedAt: this.now() },
+      },
+    };
+    this.document = next;
+    this.syncFocus('programmatic');
+    await this.persistence?.save(this.document);
+    this.emit();
+    return ok(this.document);
   }
 
   unregisterMenu(id: string): void {
@@ -253,6 +389,8 @@ export class MainUiCoreRuntime {
       this.document = this.createFreshDocument();
     }
     this.collectPendingViewStates(this.document);
+    // boot 后焦点从快照恢复（reason='restore'）
+    this.syncFocus('restore');
     this.emit();
     return this.document;
   }
@@ -287,9 +425,21 @@ export class MainUiCoreRuntime {
     this.pruneDetachedViewLifecycles(current, next);
     this.captureViewStates(next);
     this.document = next;
+    // 焦点由布局派生：任何布局变更后同步一次，订阅者即得最新事实
+    this.syncFocus(inferFocusReason(current, next));
     await this.persistence?.save(this.document);
     this.emit();
     return ok(this.document, result.warnings);
+  }
+
+  /**
+   * 从布局文档同步焦点（每次 dispatch 与 boot 后自动调用）。
+   *
+   * @param reason 变更原因。
+   * @returns 焦点是否发生变化。
+   */
+  syncFocus(reason: FocusChangeReason): boolean {
+    return this.focus.syncFrom(this.document, reason);
   }
 
   async resetPersistence(): Promise<void> {

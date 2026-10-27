@@ -44,6 +44,29 @@ export type WorkspaceState = {
     activeViewId?: string;
     activePanelId?: string;
   };
+  /**
+   * 微件显隐与方位配置（布局模型的一部分，随快照持久化）。
+   *
+   * 为什么放布局而非设置：它描述的是「这个工作台怎么摆」而不是「用户偏好什么」，
+   * 与侧栏宽度、面板高度同一性质 —— 换一台机器打开同一布局，应看到同样的微件。
+   * 全部可选，旧快照读取时补默认值。
+   */
+  auxiliary?: AuxiliaryConfig;
+};
+
+/** 单个位置的微件配置。 */
+export type AuxiliarySlotConfig = {
+  /** 是否显示该位置的微件（缺省 true） */
+  visible?: boolean;
+  /** 方位（仅部分位置支持；供后续扩展左右/上下） */
+  position?: 'start' | 'end';
+};
+
+/** 微件配置：按位置分别控制显隐与方位。 */
+export type AuxiliaryConfig = {
+  toolbar?: AuxiliarySlotConfig;
+  'context-menu'?: AuxiliarySlotConfig;
+  status?: AuxiliarySlotConfig;
 };
 
 export type WorkspaceDescriptor = {
@@ -67,11 +90,27 @@ export type WorkspaceDescriptor = {
 };
 
 export type WorkbenchDocument = {
-  version: 1 | 2 | 3;
+  /**
+   * 快照版本。
+   *
+   * v4（2026-10-27）：新增 `meta`（宿主透传元数据）与每个 workspace 的 `auxiliary`
+   * （微件配置）。两者均全可选，旧快照读取时自动补默认值。
+   */
+  version: 1 | 2 | 3 | 4;
   activeWorkspaceId: WorkspaceId;
   workspaceStates: Record<WorkspaceId, WorkspaceState>;
   theme: ThemeState;
   settings: WorkbenchSettings;
   recentWorkspaces: WorkspaceId[];
   recentEditors: Array<{ editorKind: EditorKind; restoreKey?: string; openedAt: string }>;
+  /**
+   * 宿主透传元数据（**main-ui 不解释、不读取、不校验其内容**）。
+   *
+   * 用途：宿主需要把一点自己的状态跟着布局一起存（当前项目 id、上次选中的图层
+   * 等等），但又不想另建一份持久化。内核只负责原样存取。
+   *
+   * 红线：不得让 main-ui 的任何逻辑依赖其中的字段 —— 一旦依赖，它就不再是「宿主
+   * 元数据」而变成了内核契约，会造成两份真相。
+   */
+  meta?: Record<string, unknown>;
 };

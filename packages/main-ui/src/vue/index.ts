@@ -7,6 +7,7 @@ export * from './composables/useSurfaceStack';
 export * from './dockingDrag';
 export * from './components/ActivityBar';
 export * from './components/EditorSurfaceHost';
+export * from './components/EditorSurfaceResizeBoundary';
 export * from './components/EmptyGroupLauncher';
 export * from './components/ExternalMountHost';
 export * from './components/FloatingWindowLayer';

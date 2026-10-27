@@ -3,6 +3,7 @@ import type { EditorRenderContext, GroupId, TabId } from '../../core';
 import { useWorkbench } from '../composables/useWorkbench';
 import { ExternalMountHost } from './ExternalMountHost';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
+import { EditorSurfaceResizeBoundary } from './EditorSurfaceResizeBoundary';
 import { MissingViewSurface } from './MissingViewSurface';
 
 export const EditorSurfaceHost = defineComponent({
@@ -52,12 +53,23 @@ export const EditorSurfaceHost = defineComponent({
 
       const renderer = runtime.vue.resolveEditorRenderer(descriptor.rendererKey);
       if (renderer) {
-        return h('div', { class: 'main-ui-editor-surface', role: 'region', 'aria-label': descriptor.title }, [h(EditorErrorBoundary, { content: () => h(renderer, { context: context.value! }) })]);
+        // 尺寸经统一的包装件下发（content box），视图的 onResize 由 runtime 转发；
+        // 未实现 onResize 的视图零影响。
+        return h(EditorSurfaceResizeBoundary, { editorInstanceId: context.value.editor.id }, {
+          default: () => h('div', { class: 'main-ui-editor-surface', role: 'region', 'aria-label': descriptor.title }, [
+            h(EditorErrorBoundary, { content: () => h(renderer, { context: context.value! }) }),
+          ]),
+        });
       }
 
       const adapter = runtime.vue.resolveEditorMountAdapter(descriptor.rendererKey);
       if (adapter) {
-        return h('div', { class: 'main-ui-editor-surface', role: 'region', 'aria-label': descriptor.title }, [h(ExternalMountHost, { adapter, context: context.value })]);
+        const mountContext = context.value;
+        return h(EditorSurfaceResizeBoundary, { editorInstanceId: mountContext.editor.id }, {
+          default: () => h('div', { class: 'main-ui-editor-surface', role: 'region', 'aria-label': descriptor.title }, [
+            h(ExternalMountHost, { adapter, context: mountContext }),
+          ]),
+        });
       }
 
       return h(MissingViewSurface, {
