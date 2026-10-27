@@ -1,12 +1,11 @@
 import { describe, expect, test } from 'vitest';
+import { classifyWheel, wheelPanDelta } from '@main-ui/core/input';
 import {
   cameraTransformOf,
-  classifyWheel,
   constrainScale,
   fitCamera,
   panCamera,
   pinchZoomFactor,
-  wheelPanDelta,
   wheelZoomFactor,
   zoomByFactor,
 } from '../src/viewport-state';

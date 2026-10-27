@@ -1,6 +1,6 @@
 import type { ContributionContext } from './types';
 import type { ActivityContribution, PanelContribution, StatusContribution, ViewContribution } from './types';
-import { evaluateWhen } from '../command/keybindings';
+import { evaluateWhen } from '@main-ui/core/input';
 
 export class ContributionRegistry {
   private readonly views = new Map<string, ViewContribution>();

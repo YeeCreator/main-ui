@@ -1,4 +1,5 @@
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted } from 'vue';
+import { draftFromText } from '@main-ui/core/input';
 import type { EditorRenderContext } from '../../core';
 import { useWorkbench } from '../composables/useWorkbench';
 import { ExternalMountHost } from './ExternalMountHost';
@@ -9,9 +10,40 @@ export const OverlayLayer = defineComponent({
   setup() {
     const { runtime, document, dispatch } = useWorkbench();
     const workspace = computed(() => document.value.workspaceStates[document.value.activeWorkspaceId]);
+
+    /**
+     * 叠加层关闭命令：`Escape` 曾是硬编码键名，改为命令 + 默认绑定后
+     * 用户可在快捷键面板里改它，也与菜单入口一致。
+     *
+     * `Tab` 焦点陷阱保留为原生行为：它是可访问性保障（键盘用户离开模态无法操作），
+     * 不应成为可改绑的对象。
+     */
+    const DISMISS_ID = 'main-ui.overlay.dismiss';
+    if (!runtime.core.commands.get(DISMISS_ID)) {
+      runtime.core.registerCommand({
+        id: DISMISS_ID,
+        title: '关闭叠加层',
+        category: '视图',
+        when: 'overlayActive',
+        run: () => {
+          const overlays = Object.values(workspace.value.overlays);
+          const active = overlays.at(-1);
+          if (!active) return;
+          void dispatch({ type: 'overlay/dismiss', overlayId: active.id, reason: 'escape' });
+        },
+      });
+      runtime.core.input.registerDefault({
+        commandId: DISMISS_ID,
+        id: `default:${DISMISS_ID}:0`,
+        origin: 'default',
+        ...draftFromText('press:Escape'),
+        allowInInput: true,
+        swallow: false,
+      });
+    }
+
     const onKeydown = (event: KeyboardEvent) => {
       const overlays = Object.values(workspace.value.overlays); const active = overlays.at(-1);
-      if (active?.dismissOnEscape && event.key === 'Escape') { event.preventDefault(); void dispatch({ type: 'overlay/dismiss', overlayId: active.id, reason: 'escape' }); }
       if (active && event.key === 'Tab') { const target = event.target as HTMLElement; const frame = target.closest('.main-ui-overlay'); const focusable = frame ? Array.from(frame.querySelectorAll<HTMLElement>('button,input,select,textarea,[tabindex]:not([tabindex="-1"])')) : []; const first = focusable[0]; const last = focusable[focusable.length - 1]; if (first && last && (event.shiftKey ? target === first : target === last)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); } }
     };
     onMounted(() => window.addEventListener('keydown', onKeydown));

@@ -1,6 +1,20 @@
 import type { WorkbenchAction } from './actions';
-import type { CommandDescriptor, CommandInvocation, CommandRunContext, CommandExecutionResult, KeybindingDescriptor } from './command/types';
-import { evaluateWhen, KeybindingRegistry } from './command/keybindings';
+import type { CommandDescriptor, CommandInvocation, CommandRunContext, CommandExecutionResult } from './command/types';
+import { evaluateWhen } from '@main-ui/core/input';
+import { detectEnvironment } from '@main-ui/core/environment';
+import {
+  createInputRouter,
+  draftFromText,
+  type Binding,
+  type BindingDraft,
+  type InputRouter,
+  type InputScope,
+  type InputSourceProvider,
+  type InputTrigger,
+} from '@main-ui/core/input';
+import { InputController } from './input/controller';
+import { ShortcutStore } from './input/shortcut-store';
+import { loadShortcutOverrides, saveShortcutOverrides } from './input/persistence';
 import { MenuRegistry } from './menu/registry';
 import type { MenuContribution } from './menu/types';
 import { SettingsStore } from './settings/store';
@@ -47,7 +61,12 @@ export class MainUiCoreRuntime {
   readonly viewLifecycles = new ViewLifecycleRegistry();
   readonly workspaces = new WorkspaceRegistry();
   readonly commands = new CommandRegistry();
-  readonly keybindings: KeybindingRegistry;
+  /** 输入路由（信号 → 手势 → 绑定）；命令桥由 {@link input} 暴露。 */
+  readonly inputRouter: InputRouter;
+  /** 绑定库：默认 + 宿主 + 用户覆盖三层合并。 */
+  readonly shortcuts: ShortcutStore;
+  /** 命令桥：把输入命中转成 `executeCommand` 调用。 */
+  readonly input: InputController;
   readonly menus = new MenuRegistry();
   readonly settings: SettingsStore;
   readonly contributions = new ContributionRegistry();
@@ -68,7 +87,36 @@ export class MainUiCoreRuntime {
     this.activeWorkspaceId = options.activeWorkspaceId;
     this.createId = options.createId ?? createDefaultId;
     this.now = options.now ?? defaultNow;
-    this.keybindings = new KeybindingRegistry();
+    this.shortcuts = new ShortcutStore();
+    this.inputRouter = createInputRouter({
+      evaluateWhen: (binding) => {
+        // 用内部字段直读而非 getSnapshot()：后者在 boot 前会因未注册
+        // workspace 而抛错，而绑定匹配随时可能发生在 boot 之前。
+        const activeWorkspaceId = this.document?.activeWorkspaceId ?? '';
+        const workspaceState = this.document?.workspaceStates[activeWorkspaceId];
+        const overlayActive = workspaceState ? Object.keys(workspaceState.overlays).length > 0 : false;
+        return evaluateWhen(binding.when, {
+          keys: {
+            workspaceId: activeWorkspaceId,
+            activeGroupId: workspaceState?.layout?.activeGroupId ?? null,
+            focusScope: this.focusScope,
+            inputEmpty: this.inputRouter ? this.inputRouter.session().pressedKeys.size === 0 : true,
+            overlayActive,
+            platform: detectEnvironment().platform,
+          },
+        });
+      },
+      onTrigger: (trigger, binding) => {
+        void this.executeCommand(binding.commandId, undefined, { trigger });
+      },
+    });
+    this.input = new InputController(this.inputRouter, this.shortcuts, () => this.commands.list());
+    // 任何绑定变更都走同一出口：重推路由 + 落盘。
+    // 放在这里而不是各调用点，是为了避免「面板改了但忘了保存」这类遗漏。
+    this.input.setChangeHandler(() => {
+      this.syncInputBindings();
+      void this.persistShortcuts();
+    });
     this.settings = new SettingsStore({ persistence: options.settingsPersistence, migrations: options.settingsMigrations });
   }
 
@@ -96,8 +144,14 @@ export class MainUiCoreRuntime {
     this.commands.register(descriptor);
   }
 
-  registerKeybinding(descriptor: KeybindingDescriptor): void {
-    this.keybindings.register(descriptor);
+  /** 注册宿主绑定（写入 `host` 层，同 id 覆盖默认）。 */
+  registerKeybinding(
+    input:
+      | Binding
+      | (BindingDraft & { commandId: string; id?: string })
+      | { commandId: string; keybinding: string; when?: string; weight?: number; allowInInput?: boolean },
+  ): void {
+    this.input.register(input);
   }
 
   registerMenu(contribution: MenuContribution): void {
@@ -128,8 +182,8 @@ export class MainUiCoreRuntime {
     this.menus.unregister(id);
   }
 
-  unregisterKeybinding(commandId: string, keybinding?: string): void {
-    this.keybindings.unregister(commandId, keybinding);
+  unregisterKeybinding(idOrCommandId: string): void {
+    this.input.unregister(idOrCommandId);
   }
 
   setFocusScope(scope: string): void {
@@ -174,16 +228,23 @@ export class MainUiCoreRuntime {
     }
   }
 
-  async handleKeydown(event: KeyboardEvent): Promise<Result<CommandExecutionResult> | null> {
-    const context = this.createCommandContext(undefined);
-    const binding = this.keybindings.resolve(event, context);
-    if (!binding) return null;
-    event.preventDefault();
-    return this.executeCommand(binding.commandId, undefined, context);
+  /**
+   * 向输入系统喂入一个信号（由渲染层的事件源调用）。
+   *
+   * 保留此方法是给宿主在非 DOM 环境（测试、Electron 原生桥）直接注入信号的能力。
+   *
+   * @param signal 归一化输入信号。
+   */
+  feedInput(signal: Parameters<InputRouter['feed']>[0]): void {
+    this.inputRouter.feed(signal);
   }
 
   async boot(): Promise<WorkbenchDocument> {
     await this.settings.load();
+    // 快捷键覆盖也住在设置库里（命名空间 main-ui.shortcuts）：
+    // 它是「用户设置」的一部分，独立存储会造出第二套设置中心。
+    loadShortcutOverrides(this.settings, this.shortcuts);
+    this.syncInputBindings();
     const loaded = await this.persistence?.load();
     const migrated = migrateWorkbenchDocument(loaded);
     if (migrated) {
@@ -237,6 +298,18 @@ export class MainUiCoreRuntime {
     this.pendingViewStates.clear();
     this.document = this.createFreshDocument();
     this.emit();
+  }
+
+  /** 把当前三层合并结果重新推给路由（覆盖变更后必须调用）。 */
+  syncInputBindings(): void {
+    this.inputRouter.setBindings(
+      this.shortcuts.resolve((text) => draftFromText(text, detectEnvironment().platform)),
+    );
+  }
+
+  /** 持久化当前快捷键覆盖（面板保存后调用）。 */
+  async persistShortcuts(): Promise<void> {
+    await saveShortcutOverrides(this.settings, this.shortcuts);
   }
 
   /** 保存前收集全部活跃表面的视图状态，写入实例旁的 viewState 槽。 */

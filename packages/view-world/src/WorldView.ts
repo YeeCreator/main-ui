@@ -17,6 +17,8 @@ import type { MainUiViewLifecycle } from 'main-ui/core';
 import {
   PixiViewport,
   classifyWheelIntent,
+  createPointerGestureTracker,
+  resolveTapTolerance,
   rotateAtScreenPoint,
   wheelPanDelta,
   type Camera2D,
@@ -49,7 +51,6 @@ import {
 } from './types';
 import { buildWorldViewState, parseCssColorToNumber, sanitizeCameraState, toCamera2D } from './world-state';
 
-const CLICK_MOVE_TOLERANCE_PX = 4;
 const DEFAULT_ROTATE_STEP_RAD = Math.PI / 12;
 
 export const WorldView = defineComponent({
@@ -86,6 +87,14 @@ export const WorldView = defineComponent({
     nativeGestureGuard: { type: Boolean as PropType<boolean | null>, default: null },
     /** 是否启用双指旋转手势（“单指按住 + 另一指拖动”）。默认 false（相机模型已支持 rotation）。 */
     rotateOnGesture: { type: Boolean, default: false },
+    /**
+     * 轻点容差（CSS 像素）：松手时位移不超过该值才算 `world-click`。
+     *
+     * - 缺省（`null`）= **自动**：`panOnDrag=true` 取 4px；`panOnDrag=false` 取「不参与判别」
+     *   （棋类等「轻点落子」宿主手指微抖不会吞点击）——与原行为逐字节等价。
+     * - 显式数值 = 该值参与判别。编辑器「拖拽移动实体」应传 4，触摸端棋盘可传 10–12。
+     */
+    tapTolerancePx: { type: Number as PropType<number | null>, default: null },
     /** 键盘旋转步长（弧度）：供宿主自行绑定快捷键时复用默认步长。 */
     rotateStep: { type: Number, default: DEFAULT_ROTATE_STEP_RAD },
     loading: { type: Boolean, default: false },
@@ -109,7 +118,12 @@ export const WorldView = defineComponent({
     const gestureGuard = computed(() => props.nativeGestureGuard ?? resolveShellPolicy(detectEnvironment()).canvasGestureGuard);
 
     // 拖拽状态
-    const drag = { pointerId: -1, active: false, button: 0, startX: 0, startY: 0, lastX: 0, lastY: 0, moved: false };
+    const gesture = createPointerGestureTracker();
+    const drag = { pointerId: -1, active: false, button: 0, lastX: 0, lastY: 0 };
+
+    /** 本次手势的轻点容差；默认值映射见 `resolveTapTolerance`（core，含测试）。 */
+    const tapTolerance = computed<number | null>(() =>
+      resolveTapTolerance({ panOnDrag: props.panOnDrag, tapTolerancePx: props.tapTolerancePx }));
     // 双指旋转状态（rotateOnGesture）：两个指针的实时位置与上次夹角。
     const rotate = { active: false, aId: -1, bId: -1, ax: 0, ay: 0, bx: 0, by: 0, lastAngle: 0 };
 
@@ -251,11 +265,11 @@ export const WorldView = defineComponent({
       drag.pointerId = event.pointerId;
       drag.active = true;
       drag.button = event.button;
-      drag.moved = false;
-      drag.startX = event.clientX;
-      drag.startY = event.clientY;
       drag.lastX = event.clientX;
       drag.lastY = event.clientY;
+      gesture.down({ x: event.clientX, y: event.clientY });
+      // 平移相机时捕获指针，保证拖出画布仍能收到 pointerup。
+      // 本层没有 DOM 子元素，捕获导致的 click 重定向无副作用（宿主一律走 Emits）。
       if (props.panOnDrag && canStartDrag(event)) overlayRef.value?.setPointerCapture(event.pointerId);
       if (props.rotateOnGesture && canStartDrag(event)) trackRotatePointer(event, local);
 
@@ -287,21 +301,22 @@ export const WorldView = defineComponent({
       }
 
       if (!drag.active || drag.pointerId !== event.pointerId) return;
-      if (!props.panOnDrag || drag.button !== 0) return;
       const dx = event.clientX - drag.lastX;
       const dy = event.clientY - drag.lastY;
       drag.lastX = event.clientX;
       drag.lastY = event.clientY;
-      if (Math.abs(event.clientX - drag.startX) > CLICK_MOVE_TOLERANCE_PX || Math.abs(event.clientY - drag.startY) > CLICK_MOVE_TOLERANCE_PX) {
-        drag.moved = true;
-      }
+
+      // 位移记账独立于 panOnDrag：panOnDrag=false 的宿主（编辑器拖拽实体）同样要能判定「拖拽 ≠ 点击」。
+      gesture.move({ x: event.clientX, y: event.clientY }, tapTolerance.value);
+
+      if (!props.panOnDrag || drag.button !== 0) return;
       if (dx !== 0 || dy !== 0) viewport.panBy({ x: dx, y: dy });
     };
 
     const onPointerUp = (event: PointerEvent): void => {
       releaseRotatePointer(event.pointerId);
       if (drag.pointerId !== event.pointerId || !viewport) return;
-      const wasClick = !drag.moved;
+      const wasClick = gesture.up({ x: event.clientX, y: event.clientY }, tapTolerance.value) === 'tap';
       drag.active = false;
       drag.pointerId = -1;
 

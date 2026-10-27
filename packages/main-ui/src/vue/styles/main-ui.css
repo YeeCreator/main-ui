@@ -213,6 +213,25 @@
 .main-ui-stage__center { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; }
 .main-ui-stage__status { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; min-height: 24px; padding: 3px 12px; border-top: 1px solid var(--mui-color-border); background: var(--mui-color-panel-muted); color: var(--mui-color-text-muted); font-size: 12px; }
 
+/* SurfaceHost / SurfaceShell —— 应用面渲染器与可选壳（MUI 拥有的 GUI 原语）。 */
+/* 一次只显一个面，切换即整屏替换；不进 Docking 树，不参与布局快照。 */
+.main-ui-surface-host { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.main-ui-surface-host--fade > * { animation: main-ui-surface-fade 0.14s ease; }
+.main-ui-surface-host--slide > * { animation: main-ui-surface-slide 0.16s ease; }
+@keyframes main-ui-surface-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes main-ui-surface-slide { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+
+.main-ui-surface-shell { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; box-sizing: border-box; background: var(--mui-color-bg); color: var(--mui-color-text); font-family: var(--mui-font); overflow: hidden; }
+.main-ui-surface-shell__header { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--mui-color-border); background: var(--mui-color-panel-muted); }
+.main-ui-surface-shell__back { flex: 0 0 auto; border: 1px solid var(--mui-color-border); background: var(--mui-color-panel); color: inherit; font: inherit; border-radius: var(--mui-radius); padding: 4px 12px; cursor: pointer; }
+.main-ui-surface-shell__back:hover { border-color: var(--mui-color-accent); }
+.main-ui-surface-shell__heading { display: grid; gap: 2px; min-width: 0; }
+.main-ui-surface-shell__title { margin: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-ui-surface-shell__subtitle { margin: 0; font-size: 12px; color: var(--mui-color-text-muted); }
+.main-ui-surface-shell__actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.main-ui-surface-shell__body { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; }
+.main-ui-surface-shell__body > * { min-height: 0; }
+
 .main-ui-sidebar { display: flex; min-width: 34px; max-width: 320px; border-right: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
 .main-ui-sidebar.is-collapsed { width: 34px; }
 .main-ui-sidebar__rail { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }
@@ -1247,4 +1266,222 @@
   border-radius: var(--mui-radius);
   background: var(--mui-color-panel);
   opacity: 0.55;
+}
+
+/* ==========================================================================
+   ShortcutEditor —— 快捷键设置面板
+   形态参照 VSCode（列表 + 搜索 + 冲突徽标），录制手感参照 Blender。
+   全部颜色与尺寸消费 --mui-* token，不写死色值。
+   ========================================================================== */
+
+.main-ui-shortcut-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--mui-color-panel);
+  color: var(--mui-color-text);
+  font-size: 13px;
+}
+
+.main-ui-shortcut-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--mui-density-gap);
+  padding: var(--mui-density-gap) calc(var(--mui-density-gap) * 1.5);
+  border-bottom: 1px solid var(--mui-color-border);
+  flex-wrap: wrap;
+}
+
+.main-ui-shortcut-editor__search {
+  flex: 1 1 220px;
+  min-width: 160px;
+  height: var(--mui-control-height);
+  padding: 0 calc(var(--mui-density-gap) * 0.75);
+  border: 1px solid var(--mui-color-border);
+  border-radius: var(--mui-radius);
+  background: var(--mui-color-bg);
+  color: var(--mui-color-text);
+}
+
+.main-ui-shortcut-editor__search:focus-visible {
+  outline: 2px solid var(--mui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.main-ui-shortcut-editor__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--mui-density-gap) * 0.5);
+  color: var(--mui-color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.main-ui-shortcut-editor__notice {
+  padding: calc(var(--mui-density-gap) * 0.6) calc(var(--mui-density-gap) * 1.5);
+  border-bottom: 1px solid var(--mui-color-border);
+  background: var(--mui-color-panel-muted);
+  color: var(--mui-color-text-muted);
+  font-size: 12px;
+  max-height: 4.5em;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.main-ui-shortcut-editor__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: calc(var(--mui-density-gap) * 0.5) 0;
+}
+
+.main-ui-shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--mui-density-gap);
+  padding: calc(var(--mui-density-gap) * 0.6) calc(var(--mui-density-gap) * 1.5);
+  border-left: 2px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.main-ui-shortcut-row:hover {
+  background: var(--mui-color-panel-muted);
+}
+
+.main-ui-shortcut-row--conflict {
+  border-left-color: var(--mui-color-danger);
+  background: var(--mui-danger-tint);
+}
+
+.main-ui-shortcut-row--recording {
+  border-left-color: var(--mui-color-accent);
+  background: var(--mui-color-panel-muted);
+}
+
+.main-ui-shortcut-row--flash {
+  border-left-color: var(--mui-color-accent-strong);
+  background: var(--mui-color-panel-muted);
+}
+
+.main-ui-shortcut-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.main-ui-shortcut-row__info strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-ui-shortcut-row__info small {
+  color: var(--mui-color-text-muted);
+  font-size: 11px;
+}
+
+.main-ui-shortcut-row__warning {
+  color: var(--mui-color-danger);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.main-ui-shortcut-row__keys {
+  font-family: var(--mui-font-mono);
+  font-size: 12px;
+  padding: 2px calc(var(--mui-density-gap) * 0.6);
+  border: 1px solid var(--mui-color-border);
+  border-radius: calc(var(--mui-radius) * 0.6);
+  background: var(--mui-color-bg);
+  white-space: nowrap;
+  min-width: 5em;
+  text-align: center;
+}
+
+.main-ui-shortcut-row__actions {
+  display: flex;
+  gap: calc(var(--mui-density-gap) * 0.4);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.main-ui-shortcut-row:hover .main-ui-shortcut-row__actions,
+.main-ui-shortcut-row--recording .main-ui-shortcut-row__actions,
+.main-ui-shortcut-row--conflict .main-ui-shortcut-row__actions,
+.main-ui-shortcut-row:focus-within .main-ui-shortcut-row__actions {
+  opacity: 1;
+}
+
+.main-ui-shortcut-row__actions button {
+  height: calc(var(--mui-control-height) * 0.82);
+  padding: 0 calc(var(--mui-density-gap) * 0.7);
+  border: 1px solid var(--mui-color-border);
+  border-radius: calc(var(--mui-radius) * 0.7);
+  background: var(--mui-color-bg);
+  color: var(--mui-color-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.main-ui-shortcut-row__actions button:hover {
+  border-color: var(--mui-color-accent);
+  color: var(--mui-color-accent);
+}
+
+.main-ui-shortcut-row__actions button:focus-visible {
+  outline: 2px solid var(--mui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.main-ui-shortcut-editor__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--mui-density-gap);
+  padding: var(--mui-density-gap) calc(var(--mui-density-gap) * 1.5);
+  border-top: 1px solid var(--mui-color-border);
+  flex-wrap: wrap;
+}
+
+.main-ui-shortcut-editor__footer button {
+  height: calc(var(--mui-control-height) * 0.86);
+  padding: 0 calc(var(--mui-density-gap) * 0.9);
+  border: 1px solid var(--mui-color-border);
+  border-radius: calc(var(--mui-radius) * 0.7);
+  background: var(--mui-color-bg);
+  color: var(--mui-color-text);
+  cursor: pointer;
+}
+
+.main-ui-shortcut-editor__footer button:hover {
+  border-color: var(--mui-color-accent);
+}
+
+.main-ui-shortcut-editor__import {
+  position: relative;
+  overflow: hidden;
+  height: calc(var(--mui-control-height) * 0.86);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 calc(var(--mui-density-gap) * 0.9);
+  border: 1px solid var(--mui-color-border);
+  border-radius: calc(var(--mui-radius) * 0.7);
+  background: var(--mui-color-bg);
+  cursor: pointer;
+}
+
+.main-ui-shortcut-editor__import input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.main-ui-shortcut-editor__summary {
+  margin-left: auto;
+  color: var(--mui-color-text-muted);
+  font-size: 12px;
 }

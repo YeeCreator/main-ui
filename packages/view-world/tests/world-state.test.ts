@@ -56,4 +56,5 @@ describe('view-world world-state', () => {
     expect(parseCssColorToNumber('')).toBeNull();
     expect(parseCssColorToNumber('not-a-color')).toBeNull();
   });
+
 });

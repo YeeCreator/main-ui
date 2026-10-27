@@ -1,4 +1,5 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, provide, shallowRef, type PropType } from 'vue';
+import { createDomInputSource } from '@main-ui/core/input';
 import type { WorkbenchDocument } from '../../core';
 import { MainUiContextKey } from './context';
 import type { MainUiRuntime } from '../runtime';
@@ -16,6 +17,7 @@ export const MainUiProvider = defineComponent({
     let unsubscribe: (() => void) | undefined;
     let disposeKeyboardListener: (() => void) | undefined;
     let disposeThemeMediaListener: (() => void) | undefined;
+    let disposeInputSource: (() => void) | undefined;
 
     const dispatch = async (action: Parameters<MainUiRuntime['core']['dispatch']>[0]) => {
       const result = await props.runtime.core.dispatch(action);
@@ -53,17 +55,31 @@ export const MainUiProvider = defineComponent({
       }
       const onKeydown = (event: KeyboardEvent) => {
         const target = event.target as HTMLElement | null;
-        props.runtime.core.setFocusScope(target?.closest('[data-main-ui-scope]')?.getAttribute('data-main-ui-scope') ?? (target?.matches('input,textarea,select,[contenteditable="true"]') ? 'input' : 'workbench'));
-        void props.runtime.core.handleKeydown(event);
+        const scope =
+          target?.closest('[data-main-ui-scope]')?.getAttribute('data-main-ui-scope') ??
+          (target?.matches('input,textarea,select,[contenteditable="true"]') ? 'input' : 'workbench');
+        props.runtime.core.setFocusScope(scope);
+        // 输入框内是否仍匹配绑定，由绑定自己的 allowInInput 决定
+        props.runtime.core.input.setInInput(
+          Boolean(target?.matches('input,textarea,select,[contenteditable="true"]')),
+        );
       };
-      window.addEventListener('keydown', onKeydown);
-      disposeKeyboardListener = () => window.removeEventListener('keydown', onKeydown);
+      window.addEventListener('keydown', onKeydown, true);
+      disposeKeyboardListener = () => window.removeEventListener('keydown', onKeydown, true);
+
+      // DOM 输入源：按键 / 指针 / 滚轮 / Safari 手势统一归一为信号。
+      // 挂载点选 window：绑定可声明 scope 收窄生效范围，
+      // 因此不必在这里做元素级筛选。
+      disposeInputSource = createDomInputSource({ target: window }).start((signal) => {
+        props.runtime.core.feedInput(signal);
+      });
     });
 
     onBeforeUnmount(() => {
       unsubscribe?.();
       disposeKeyboardListener?.();
       disposeThemeMediaListener?.();
+      disposeInputSource?.();
     });
 
     return () => h('div', { class: 'main-ui-provider' }, slots.default?.());

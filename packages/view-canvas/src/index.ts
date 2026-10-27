@@ -15,16 +15,23 @@ export { ViewportCanvasShell, type ViewportCanvasShellProps } from './ViewportCa
 export { useViewportHostBridge } from './useViewportHostBridge';
 export {
   ZOOM_STEP,
-  WHEEL_ZOOM_SPEED,
   buildHostBridge,
   cameraTransformOf,
-  classifyWheel,
-  pinchZoomFactor,
-  wheelPanDelta,
   constrainScale,
   fitCamera,
   panCamera,
-  wheelZoomFactor,
-  type WheelGesture,
   zoomByFactor,
 } from './viewport-state';
+// 滚轮判型已上移到 @main-ui/core/input（唯一真相源）；此处再导出仅为
+// 不破坏既有 import 路径，新代码应直接从 `@main-ui/core/input` 引入。
+export {
+  WHEEL_ZOOM_SPEED,
+  PINCH_ZOOM_SPEED,
+  TRACKPAD_PAN_MAX_DELTA_Y,
+  classifyWheel,
+  pinchZoomFactor,
+  wheelPanDelta,
+  wheelZoomFactor,
+  type WheelGesture,
+  type WheelLike,
+} from '@main-ui/core/input';

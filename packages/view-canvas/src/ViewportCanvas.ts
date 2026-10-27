@@ -19,15 +19,14 @@ import {
   type ViewBox,
 } from '@main-ui/core/rendering';
 import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
+import { classifyWheel, wheelPanDelta } from '@main-ui/core/input';
 import type { ViewportCanvasExpose, ViewportContainerSize } from './types';
 import {
   ZOOM_STEP,
   cameraTransformOf,
-  classifyWheel,
   fitCamera,
   panCamera,
   pinchZoomFactor,
-  wheelPanDelta,
   wheelZoomFactor,
   zoomByFactor,
 } from './viewport-state';

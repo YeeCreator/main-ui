@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/view-canvas",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": false,
   "description": "main-ui 官方视图模板：DOM/SVG 2D 画布视口（相机 + 指针/滚轮交互 + 默认插槽暴露 cameraTransform）。用于「宿主自绘 DOM/SVG 内容」的场景，与 PixiJS 渲染的 @main-ui/view-world 互补；相机数学基于 @main-ui/core/rendering。取代已废弃的 viewport-2d-kit/vue。",
   "license": "MIT",
@@ -32,7 +32,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.6.0",
+    "@main-ui/core": "^0.7.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {

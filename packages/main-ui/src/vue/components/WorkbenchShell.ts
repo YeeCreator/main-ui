@@ -1,4 +1,5 @@
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, defineComponent, h, ref } from 'vue';
+import { draftFromText } from '@main-ui/core/input';
 import { useWorkbench } from '../composables/useWorkbench';
 import { ActivityBar } from './ActivityBar';
 import { FloatingWindowLayer } from './FloatingWindowLayer';
@@ -30,18 +31,49 @@ export const WorkbenchShell = defineComponent({
     sidebarWidth: { type: Number, default: null },
   },
   setup(props) {
-    const { document } = useWorkbench();
+    const { document, runtime } = useWorkbench();
     const themeClass = computed(() => `main-ui-theme--${document.value.theme.resolvedMode}`);
     const paletteOpen = ref(false);
     const quickOpen = ref(false);
-    const onKeydown = (event: KeyboardEvent) => {
-      const modifier = /Mac/i.test(navigator.platform) ? event.metaKey : event.ctrlKey;
-      if (!modifier || event.altKey) return;
-      if (event.shiftKey && event.key.toLowerCase() === 'p') { event.preventDefault(); paletteOpen.value = true; quickOpen.value = false; }
-      else if (!event.shiftKey && event.key.toLowerCase() === 'p') { event.preventDefault(); quickOpen.value = true; paletteOpen.value = false; }
+
+    /**
+     * 命令面板与 Quick Open 的开关命令。
+     *
+     * 这两个入口曾是写在组件里的硬编码 `⌘P` / `⌘⇧P`，绕过了绑定体系，
+     * 导致用户无法改键也无法在面板看到它们。改为命令 + 默认绑定后，
+     * 面板、菜单与快捷键看到的是同一个命令。
+     */
+    const COMMAND_PALETTE_ID = 'main-ui.commandPalette';
+    const QUICK_OPEN_ID = 'main-ui.quickOpen';
+
+    const openPalette = () => {
+      paletteOpen.value = true;
+      quickOpen.value = false;
     };
-    onMounted(() => window.addEventListener('keydown', onKeydown));
-    onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
+    const openQuickOpen = () => {
+      quickOpen.value = true;
+      paletteOpen.value = false;
+    };
+
+    if (!runtime.core.commands.get(COMMAND_PALETTE_ID)) {
+      runtime.core.registerCommand({ id: COMMAND_PALETTE_ID, title: '命令面板', category: '视图', run: openPalette });
+      runtime.core.registerCommand({ id: QUICK_OPEN_ID, title: '快速打开', category: '视图', run: openQuickOpen });
+
+      const paletteDraft = draftFromText('cmd+shift+press:KeyP');
+      runtime.core.input.registerDefault({
+        commandId: COMMAND_PALETTE_ID,
+        id: `default:${COMMAND_PALETTE_ID}:0`,
+        origin: 'default',
+        ...paletteDraft,
+      });
+      const quickDraft = draftFromText('cmd+press:KeyP');
+      runtime.core.input.registerDefault({
+        commandId: QUICK_OPEN_ID,
+        id: `default:${QUICK_OPEN_ID}:0`,
+        origin: 'default',
+        ...quickDraft,
+      });
+    }
 
     return () => h('div', { class: ['main-ui-shell', themeClass.value, props.activityBar ? null : 'main-ui-shell--no-activity-bar'], 'data-mui-theme': document.value.theme.resolvedMode, role: 'application', 'aria-label': 'main-ui workbench' }, [
       props.activityBar ? h(ActivityBar) : null,

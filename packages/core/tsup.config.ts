@@ -6,6 +6,7 @@ export default defineConfig({
     'rendering/index': 'src/rendering/index.ts',
     'primitives/index': 'src/primitives/index.ts',
     'environment/index': 'src/environment/index.ts',
+    'input/index': 'src/input/index.ts',
   },
   format: ['esm'],
   dts: true,

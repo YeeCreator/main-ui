@@ -7,10 +7,12 @@
  * - camera：相机数学纯函数（screenToWorld / worldToScreen / fit / pan / zoom / serialize）
  * - constraints：相机约束（缩放范围 + 平移边界）
  * - interactions：框架无关视口交互控制器
+ * - pointer-gesture：指针「轻点 / 拖拽」判别的唯一真相源
  * - pixiViewport：PixiJS WebGL 渲染内核（唯一 2D 渲染核心）
  */
 export * from './camera';
 export * from './constraints';
 export * from './interactions';
+export * from './pointer-gesture';
 export { installPreventPageZoom } from './preventPageZoom';
 export { PixiViewport, type PixiViewportOptions } from './pixiViewport';

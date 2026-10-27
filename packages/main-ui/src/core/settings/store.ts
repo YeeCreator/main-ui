@@ -77,6 +77,55 @@ export class SettingsStore {
 
   subscribe(listener: (change: SettingChange) => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   snapshotSnapshot(): SettingsSnapshot { return clone(this.snapshot); }
+
+  /**
+   * 读取原始设置值（不要求 schema 存在）。
+   *
+   * `get` 依赖 schema 才能给出 `defaultValue`，因此结构化设置
+   * （如快捷键覆盖）无法经 `get` 读取。它们也不需要 schema：
+   * 校验由各自的专用面板完成，设置中心的通用控件不编辑它们。
+   *
+   * @param id 设置 id。
+   * @param context 作用域。
+   * @returns 原始值；不存在时为 `undefined`。
+   */
+  getRaw(id: string, context: { workspaceId?: string; profileId?: string } = {}): JsonValue | undefined {
+    if (context.profileId) {
+      const profile = this.snapshot.profile[context.profileId];
+      if (profile && id in profile) return profile[id];
+    }
+    if (context.workspaceId) {
+      const workspace = this.snapshot.workspace[context.workspaceId];
+      if (workspace && id in workspace) return workspace[id];
+    }
+    return this.snapshot.user[id];
+  }
+
+  /**
+   * 写入原始设置值（跳过 schema 校验）。
+   *
+   * 仅给「自带界面的结构化设置」使用（如快捷键覆盖面板）。
+   * 普通设置项必须走 {@link set}，以便校验与可见性一致。
+   *
+   * @param id 设置 id。
+   * @param value 值。
+   * @param context 作用域。
+   */
+  setRaw(id: string, value: JsonValue, context: { scope?: SettingScope; workspaceId?: string; profileId?: string } = {}): void {
+    const scope = context.scope ?? 'user';
+    if (scope === 'profile') {
+      if (!context.profileId) return;
+      (this.snapshot.profile[context.profileId] ??= {})[id] = clone(value);
+      return;
+    }
+    if (scope === 'workspace') {
+      if (!context.workspaceId) return;
+      (this.snapshot.workspace[context.workspaceId] ??= {})[id] = clone(value);
+      return;
+    }
+    this.snapshot.user[id] = clone(value);
+  }
+
   private allowedScopes(schema?: SettingSchema): SettingScope[] { const scopes = schema?.scope ?? 'user'; return Array.isArray(scopes) ? scopes : [scopes]; }
   private migrate(snapshot: SettingsSnapshot): SettingsSnapshot { let next = clone(snapshot); while (next.version < 1) { const migration = this.migrations.get(next.version); if (!migration) break; next = migration(next); } return { version: 1, user: next.user ?? {}, workspace: next.workspace ?? {}, profile: next.profile ?? {} }; }
 }

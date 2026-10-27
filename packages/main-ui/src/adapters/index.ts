@@ -15,8 +15,3 @@ export type ContributionProvider<TContext = unknown> = {
 };
 
 export type IconResolver = (icon: string | undefined) => string | undefined;
-
-export type KeyboardShortcutAdapter = {
-  bind: (commandId: string, shortcut: string) => void;
-  unbind: (commandId: string) => void;
-};

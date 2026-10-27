@@ -13,5 +13,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: 'es2022',
-  external: ['vue'],
+  // `@main-ui/core` 必须外置：内联会让下游打两份副本，
+  // 造成 `instanceof` 失效、绑定对象互不相等这类难查缺陷。
+  external: ['vue', /^@main-ui\//],
 });

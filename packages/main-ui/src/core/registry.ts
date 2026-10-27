@@ -1,5 +1,4 @@
 import type { CommandDescriptor } from './command/types';
-import { KeybindingRegistry } from './command/keybindings';
 import type { EditorDescriptor } from './editor/types';
 import type { EditorKind } from './types';
 import type { WorkspaceDescriptor } from './workspace/types';
@@ -63,5 +62,3 @@ export class CommandRegistry {
     this.descriptors.clear();
   }
 }
-
-export { KeybindingRegistry };
