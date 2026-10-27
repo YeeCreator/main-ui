@@ -5,7 +5,15 @@
  * （汉字数千字无法预烘）。`troika-three-text` 正是这条路线：
  * 运行时用 `webgl-sdf-generator` 生成距离场，按需向图集追加字形。
  *
- * ## ⚠️ 三维档文字当前不可用（2026-10-27 实测确认，不是回归）
+ * ## 用途：**仅二维档（Pixi 后端）** —— 三维档改用 `text-sprite.ts`
+ *
+ * 三维档文字已改走**公告牌二维贴片**（Canvas 2D → 贴片 + 每帧对齐相机），
+ * 原因见 `text-sprite.ts` 文件头：贴片场景（血条、名字标签）不需要距离场的
+ * 矢量锐利，而节点材质的纹理采样在本后端的 WebGPU 路径下不可用。
+ *
+ * 本文件保留给**二维档**：那条路由 Pixi 消费 troika 的 GLSL 派生材质，工作正常。
+ *
+ * ## 历史记录：三维档曾不可用（2026-10-27）
  *
  * `troika-three-text` 把文字材质从 `MeshBasicMaterial` **派生 GLSL 着色器**
  * （`onBeforeCompile` 路线，片段里写 `gl_FragColor`）。本后端的渲染器是

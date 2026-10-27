@@ -36,7 +36,7 @@ import {
   positionsToLineGeometry,
 } from './geometry-factory';
 import { createWideLine, createWideSegments, wideLinesAvailable } from './wide-lines';
-import { createText } from './text-factory';
+import { createSpriteText, syncTextBillboard } from './text-sprite';
 import { LAYER_Z } from './units';
 
 /** 构建结果：根对象 + 显式销毁 + 线宽分辨率同步。 */
@@ -46,6 +46,11 @@ export interface BuiltScene {
   dispose(): void;
   /** 把画布像素尺寸同步给粗线材质（线宽按屏幕像素计算）。 */
   syncLineResolution(width: number, height: number): void;
+  /** `'axis'` 档贴片的每帧对齐（无该档贴片时是空操作）。 */
+  syncBillboards(
+    cameraPosition: { x: number; y: number; z: number },
+    cameraUp?: { x: number; y: number; z: number },
+  ): void;
 }
 
 /** 构建选项。 */
@@ -71,6 +76,13 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
   root.name = 'scene-root';
 
   const disposables: Array<{ dispose(): void }> = [];
+  /**
+   * 需要每帧对齐相机的贴片（`'full'` 与 `'axis'` 两档）。
+   *
+   * 传统 `MeshBasicMaterial` 没有 `Sprite` 的自动 billboard，故两档都要手动对齐；
+   * `'none'` 档不登记（朝向由调用方决定）。
+   */
+  const billboards: Array<import('three').Object3D> = [];
   const wideLines: Array<{ resolution?: { set(x: number, y: number): void } }> = [];
 
   // ---- 网格（场层）：粗线 + 可选交替填充面 ----
@@ -211,45 +223,73 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
     disposables.push(instanced.material);
   }
 
-  // ---- 文字（MSDF） ----
+  // ---- 文字（公告牌贴片） ----
+  //
+  // 设计 §十九 7：**三维档文字一律走公告牌二维贴片**（Canvas 2D → CanvasTexture
+  // → Sprite），不走 MSDF。理由见 `text-sprite.ts` 文件头：贴片场景（血条、
+  // 名字标签）不需要矢量锐利，且 `Sprite` 用 three 内置材质，彻底绕开
+  // 「TSL 材质在 WebGPU 下的图集采样」这个生态缺口（`text-tsl.ts` 有实测记录）。
+  //
+  // 二维档仍走 `text-factory` 的 MSDF —— 那条路由 Pixi 后端消费，不受影响。
   for (const text of plan.texts) {
-    // 非有限值守卫：字体未就绪 / 坐标 NaN 时直接跳过（不要挂进场景）。
+    // 非有限值守卫：坐标 NaN 时直接跳过（不要挂进场景）。
     if (![text.x, text.y, text.z, text.fontSize].every((v) => Number.isFinite(v)) || text.fontSize <= 0) continue;
-    const object = createText({
+    const label = createSpriteText({
       text: text.text,
       fontSize: text.fontSize,
       color: text.color,
-      position: { x: text.x, y: text.z, z: text.y },
+      // 计划里 y 是平面纵轴（与二维档同语义），三维里高度轴是 y：
+      // 平面 (x, y) → 世界 (x, 0, y)，与其它图元同处 XZ 地面。
+      position: { x: text.x, y: LAYER_Z.text, z: text.y },
       anchorX: text.anchorX,
       anchorY: text.anchorY,
+      billboard: text.billboard,
     });
 
-    // 文字与其它图元同在 XZ 地面：绕 X 轴 -90°。
-    // 旋转后局部 +X→世界 +X（阅读方向），局部 +Y→世界 -Z（字高方向朝屏幕上方）。
-    // 这与二维档「屏幕 Y 向下」的语义一致：俯视相机 up=(0,0,-1) 时，
-    // 世界 -Z 正好映射到屏幕上方，故字形正立可读。
-    //
-    // ⚠️ 历史缺陷（2026-10-27 实测）：早期也写了 -90°，但**同时**用了默认 up=(0,1,0)
-    // 之外的错误组合，导致字形侧向、画面上只剩一条细线。修改时要**同时**核对
-    // `cameraUpForPolar` 的 up 选择，二者必须成对成立。
-    object.rotation.x = -Math.PI / 2;
-    root.add(object);
+    // 贴片文字的锚点是「文字块中心」，而 `anchorX/anchorY` 已经在栅格化时按
+    // 居中绘制处理；此处只需把整体沿平面平移，使锚点落在 (x, y)。
+    const offsetX = (0.5 - (text.anchorX ?? 0.5)) * label.width;
+    const offsetY = (0.5 - (text.anchorY ?? 0.5)) * label.height;
+    label.object.position.x += offsetX;
+    label.object.position.z += offsetY;
+
+    // `'full'` 与 `'axis'` 都需要每帧对齐相机，登记下来由 syncBillboards 处理
+    if (label.billboard !== 'none') billboards.push(label.object);
+
+    root.add(label.object);
+    disposables.push({ dispose: label.dispose });
   }
 
   const syncLineResolution = (width: number, height: number): void => {
     for (const material of wideLines) material.resolution?.set(width, height);
   };
 
+  /**
+   * `'axis'` 档贴片的每帧对齐：只绕 Y 轴转向相机。
+   *
+   * `'full'` 档由 `Sprite` 内置 billboard 自动处理，不需要本函数；
+   * 只有存在 `'axis'` 贴片时才真正做事（数组为空则直接返回）。
+   */
+  const syncBillboards = (
+    cameraPosition: { x: number; y: number; z: number },
+    cameraUp: { x: number; y: number; z: number } = { x: 0, y: 1, z: 0 },
+  ): void => {
+    for (const object of billboards) syncTextBillboard(object, cameraPosition, cameraUp);
+  };
+
   return {
     root,
     dispose() {
       for (const item of disposables) item.dispose();
+      billboards.length = 0;
       // 文字与线段的几何/材质由 three 的 dispose 链路处理；这里清空引用即可。
       root.clear();
     },
     syncLineResolution,
+    syncBillboards,
   };
 }
+
 
 /** 建一个实例化网格（原型几何 + 逐实例矩阵）。 */
 function buildInstanced(

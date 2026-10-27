@@ -395,6 +395,13 @@ export class ThreeViewportBackend implements ViewportBackend {
   private renderOnce(): void {
     if (!this.renderer || !this.scene) return;
     const camera = this.currentPlan?.kind === 'perspective' ? this.perspCamera : this.orthoCamera;
+    // `'axis'` 档贴片必须在**每次渲染前**重新对齐相机 —— 放在这里而不是
+    // 相机变更回调里，是因为渲染可由「相机变、快照变、resize、手动 requestRender」
+    // 多条路径触发，而这里是唯一必经点（无 axis 贴片时是空操作）。
+    this.built?.syncBillboards(
+      { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+      { x: camera.up.x, y: camera.up.y, z: camera.up.z },
+    );
     this.renderer.render(this.scene, camera);
   }
 
