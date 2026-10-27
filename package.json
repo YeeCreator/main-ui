@@ -11,9 +11,9 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "pnpm --filter \"./packages/main-ui\" dev",
-    "build": "pnpm --filter \"./packages/main-ui\" build && pnpm --filter \"@main-ui/core\" build && pnpm --filter \"@main-ui/view-*\" build && pnpm --filter \"@main-ui/preset-views\" build",
-    "typecheck": "pnpm --filter \"./packages/main-ui\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" --filter \"@main-ui/preset-views\" typecheck",
-    "test": "pnpm --filter \"./packages/main-ui\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" test",
+    "build": "pnpm --filter \"./packages/main-ui\" build && pnpm --filter \"@main-ui/core\" build && pnpm --filter \"@main-ui/view-*\" build && pnpm --filter \"@main-ui/render-*\" build && pnpm --filter \"@main-ui/preset-views\" build",
+    "typecheck": "pnpm --filter \"./packages/main-ui\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" --filter \"@main-ui/render-*\" --filter \"@main-ui/preset-views\" typecheck",
+    "test": "pnpm --filter \"./packages/main-ui\" --filter \"@main-ui/core\" --filter \"@main-ui/view-*\" --filter \"@main-ui/render-*\" test",
     "demo:dev": "pnpm --filter main-ui-demo dev",
     "demo:build": "pnpm --filter main-ui-demo build",
     "test:e2e": "playwright test",
