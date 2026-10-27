@@ -28,16 +28,19 @@ function strColumn(batch: EntityBatch, key: string, index: number, fallback = ''
 /** 从 text 几何批次解析文字项。 */
 export function batchToTextItems(batch: EntityBatch): TextItem[] {
   const items: TextItem[] = [];
+  const hasZ = Boolean(batch.columns.z);
   for (let i = 0; i < batch.count; i++) {
     const text = strColumn(batch, 'text', i);
     if (!text) continue;
-    items.push({
+    const item: TextItem = {
       x: numColumn(batch, 'x', i),
       y: numColumn(batch, 'y', i),
       text,
       fontSize: batch.columns.fontSize ? numColumn(batch, 'fontSize', i, 32) : 32,
       color: batch.columns.color ? numColumn(batch, 'color', i, 0x000000) : 0x000000,
-    });
+    };
+    if (hasZ) item.z = numColumn(batch, 'z', i);
+    items.push(item);
   }
   return items;
 }
@@ -45,8 +48,10 @@ export function batchToTextItems(batch: EntityBatch): TextItem[] {
 /** 从 sprite/point 几何批次解析精灵项。 */
 export function batchToSpriteItems(batch: EntityBatch): SpriteItem[] {
   const items: SpriteItem[] = [];
+  const hasZ = Boolean(batch.columns.z);
+  const hasExtrude = Boolean(batch.columns.extrude);
   for (let i = 0; i < batch.count; i++) {
-    items.push({
+    const item: SpriteItem = {
       x: numColumn(batch, 'x', i),
       y: numColumn(batch, 'y', i),
       width: batch.columns.width ? numColumn(batch, 'width', i, 32) : 32,
@@ -54,7 +59,10 @@ export function batchToSpriteItems(batch: EntityBatch): SpriteItem[] {
       color: batch.columns.color ? numColumn(batch, 'color', i, 0x888888) : 0x888888,
       texture: batch.columns.texture ? strColumn(batch, 'texture', i) || undefined : undefined,
       shape: batch.geometry === 'point' ? 'circle' : (strColumn(batch, 'shape', i, 'rect') as 'circle' | 'rect'),
-    });
+    };
+    if (hasZ) item.z = numColumn(batch, 'z', i);
+    if (hasExtrude) item.extrude = numColumn(batch, 'extrude', i);
+    items.push(item);
   }
   return items;
 }
@@ -63,17 +71,22 @@ export function batchToSpriteItems(batch: EntityBatch): SpriteItem[] {
 export function batchToPolygonItems(batch: EntityBatch): PolygonItem[] {
   const items: PolygonItem[] = [];
   const pointsCol = batch.columns.points;
+  const hasZ = Boolean(batch.columns.z);
+  const hasExtrude = Boolean(batch.columns.extrude);
   for (let i = 0; i < batch.count; i++) {
     const raw = pointsCol ? pointsCol[i] : undefined;
     const points = normalizePoints(raw);
     if (points.length < 2) continue;
-    items.push({
+    const item: PolygonItem = {
       points,
       fill: batch.columns.fill ? numColumn(batch, 'fill', i) : undefined,
       fillAlpha: batch.columns.fillAlpha ? numColumn(batch, 'fillAlpha', i, 1) : undefined,
       stroke: batch.columns.stroke ? numColumn(batch, 'stroke', i) : undefined,
       strokeWidth: batch.columns.strokeWidth ? numColumn(batch, 'strokeWidth', i, 1) : 1,
-    });
+    };
+    if (hasZ) item.z = numColumn(batch, 'z', i);
+    if (hasExtrude) item.extrude = numColumn(batch, 'extrude', i);
+    items.push(item);
   }
   return items;
 }
@@ -82,11 +95,12 @@ export function batchToPolygonItems(batch: EntityBatch): PolygonItem[] {
 export function batchToPolylineItems(batch: EntityBatch): PolylineItem[] {
   const items: PolylineItem[] = [];
   const pointsCol = batch.columns.points;
+  const hasZ = Boolean(batch.columns.z);
   for (let i = 0; i < batch.count; i++) {
     const raw = pointsCol ? pointsCol[i] : undefined;
     const points = normalizePoints(raw);
     if (points.length < 2) continue;
-    items.push({
+    const item: PolylineItem = {
       points,
       stroke: batch.columns.stroke ? numColumn(batch, 'stroke', i) : undefined,
       strokeWidth: batch.columns.strokeWidth ? numColumn(batch, 'strokeWidth', i, 1) : 1,
@@ -95,7 +109,9 @@ export function batchToPolylineItems(batch: EntityBatch): PolylineItem[] {
       vertexColor: batch.columns.vertexColor ? numColumn(batch, 'vertexColor', i) : undefined,
       fill: batch.columns.fill ? numColumn(batch, 'fill', i) : undefined,
       fillAlpha: batch.columns.fillAlpha ? numColumn(batch, 'fillAlpha', i, 1) : undefined,
-    });
+    };
+    if (hasZ) item.z = numColumn(batch, 'z', i);
+    items.push(item);
   }
   return items;
 }

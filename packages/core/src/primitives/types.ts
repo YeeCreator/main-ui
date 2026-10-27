@@ -16,11 +16,18 @@ export interface WorldBounds {
   height: number;
 }
 
+/** 视图维度。数据契约的合法取值，不是过渡状态。 */
+export type SnapshotDimensions = 2 | 3;
+
 /**
  * 列式实体批次（SoA）：一个批次内的所有实体共享同一种几何与列结构。
  *
  * `columns` 中每列是一个只读数组，长度应等于 `count`；常见列名：
- * `x` / `y`（世界坐标）、`text`（文字图元）、`color`（数值色）、`texture`（精灵纹理键）等。
+ * `x` / `y` / `z`（世界坐标，`z` 可选且缺省 0）、`text`（文字图元）、
+ * `color`（数值色）、`texture`（精灵纹理键）等。
+ *
+ * **升维约定**：`z` 列与 `extrude` 列均为**可选列**，缺省 0。二维后端忽略二者，
+ * 因此带 `z` 的快照在二维后端下的渲染结果与不带 `z` 逐像素一致。
  */
 export interface EntityBatch {
   kind: string;
@@ -39,6 +46,13 @@ export interface EntitySnapshot {
   batches: Record<string, EntityBatch>;
   /** 可选帧号（用于回放/时间线）。 */
   tick?: number;
+  /**
+   * 视图维度（可选，缺省 2）。
+   *
+   * 这是**数据契约的合法取值**，不是过渡状态：同一份快照在二维后端按正交俯视渲染，
+   * 在三维后端可带 `z` 与 `extrude` 呈现深度。二维后端忽略此字段。
+   */
+  dimensions?: SnapshotDimensions;
 }
 
 /** 数值色（0xRRGGBB）。 */
@@ -72,6 +86,8 @@ export interface TextItem {
   /** 锚点：0=左/上，0.5=居中，1=右/下。默认居中。 */
   anchorX?: number;
   anchorY?: number;
+  /** 深度（可选，缺省 0；二维后端忽略）。 */
+  z?: number;
 }
 
 /** 精灵/点图元项（世界坐标）。 */
@@ -85,6 +101,10 @@ export interface SpriteItem {
   texture?: string;
   /** 占位形状（无纹理时）。默认 'circle'。 */
   shape?: 'circle' | 'rect';
+  /** 深度（可选，缺省 0；二维后端忽略）。 */
+  z?: number;
+  /** 挤出厚度（可选，缺省 0 = 无厚度；二维后端忽略）。 */
+  extrude?: number;
 }
 
 /**
@@ -111,6 +131,8 @@ export interface PolylineItem {
   fill?: Color;
   /** 填充透明度 0..1。 */
   fillAlpha?: number;
+  /** 深度（可选，缺省 0；二维后端忽略）。 */
+  z?: number;
 }
 
 /** 多边形/路径图元项（世界坐标）。 */
@@ -121,4 +143,8 @@ export interface PolygonItem {
   stroke?: Color;
   strokeWidth?: number;
   closed?: boolean;
+  /** 深度（可选，缺省 0；二维后端忽略）。 */
+  z?: number;
+  /** 挤出厚度（可选，缺省 0 = 无厚度；二维后端忽略）。 */
+  extrude?: number;
 }

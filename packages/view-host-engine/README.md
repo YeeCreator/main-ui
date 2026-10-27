@@ -17,7 +17,7 @@ pnpm add @main-ui/view-host-engine main-ui vue
 ```ts
 import { HostEngineView, type ExternalEngineApi } from '@main-ui/view-host-engine'
 
-// 宿主实现引擎适配（示例：pixi / 自研引擎 / Unity WebGL）
+// 宿主实现引擎适配（示例：pixi / 自研 JS 引擎 / Babylon（纯渲染外接档））
 const engine: ExternalEngineApi = {
   mount: (container) => myEngine.attach(container),
   onResize: (w, h) => myEngine.resize(w, h),

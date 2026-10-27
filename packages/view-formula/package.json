@@ -31,13 +31,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
-  "dependencies": {
-    "katex": "^0.16.27"
-  },
   "peerDependencies": {
     "@main-ui/core": "^0.7.0",
     "main-ui": "^0.8.0",
-    "vue": "^3.5.0"
+    "vue": "^3.5.0",
+    "katex": "^0.16.27"
   },
   "devDependencies": {
     "@main-ui/core": "workspace:*",
@@ -46,6 +44,12 @@
     "tsup": "^8.5.1",
     "typescript": "~5.7.2",
     "vitest": "^3.2.4",
-    "vue": "^3.5.0"
+    "vue": "^3.5.0",
+    "katex": "^0.16.27"
+  },
+  "peerDependenciesMeta": {
+    "katex": {
+      "optional": false
+    }
   }
 }

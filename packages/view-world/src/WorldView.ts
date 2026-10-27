@@ -1,44 +1,46 @@
 /**
- * WorldView —— MUI 的 L1 中级游戏引擎层视图模板（2D 世界可视化）。
+ * WorldView —— MUI 的 L1 中级游戏引擎层视图模板（世界可视化，**后端无关**）。
  *
  * 双模式：
- * 1. 自动渲染：给 `snapshot`（EntitySnapshot）+ 可选 `grid`，自动渲染图元（Grid/Sprite/Text/Polygon）。
- * 2. 手动模式：`@ready` 逃生舱，宿主拿到 world 容器后自行 addChild 任意 PixiJS 对象（取代旧 view-2d）。
+ * 1. 自动渲染：给 `snapshot`（EntitySnapshot）+ 可选 `grid`，交后端渲染图元。
+ * 2. 手动模式：`@ready` 逃生舱，宿主拿最小句柄（尺寸 / 根对象 / requestRender）自行绘制。
  *
- * InteractionLayer：覆盖层捕获指针/滚轮，经相机换算 screen→world，抛出 world/cell 命中意图。
- * 内核用 @main-ui/core/rendering 的 PixiViewport（PixiJS WebGL，唯一 2D 渲染核心）。
+ * 后端（设计 §十九 2–3）：
+ * - 二维档 = Pixi 后端（`@main-ui/core/rendering` 的 `PixiViewportBackend`，缺省）。
+ * - 三维档 = `@main-ui/render-3d`（由宿主经 `backends` prop 或全局注册表注入）。
+ * 模板本身**不 import 任何渲染库**，只依赖 `ViewportBackend` 接口。
+ *
+ * 切档纪律（§十九 9）：单模板单实例，`dimension` 变化时只换后端（组件实例不销毁），
+ * 相机经统一表示（`camera-bridge`）连续传递，`getViewState` 往返一致。
+ *
+ * InteractionLayer：覆盖层捕获指针/滚轮，经后端换算 screen→world，抛出 world/cell 命中意图。
  *
  * 视图状态纪律（对齐 F-3 教训）：getViewState 只返回普通值（全新对象），绝不返回响应式 Proxy。
  */
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type CSSProperties, type PropType } from 'vue';
-import { Container } from 'pixi.js';
 import { useViewLifecycle } from 'main-ui/vue';
 import type { MainUiViewLifecycle } from 'main-ui/core';
 import {
-  PixiViewport,
+  PixiViewportBackend,
   classifyWheelIntent,
   createPointerGestureTracker,
+  defaultBackendRegistry,
+  defaultDpr,
+  panBy,
   resolveTapTolerance,
   rotateAtScreenPoint,
   wheelPanDelta,
+  zoomAtScreenPoint,
+  type BackendDimension,
   type Camera2D,
   type Vec2,
   type ViewBox,
+  type ViewportBackend,
+  type ViewportBackendFactory,
   type WheelMode,
 } from '@main-ui/core/rendering';
 import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
-import {
-  createGrid,
-  createPolygonLayer,
-  createPolylineLayer,
-  createSpriteLayer,
-  createTextLayer,
-  hitTestGrid,
-  snapshotToItems,
-  type EntitySnapshot,
-  type GridSpec,
-  type TextureResolver,
-} from '@main-ui/core/primitives';
+import type { EntitySnapshot, GridSpec, TextureResolver } from '@main-ui/core/primitives';
 import {
   DEFAULT_WORLD_VIEWBOX,
   type WorldCameraState,
@@ -52,6 +54,11 @@ import {
 import { buildWorldViewState, parseCssColorToNumber, sanitizeCameraState, toCamera2D } from './world-state';
 
 const DEFAULT_ROTATE_STEP_RAD = Math.PI / 12;
+
+/** 二维档后端键（设置持久化与诊断的稳定键）。 */
+export const PIXI_BACKEND_KEY = 'pixi-2d';
+/** 三维档缺省后端键（`@main-ui/render-3d` 注册时使用同一键）。 */
+export const THREE_BACKEND_KEY = 'three-3d';
 
 export const WorldView = defineComponent({
   name: 'WorldView',
@@ -97,6 +104,17 @@ export const WorldView = defineComponent({
     tapTolerancePx: { type: Number as PropType<number | null>, default: null },
     /** 键盘旋转步长（弧度）：供宿主自行绑定快捷键时复用默认步长。 */
     rotateStep: { type: Number, default: DEFAULT_ROTATE_STEP_RAD },
+    /**
+     * 视图维度：`2`（缺省）= 二维档，`3` = 三维档。
+     *
+     * 后端由 `backends`（或全局注册表）解析；三维档未装三维后端时**降级走二维后端**
+     * 并抛 `backend-change`（`ok:false` / `reason:'backend-missing'`），不抛异常、不空白。
+     */
+    dimension: { type: Number as PropType<BackendDimension>, default: 2 },
+    /** 宿主自定义后端集合（键 → 工厂）；缺省读全局注册表 + 内置 Pixi。 */
+    backends: { type: Object as PropType<Record<string, ViewportBackendFactory> | null>, default: null },
+    /** 指定后端键（优先级高于 `dimension` 推导）；缺省按 `dimension` 解析。 */
+    backendKey: { type: String as PropType<string | null>, default: null },
     loading: { type: Boolean, default: false },
     error: { type: String as PropType<string | null>, default: null },
     editorInstanceId: { type: String, default: null },
@@ -105,13 +123,14 @@ export const WorldView = defineComponent({
     'ready', 'camera-change',
     'world-pointerdown', 'world-pointerup', 'world-click', 'world-contextmenu',
     'cell-pointerdown', 'cell-click', 'cell-contextmenu',
+    'backend-change',
   ],
   setup(props, { emit }) {
     const containerRef = ref<HTMLElement | null>(null);
     const overlayRef = ref<HTMLElement | null>(null);
     const pendingCamera = ref<WorldCameraState | null>(null);
-    let viewport: PixiViewport | null = null;
-    let sceneLayer: Container | null = null;
+    let backend: ViewportBackend | null = null;
+    let activeBackendKey: string | null = null;
     let destroyed = false;
 
     /** 内置手势隔离开关：显式 prop 优先，缺省取自环境 ShellPolicy（浏览器/Electron 统一口径）。 */
@@ -151,28 +170,69 @@ export const WorldView = defineComponent({
       return 0xffffff;
     });
 
-    // ---------- 自动渲染 ----------
-    const destroySceneChildren = (): void => {
-      if (!sceneLayer) return;
-      const removed = sceneLayer.removeChildren();
-      for (const child of removed) child.destroy({ children: true });
+    // ---------- 后端解析 ----------
+    /**
+     * 解析目标后端工厂。
+     *
+     * 优先级：显式 `backendKey` → `backends`/注册表按 `dimension` 找 → 内置 Pixi（二维）。
+     * 三维档找不到三维后端时**降级二维**并抛 `backend-change`（不空白、不抛错）。
+     */
+    const builtinPixiFactory: ViewportBackendFactory = () =>
+      new PixiViewportBackend({ textureResolver: props.textureResolver ?? undefined, antialias: props.antialias });
+
+    const lookupFactory = (key: string): ViewportBackendFactory | null => {
+      if (props.backends && props.backends[key]) return props.backends[key];
+      const registered = defaultBackendRegistry.get(key);
+      if (registered) return registered.factory;
+      if (key === PIXI_BACKEND_KEY) return builtinPixiFactory;
+      return null;
     };
 
-    const renderScene = (): void => {
-      if (!sceneLayer) return;
-      destroySceneChildren();
+    /** 收集可用后端条目（props.backends 覆盖注册表；内置 Pixi 始终兜底）。 */
+    const collectEntries = (): Array<{
+      key: string;
+      factory: ViewportBackendFactory;
+      dimensions: readonly BackendDimension[];
+    }> => {
+      const out = new Map<string, { key: string; factory: ViewportBackendFactory; dimensions: readonly BackendDimension[] }>();
+      for (const entry of defaultBackendRegistry.list()) {
+        out.set(entry.key, { key: entry.key, factory: entry.factory, dimensions: entry.capabilities.dimensions });
+      }
+      if (props.backends) {
+        for (const [key, factory] of Object.entries(props.backends)) {
+          const existing = defaultBackendRegistry.get(key);
+          out.set(key, {
+            key,
+            factory,
+            // 宿主自建后端未必在注册表里：按键名推断维度（`*3d*` = [2,3]，否则 [2]）
+            dimensions: existing?.capabilities.dimensions ?? (key.includes('3d') ? [2, 3] : [2]),
+          });
+        }
+      }
+      if (!out.has(PIXI_BACKEND_KEY)) {
+        out.set(PIXI_BACKEND_KEY, { key: PIXI_BACKEND_KEY, factory: builtinPixiFactory, dimensions: [2] });
+      }
+      return Array.from(out.values());
+    };
 
-      if (props.grid) {
-        sceneLayer.addChild(createGrid(props.grid));
+    const resolveBackendFactory = (): { key: string; factory: ViewportBackendFactory } => {
+      if (props.backendKey) {
+        const factory = lookupFactory(props.backendKey);
+        if (factory) return { key: props.backendKey, factory };
+        return { key: PIXI_BACKEND_KEY, factory: builtinPixiFactory };
       }
-      if (props.snapshot) {
-        const items = snapshotToItems(props.snapshot);
-        // 层序：多边形（底）→ 精灵 → 文字（顶）
-        if (items.polygons.length) sceneLayer.addChild(createPolygonLayer(items.polygons));
-        if (items.polylines.length) sceneLayer.addChild(createPolylineLayer(items.polylines));
-        if (items.sprites.length) sceneLayer.addChild(createSpriteLayer(items.sprites, props.textureResolver ?? undefined));
-        if (items.texts.length) sceneLayer.addChild(createTextLayer(items.texts));
+
+      if (props.dimension === 3) {
+        const preferred = lookupFactory(THREE_BACKEND_KEY);
+        if (preferred) return { key: THREE_BACKEND_KEY, factory: preferred };
+        // 退化：找任一声明支持 3 的已注册后端（宿主可能用别的键注册）
+        const candidate = collectEntries().find((entry) => entry.dimensions.includes(3));
+        if (candidate) return { key: candidate.key, factory: candidate.factory };
+        return { key: PIXI_BACKEND_KEY, factory: builtinPixiFactory };
       }
+
+      const twoD = lookupFactory(PIXI_BACKEND_KEY);
+      return twoD ? { key: PIXI_BACKEND_KEY, factory: twoD } : { key: PIXI_BACKEND_KEY, factory: builtinPixiFactory };
     };
 
     // ---------- 相机同步 ----------
@@ -185,22 +245,22 @@ export const WorldView = defineComponent({
     // ---------- InteractionLayer ----------
     const toLocal = (event: PointerEvent | WheelEvent): Vec2 | null => {
       const el = overlayRef.value;
-      if (!el || !viewport) return null;
+      if (!el || !backend) return null;
       const rect = el.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
 
     const cellPayload = (screen: Vec2): WorldCellPayload | null => {
-      if (!viewport || !props.grid) return null;
-      const world = viewport.screenToWorld(screen);
-      const hit = hitTestGrid(world.x, world.y, props.grid);
+      if (!backend || !props.grid) return null;
+      const world = backend.screenToWorld(screen);
+      const hit = backend.pickCell(screen);
       if (!hit) return null;
       return { world, screen, col: hit.col, row: hit.row };
     };
 
     const worldPayload = (screen: Vec2, event?: PointerEvent | WheelEvent | MouseEvent): WorldPointerPayload | null => {
-      if (!viewport) return null;
-      const world = viewport.screenToWorld(screen);
+      if (!backend) return null;
+      const world = backend.screenToWorld(screen);
       const payload: WorldPointerPayload = { world, screen };
       if (event) {
         payload.button = (event as PointerEvent).button;
@@ -253,7 +313,7 @@ export const WorldView = defineComponent({
     };
 
     const onPointerDown = (event: PointerEvent): void => {
-      if (!props.interactive || !viewport) return;
+      if (!props.interactive || !backend) return;
       const local = toLocal(event);
       if (!local) return;
 
@@ -280,7 +340,7 @@ export const WorldView = defineComponent({
     };
 
     const onPointerMove = (event: PointerEvent): void => {
-      if (!viewport) return;
+      if (!backend) return;
 
       // 双指旋转优先（rotateOnGesture）：两指都存在时仅做旋转，不触发平移。
       if (props.rotateOnGesture && rotate.active && rotate.bId !== -1 && (event.pointerId === rotate.aId || event.pointerId === rotate.bId)) {
@@ -294,7 +354,7 @@ export const WorldView = defineComponent({
           rotate.lastAngle = angle;
           if (delta !== 0) {
             const anchor = { x: (rotate.ax + rotate.bx) / 2, y: (rotate.ay + rotate.by) / 2 };
-            viewport.setCamera(rotateAtScreenPoint(viewport.getCamera(), { deltaAngle: delta, anchorScreen: anchor }));
+            backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: delta, anchorScreen: anchor }));
           }
         }
         return;
@@ -310,12 +370,12 @@ export const WorldView = defineComponent({
       gesture.move({ x: event.clientX, y: event.clientY }, tapTolerance.value);
 
       if (!props.panOnDrag || drag.button !== 0) return;
-      if (dx !== 0 || dy !== 0) viewport.panBy({ x: dx, y: dy });
+      if (dx !== 0 || dy !== 0) backend.setCamera(panBy(backend.getCamera(), { x: dx, y: dy }));
     };
 
     const onPointerUp = (event: PointerEvent): void => {
       releaseRotatePointer(event.pointerId);
-      if (drag.pointerId !== event.pointerId || !viewport) return;
+      if (drag.pointerId !== event.pointerId || !backend) return;
       const wasClick = gesture.up({ x: event.clientX, y: event.clientY }, tapTolerance.value) === 'tap';
       drag.active = false;
       drag.pointerId = -1;
@@ -353,7 +413,7 @@ export const WorldView = defineComponent({
     };
 
     const onWheel = (event: WheelEvent): void => {
-      if (!props.interactive || !viewport) return;
+      if (!props.interactive || !backend) return;
       const local = toLocal(event);
       if (!local) return;
       event.preventDefault();
@@ -364,10 +424,11 @@ export const WorldView = defineComponent({
       const intent = classifyWheelIntent(event, mode);
       if (intent === 'zoom') {
         const factor = Math.exp(-event.deltaY * 0.0016);
-        viewport.zoomAtScreenPoint(factor, local);
+        // 以锚点为中心缩放：用 core 的纯函数算新相机（喷点世界坐标保持不动）。
+        backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor, anchorScreen: local }));
       } else {
         const delta = wheelPanDelta(event, 1);
-        if (delta.x !== 0 || delta.y !== 0) viewport.panBy(delta);
+        if (delta.x !== 0 || delta.y !== 0) backend.setCamera(panBy(backend.getCamera(), delta));
       }
     };
 
@@ -376,22 +437,116 @@ export const WorldView = defineComponent({
       if (gestureGuard.value) event.preventDefault();
     };
 
+    // ---------- 后端生命周期 ----------
+    /** 最小句柄（后端无关）：尺寸 / 世界根对象 / 请求重绘。 */
+    const buildReadyApi = (): WorldReadyApi => ({
+      getSize: () => backend?.getHandle().getSize() ?? { width: 0, height: 0 },
+      getRootObject: () => backend?.getHandle().getRootObject() ?? null,
+      requestRender: () => backend?.requestRender(),
+      screenToWorld: (point: Vec2) => backend?.screenToWorld(point) ?? point,
+      worldToScreen: (point: Vec2) => backend?.worldToScreen(point) ?? point,
+      fitToBounds: (vb?: ViewBox) => backend?.fitToBounds(vb),
+      getCamera: () => backend?.getCamera() ?? { scale: 1, pan: { x: 0, y: 0 } },
+      setCamera: (camera: Camera2D) => backend?.setCamera(camera),
+      rotateAtScreenPoint: (deltaAngle: number, anchorScreen: Vec2) => {
+        if (!backend) return;
+        backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle, anchorScreen }));
+      },
+      getBackend: () => backend,
+    });
+
+    /** 销毁当前后端（幂等）。 */
+    const teardownBackend = (): void => {
+      if (!backend) return;
+      backend.unmount();
+      backend = null;
+      activeBackendKey = null;
+    };
+
+    /**
+     * 装配指定后端：挂载 → 订阅相机 → 喂快照 → 回放相机 → 抛事件。
+     *
+     * 相机连续：换后端前先取旧后端的相机（`Camera2D` 是统一表示），挂载后写回新后端，
+     * 因此二维↔三维切换画面不跳变（设计 §十九 9）。
+     */
+    const mountBackend = async (key: string, factory: ViewportBackendFactory, emitReadyEvent: boolean): Promise<void> => {
+      const el = containerRef.value;
+      if (!el) return;
+
+      const previousCamera = backend?.getCamera() ?? null;
+      teardownBackend();
+
+      const next = factory();
+      backend = next;
+      activeBackendKey = key;
+
+      try {
+        await next.mount(el, {
+          viewBox: resolvedViewBox.value,
+          minScale: props.minScale,
+          maxScale: props.maxScale,
+          paddingPx: props.paddingPx,
+          background: resolvedBackground.value,
+          devicePixelRatio: defaultDpr(),
+        });
+      } catch (error) {
+        // 初始化失败：不留半挂载状态，交上层兜底（模板不抛异常，避免整屏崩）。
+        backend = null;
+        activeBackendKey = null;
+        emit('backend-change', {
+          key, ok: false, error: error instanceof Error ? error.message : String(error),
+        });
+        return;
+      }
+      if (destroyed) {
+        next.unmount();
+        backend = null;
+        return;
+      }
+
+      next.onCameraChange(emitCamera);
+      next.applySnapshot({ snapshot: props.snapshot, grid: props.grid });
+
+      const restore = previousCamera ?? (pendingCamera.value ? toCamera2D(pendingCamera.value) : null);
+      if (restore) next.setCamera(restore);
+      pendingCamera.value = null;
+
+      emit('backend-change', { key, ok: true, capabilities: next.capabilities });
+      if (emitReadyEvent) emit('ready', buildReadyApi());
+    };
+
+    /** 按当前 props 解析并（重新）装配后端。 */
+    const syncBackend = async (emitReadyEvent: boolean): Promise<void> => {
+      const { key, factory } = resolveBackendFactory();
+
+      if (props.dimension === 3 && key === PIXI_BACKEND_KEY) {
+        // 三维档但无三维后端：降级二维并如实告知（不空白、不报错）
+        emit('backend-change', { key, ok: false, reason: 'backend-missing', requestedDimension: 3 });
+      }
+
+      if (backend && activeBackendKey === key && !emitReadyEvent) {
+        // 同键已挂载：只重喂快照（避免切换时无谓重建渲染器）
+        backend.applySnapshot({ snapshot: props.snapshot, grid: props.grid });
+        return;
+      }
+      await mountBackend(key, factory, emitReadyEvent);
+    };
+
     // ---------- 视图生命周期契约（四成员，onDestroy 幂等；相机进快照，纯值） ----------
     const lifecycle: MainUiViewLifecycle = {
       viewType: 'view-world',
-      getViewState: () => buildWorldViewState(viewport?.getCamera() ?? (pendingCamera.value ? toCamera2D(pendingCamera.value) : null)),
+      getViewState: () => buildWorldViewState(backend?.getCamera() ?? (pendingCamera.value ? toCamera2D(pendingCamera.value) : null)),
       restoreViewState: (state) => {
         if (destroyed) return;
         const snapshot = state as Partial<{ camera: unknown }>;
         const camera = sanitizeCameraState(snapshot.camera);
         if (!camera) return;
-        if (viewport) viewport.setCamera(toCamera2D(camera));
-        else pendingCamera.value = camera; // pixi 异步初始化，就绪后回放
+        if (backend) backend.setCamera(toCamera2D(camera));
+        else pendingCamera.value = camera; // 后端异步初始化，就绪后回放
       },
       onDestroy: () => {
         destroyed = true;
-        viewport = null;
-        sceneLayer = null;
+        teardownBackend();
         pendingCamera.value = null;
       },
     };
@@ -401,71 +556,35 @@ export const WorldView = defineComponent({
 
     // ---------- 挂载 ----------
     onMounted(async () => {
-      const el = containerRef.value;
-      if (!el) return;
-
-      viewport = new PixiViewport(el, {
-        viewBox: resolvedViewBox.value,
-        minScale: props.minScale,
-        maxScale: props.maxScale,
-        paddingPx: props.paddingPx,
-        background: resolvedBackground.value,
-        antialias: props.antialias,
-        // 相机由 InteractionLayer 驱动；禁用内核自带的 canvas 拖拽平移，避免双重处理。
-        disablePan: true,
-      });
-      viewport.onCameraChange(emitCamera);
-      await viewport.init();
-      if (destroyed) {
-        viewport.destroy();
-        viewport = null;
-        return;
-      }
-
-      sceneLayer = new Container();
-      sceneLayer.label = 'scene';
-      viewport.world.addChild(sceneLayer);
-      renderScene();
-
-      if (pendingCamera.value) {
-        viewport.setCamera(toCamera2D(pendingCamera.value));
-        pendingCamera.value = null;
-      }
-
-      const api: WorldReadyApi = {
-        world: viewport.world,
-        screenToWorld: (point: Vec2) => (viewport ? viewport.screenToWorld(point) : point),
-        worldToScreen: (point: Vec2) => (viewport ? viewport.worldToScreen(point) : point),
-        fitToBounds: (vb?: ViewBox) => viewport?.fitToBounds(vb),
-        getCamera: () => viewport?.getCamera() ?? { scale: 1, pan: { x: 0, y: 0 } },
-        setCamera: (camera: Camera2D) => viewport?.setCamera(camera),
-        rotateAtScreenPoint: (deltaAngle: number, anchorScreen: Vec2) => {
-          if (!viewport) return;
-          viewport.setCamera(rotateAtScreenPoint(viewport.getCamera(), { deltaAngle, anchorScreen }));
-        },
-        getSize: () => viewport?.getSize() ?? { width: 0, height: 0 },
-      };
-      emit('ready', api);
+      if (!containerRef.value) return;
+      await syncBackend(true);
     });
 
     // ---------- 响应式 ----------
-    watch([() => props.snapshot, () => props.grid, () => props.textureResolver], () => {
-      renderScene();
+    watch([() => props.snapshot, () => props.grid], () => {
+      backend?.applySnapshot({ snapshot: props.snapshot, grid: props.grid });
     }, { deep: true });
 
     watch(resolvedViewBox, (next) => {
-      viewport?.setViewBox(next);
+      backend?.setViewBox(next);
     }, { deep: true });
 
+    // 维度 / 后端键变化：换后端（组件实例不销毁，相机经统一表示连续传递）
+    watch(
+      [() => props.dimension, () => props.backendKey],
+      () => {
+        if (destroyed) return;
+        void syncBackend(false);
+      },
+    );
+
     watch(() => props.background, () => {
-      // 背景色在 init 时确定；运行期切换重建内核成本过高，暂不热更（记录意图即可）。
+      // 背景色在 mount 时确定；运行期切换重建渲染器成本过高，暂不热更。
     });
 
     onBeforeUnmount(() => {
       destroyed = true;
-      viewport?.destroy();
-      viewport = null;
-      sceneLayer = null;
+      teardownBackend();
     });
 
     // ---------- 渲染 ----------
@@ -491,7 +610,7 @@ export const WorldView = defineComponent({
       if (props.error) {
         return h('div', { class: 'main-ui-view-world', style: { ...rootStyle, display: 'grid', placeItems: 'center', color: 'var(--mui-color-danger)' } }, props.error);
       }
-      return h('div', { class: 'main-ui-view-world', style: rootStyle }, [
+      return h('div', { class: 'main-ui-view-world', style: rootStyle, 'data-world-dimension': String(props.dimension) }, [
         h('div', { ref: containerRef, class: 'main-ui-view-world__canvas', style: layerStyle }),
         h('div', {
           ref: overlayRef,

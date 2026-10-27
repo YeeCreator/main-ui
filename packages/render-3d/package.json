@@ -1,0 +1,56 @@
+{
+  "name": "@main-ui/render-3d",
+  "version": "0.1.0",
+  "private": false,
+  "description": "main-ui 渲染后端：三维世界视口（three.js，WebGPURenderer + TSL）。实现 @main-ui/core/rendering 的 ViewportBackend，含二维档预设六条。命名 lane 判据：render-* 无 editorKind、不可注册为编辑器、只被视图模板解析。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/render-3d"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@main-ui/core": "^0.7.0",
+    "three": "^0.186.0",
+    "troika-three-text": "^0.52.5"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": false
+    },
+    "troika-three-text": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@main-ui/core": "workspace:*",
+    "@types/three": "^0.186.0",
+    "three": "^0.186.1",
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4",
+    "troika-three-text": "^0.52.5"
+  }
+}
