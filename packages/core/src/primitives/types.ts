@@ -58,6 +58,15 @@ export interface EntitySnapshot {
 /** 数值色（0xRRGGBB）。 */
 export type Color = number;
 
+/**
+ * 文字公告牌朝向（仅三维档生效）。
+ *
+ * - `'full'`：完全面向相机
+ * - `'axis'`：只绕 Y 轴转
+ * - `'none'`：不旋转
+ */
+export type TextBillboard = 'full' | 'axis' | 'none';
+
 /** 网格图元规格（世界坐标）。 */
 export interface GridSpec {
   x: number;
@@ -88,6 +97,17 @@ export interface TextItem {
   anchorY?: number;
   /** 深度（可选，缺省 0；二维后端忽略）。 */
   z?: number;
+  /**
+   * 公告牌朝向（可选，仅三维档生效；缺省 `'full'`）。
+   *
+   * - `'full'`：完全面向相机，怎么转都正着看 —— 血条、名字标签、伤害数字
+   * - `'axis'`：只绕 Y 轴转（像立在地上的广告牌），俯视/侧视有透视 —— 地图地名
+   * - `'none'`：不旋转，朝向由场景层级另行决定 —— 已有朝向语义的场合
+   *
+   * 缺省取 `'full'`：贴片场景占绝大多数，且内置 `Sprite` 天然就是这个语义。
+   * 二维后端忽略本字段。
+   */
+  billboard?: TextBillboard;
 }
 
 /** 精灵/点图元项（世界坐标）。 */

@@ -16,6 +16,7 @@ import type {
   PolygonItem,
   PolylineItem,
   SpriteItem,
+  TextBillboard,
   TextItem,
 } from '@main-ui/core/primitives';
 import {
@@ -76,6 +77,8 @@ export interface TextPlan {
   color: string;
   anchorX: number;
   anchorY: number;
+  /** 公告牌朝向（仅三维档生效；缺省 `'full'`）。 */
+  billboard?: TextBillboard;
 }
 
 /** 网格图元（程序化距离函数或平面贴图）。 */
@@ -221,6 +224,7 @@ function addTextBatch(plan: ScenePlan, batch: EntityBatch): void {
       color: colorToCss(item.color, 0x000000),
       anchorX: item.anchorX ?? 0.5,
       anchorY: item.anchorY ?? 0.5,
+      billboard: item.billboard,
     });
     plan.instanceCount += 1;
   }

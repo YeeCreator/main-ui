@@ -29,6 +29,7 @@ function strColumn(batch: EntityBatch, key: string, index: number, fallback = ''
 export function batchToTextItems(batch: EntityBatch): TextItem[] {
   const items: TextItem[] = [];
   const hasZ = Boolean(batch.columns.z);
+  const hasBillboard = Boolean(batch.columns.billboard);
   for (let i = 0; i < batch.count; i++) {
     const text = strColumn(batch, 'text', i);
     if (!text) continue;
@@ -40,6 +41,11 @@ export function batchToTextItems(batch: EntityBatch): TextItem[] {
       color: batch.columns.color ? numColumn(batch, 'color', i, 0x000000) : 0x000000,
     };
     if (hasZ) item.z = numColumn(batch, 'z', i);
+    // 与 z/extrude 同口径：列不存在就不写字段，旧快照解析结果逐字段不变。
+    if (hasBillboard) {
+      const raw = strColumn(batch, 'billboard', i);
+      if (raw === 'full' || raw === 'axis' || raw === 'none') item.billboard = raw;
+    }
     items.push(item);
   }
   return items;
