@@ -27,5 +27,14 @@ export type ConsoleViewState = {
   query: string;
 };
 
-/** 行高（等宽单行呈现，虚拟滚动定高假设）。 */
+/**
+ * 行高（等宽单行呈现，虚拟滚动定高假设）。
+ *
+ * 开启 `wrap` 后虚拟滚动仍然按定高计算窗口——这是有意为之：变高行会让虚拟滚动
+ * 退化为「先测量再定位」，代价是每次滚动都触发全量重排。因此换行模式下按
+ * `wrapRowHeight` 折算行数，而不是真的变成可变高度。
+ */
 export const DEFAULT_CONSOLE_ROW_HEIGHT = 20;
+
+/** 换行模式下的行高（容纳约 3 行文本）。 */
+export const DEFAULT_CONSOLE_WRAP_ROW_HEIGHT = 60;

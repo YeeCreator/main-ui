@@ -2,7 +2,7 @@ import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref
 import { useViewLifecycle } from 'main-ui/vue';
 import type { MainUiViewLifecycle } from 'main-ui/core';
 import { computeConsoleRowWindow, filterEntries, formatTimestamp, isAtBottom, normalizeLevel } from './console';
-import { CONSOLE_LEVELS, DEFAULT_CONSOLE_ROW_HEIGHT, type ConsoleEntry, type ConsoleLevel, type ConsoleViewState } from './types';
+import { CONSOLE_LEVELS, DEFAULT_CONSOLE_ROW_HEIGHT, DEFAULT_CONSOLE_WRAP_ROW_HEIGHT, type ConsoleEntry, type ConsoleLevel, type ConsoleViewState } from './types';
 
 /**
  * ConsoleView —— 自研虚拟滚动控制台/日志追加列表模板。
@@ -28,13 +28,29 @@ export const ConsoleView = defineComponent({
     error: { type: String as PropType<string | null>, default: null },
     /** 是否呈现清空按钮（清空行为本身永远以意图抛出） */
     clearEnabled: { type: Boolean, default: true },
+    /** 是否呈现导出按钮（导出行为本身永远以意图抛出） */
+    exportEnabled: { type: Boolean, default: false },
+    /**
+     * 追加时是否自动滚动到底（受控开关）。
+     *
+     * 与内部「锁滚」状态的关系：本 prop 是**初始值**与**外部强制值**；
+     * 用户手动上滑仍会锁滚（那是用户意愿），此后再变此 prop 才能拉回。
+     */
+    autoScroll: { type: Boolean, default: true },
+    /** 长消息换行（默认省略号单行，与旧行为一致）。 */
+    wrap: { type: Boolean, default: false },
     rowHeight: { type: Number, default: DEFAULT_CONSOLE_ROW_HEIGHT },
     editorInstanceId: { type: String, default: null },
   },
-  emits: ['clear-intent'],
+  emits: ['clear-intent', 'export-intent'],
   setup(props, { emit }) {
     // ---------- 本地呈现状态（进视图状态契约） ----------
-    const autoScroll = ref(true);
+    const autoScroll = ref(props.autoScroll);
+    // 外部强制跟随开关变化时同步（用户上滑的锁滚不被覆盖，除非宿主显式打开）
+    watch(() => props.autoScroll, (value) => {
+      autoScroll.value = value;
+      if (value) scrollToBottom();
+    });
     const levels = ref<ConsoleLevel[]>([]);
     const query = ref('');
 
@@ -48,7 +64,10 @@ export const ConsoleView = defineComponent({
     let programmaticScroll = false;
 
     const filteredEntries = computed(() => filterEntries(props.entries ?? [], levels.value, query.value));
-    const virtual = computed(() => computeConsoleRowWindow(scrollTop.value, viewportHeight.value, props.rowHeight, filteredEntries.value.length));
+    // 换行模式下按预定义的「多行高度」折算行窗口：变高行会让虚拟滚动退化为先测量再定位，
+    // 代价是每次滚动都全量重排。故不做真变高，只把单行高度调大。
+    const effectiveRowHeight = computed(() => (props.wrap ? DEFAULT_CONSOLE_WRAP_ROW_HEIGHT : props.rowHeight));
+    const virtual = computed(() => computeConsoleRowWindow(scrollTop.value, viewportHeight.value, effectiveRowHeight.value, filteredEntries.value.length));
 
     onMounted(() => {
       if (viewportEl.value) {
@@ -110,8 +129,10 @@ export const ConsoleView = defineComponent({
       levels.value = active ? levels.value.filter((item) => item !== level) : [...levels.value, level];
     };
 
-    // ---------- 清空意图（由宿主裁决是否真的清空数据源） ----------
+    // ---------- 清空 / 导出意图（由宿主裁决是否真的执行） ----------
     const clear = () => emit('clear-intent');
+    // 导出抛当前**过滤后**的条目：所见即所得。宿主拿到后自行决定序列化格式与落盘方式。
+    const exportLogs = () => emit('export-intent', [...filteredEntries.value]);
 
     // ---------- 视图生命周期契约（四成员，onDestroy 幂等） ----------
     const lifecycle: MainUiViewLifecycle = {
@@ -189,15 +210,24 @@ export const ConsoleView = defineComponent({
           key: entry.id,
           class: ['main-ui-view-console__row', `is-${level}`],
           style: {
-            position: 'absolute', top: `${rowIndex * props.rowHeight}px`, left: 0, right: 0,
-            height: `${props.rowHeight}px`, display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '0 8px', fontFamily: 'var(--mui-font-mono)', fontSize: '12px',
-            whiteSpace: 'nowrap', overflow: 'hidden',
+            position: 'absolute', top: `${rowIndex * effectiveRowHeight.value}px`, left: 0, right: 0,
+            height: `${effectiveRowHeight.value}px`, display: 'flex',
+            alignItems: props.wrap ? 'flex-start' : 'center',
+            gap: '8px', padding: props.wrap ? '4px 8px' : '0 8px',
+            fontFamily: 'var(--mui-font-mono)', fontSize: '12px',
+            whiteSpace: props.wrap ? 'pre-wrap' : 'nowrap',
+            wordBreak: props.wrap ? 'break-word' : 'normal',
+            overflow: 'hidden',
           },
         }, [
           time ? h('span', { style: { color: 'var(--mui-color-text-muted)', flexShrink: 0 } }, time) : null,
           h('span', { style: { width: '52px', flexShrink: 0, color: LEVEL_COLOR[level], textTransform: 'uppercase', fontSize: '10px' } }, level),
-          h('span', { style: { color: LEVEL_COLOR[level], overflow: 'hidden', textOverflow: 'ellipsis' } }, entry.message),
+          h('span', {
+            style: props.wrap
+              ? { color: LEVEL_COLOR[level], overflow: 'hidden' }
+              : { color: LEVEL_COLOR[level], overflow: 'hidden', textOverflow: 'ellipsis' },
+            title: props.wrap ? undefined : entry.message,
+          }, entry.message),
         ]);
       });
 
@@ -233,6 +263,11 @@ export const ConsoleView = defineComponent({
             type: 'button', style: buttonStyle, title: 'Request host to clear entries',
             onClick: clear,
           }, 'Clear') : null,
+          props.exportEnabled ? h('button', {
+            class: 'main-ui-view-console__export',
+            type: 'button', style: buttonStyle, title: 'Request host to export the visible entries',
+            onClick: exportLogs,
+          }, 'Export') : null,
         ]),
         h('div', {
           class: 'main-ui-view-console__viewport',

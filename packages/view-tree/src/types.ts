@@ -19,6 +19,15 @@ export type TreeViewProps = {
   error?: string | null;
   /** 受控选中；省略时由视图内部管理 */
   selectedId?: string | null;
+  /**
+   * 多选模式开关（opt-in，缺省 false = 单选，行为与此前完全一致）。
+   *
+   * 开启后 `selectedIds` 生效，`selectedId` 仍表示「最后单点的那一个」——
+   * 两者并存而不是互斥：宿主做属性面板绑定时通常需要一个主选中项。
+   */
+  multiSelect?: boolean;
+  /** 受控多选集（仅在 `multiSelect` 为真时生效） */
+  selectedIds?: string[];
   /** 受控展开集合；省略时由视图内部管理 */
   expandedIds?: string[];
   /** 是否显示搜索过滤框 */
@@ -34,12 +43,22 @@ export type TreeViewEmits = {
   (event: 'select', nodeId: string): void;
   (event: 'toggle', nodeId: string, expanded: boolean): void;
   (event: 'filter-change', keyword: string): void;
+  /**
+   * 多选集变更（仅在 `multiSelect` 开启时抛）。
+   *
+   * 与 `select` 的关系：单选与多选**同时**抛——`select` 供主选中消费，
+   * `selection-change` 供批量操作消费。不让宿主从其中一个推导另一个，
+   * 是因为推导规则（点空区是否清空、Shift 是否连选）属于视图语义。
+   */
+  (event: 'selection-change', selectedIds: string[]): void;
 };
 
 /** 视图状态契约（MainUiViewLifecycle.getViewState 的产出形态）。 */
 export type TreeViewState = {
   expandedIds: string[];
   selectedId: string | null;
+  /** 多选集（仅在多选模式下有实际意义） */
+  selectedIds: string[];
   filter: string;
   scrollTop: number;
 };

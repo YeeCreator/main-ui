@@ -9,6 +9,8 @@ export type TableColumn = {
   title: string;
   /** 固定列宽（px）；省略时按 flex 均分 */
   width?: number;
+  /** 最小列宽（px，仅列宽可拉伸时生效） */
+  minWidth?: number;
   align?: 'left' | 'right' | 'center';
   /** 允许点击表头排序 */
   sortable?: boolean;
@@ -33,7 +35,21 @@ export type TableCellEditIntent = {
 export type TableViewState = {
   scrollTop: number;
   selectedRowId: string | null;
+  /** 多选集（仅多选模式启用时有实际意义） */
+  selectedRowIds: string[];
   sort: TableSort;
+  /** 用户拉伸后的列宽（key → px；未拉伸的列不出现） */
+  columnWidths: Record<string, number>;
+};
+
+/** 列宽变更意图载荷。 */
+export type TableColumnResizeIntent = {
+  columnKey: string;
+  /** 新宽度（已钳制到 minWidth） */
+  width: number;
 };
 
 export const DEFAULT_TABLE_ROW_HEIGHT = 28;
+
+/** 列宽拖动的最小像素（避免拖成零宽无法恢复）。 */
+export const MIN_COLUMN_WIDTH = 40;

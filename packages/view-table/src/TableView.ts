@@ -2,7 +2,7 @@ import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref
 import { useViewLifecycle } from 'main-ui/vue';
 import type { MainUiViewLifecycle } from 'main-ui/core';
 import { computeTableRowWindow, nextSort, resolveRowId, sortRows } from './table';
-import { DEFAULT_TABLE_ROW_HEIGHT, type TableCellEditIntent, type TableColumn, type TableRow, type TableSort, type TableViewState } from './types';
+import { DEFAULT_TABLE_ROW_HEIGHT, MIN_COLUMN_WIDTH, type TableCellEditIntent, type TableColumn, type TableColumnResizeIntent, type TableRow, type TableSort, type TableViewState } from './types';
 
 type EditingCell = { rowId: string; columnKey: string; value: string };
 
@@ -20,18 +20,28 @@ export const TableView = defineComponent({
     /** 行标识字段名 */
     rowKey: { type: String, default: 'id' },
     selectedRowId: { type: String as PropType<string | null>, default: null },
+    /** 多选开关（opt-in；缺省单选） */
+    multiSelect: { type: Boolean, default: false },
+    /** 受控多选集（仅 multiSelect 为真时生效） */
+    selectedRowIds: { type: Array as PropType<string[]>, default: null },
     sort: { type: Object as PropType<TableSort>, default: null },
     /** 双击单元格进入行内编辑（提交以意图形式抛出） */
     editable: { type: Boolean, default: true },
+    /** 是否允许拖动表头右边沿调整列宽 */
+    resizableColumns: { type: Boolean, default: false },
     rowHeight: { type: Number, default: DEFAULT_TABLE_ROW_HEIGHT },
     editorInstanceId: { type: String, default: null },
   },
-  emits: ['row-select', 'cell-edit-intent', 'sort-change'],
+  emits: ['row-select', 'selection-change', 'cell-edit-intent', 'sort-change', 'column-resize-intent'],
   setup(props, { emit }) {
     // ---------- 内部状态（受控 Props 变化时同步） ----------
     const internalSelected = ref<string | null>(props.selectedRowId);
+    const internalSelectedIds = ref<Set<string>>(new Set(props.selectedRowIds ?? []));
     const internalSort = ref<TableSort>(props.sort);
+    /** 用户拉伸过的列宽（key → px）；未拉伸的列仍走声明宽度或 flex */
+    const columnWidths = ref<Record<string, number>>({});
     watch(() => props.selectedRowId, (value) => { internalSelected.value = value ?? null; });
+    watch(() => props.selectedRowIds, (value) => { if (value) internalSelectedIds.value = new Set(value); });
     watch(() => props.sort, (value) => { internalSort.value = value ?? null; });
 
     // ---------- 虚拟滚动 ----------
@@ -44,7 +54,20 @@ export const TableView = defineComponent({
 
     const sortedRows = computed(() => sortRows(props.rows, internalSort.value));
     const virtual = computed(() => computeTableRowWindow(scrollTop.value, viewportHeight.value, props.rowHeight, sortedRows.value.length));
-    const gridTemplate = computed(() => props.columns.map((column) => (typeof column.width === 'number' ? `${column.width}px` : 'minmax(0, 1fr)')).join(' '));
+    /**
+     * 列宽解析：优先级「用户拉伸 > 声明宽度 > flex 均分」。
+     *
+     * 多选开启时前置一个 28px 的选择列，否则复选框会挤掉首个数据列。
+     */
+    const gridTemplate = computed(() => {
+      const columns = props.columns.map((column) => {
+        const resized = columnWidths.value[column.key];
+        if (typeof resized === 'number') return `${resized}px`;
+        if (typeof column.width === 'number') return `${column.width}px`;
+        return 'minmax(0, 1fr)';
+      });
+      return [...(props.multiSelect ? ['28px'] : []), ...columns].join(' ');
+    });
 
     onMounted(() => {
       if (viewportEl.value) {
@@ -69,9 +92,59 @@ export const TableView = defineComponent({
     };
 
     // ---------- 交互意图（一律经 Emits 抛出） ----------
-    const selectRow = (rowId: string) => {
+    /**
+     * 行选中。多选模式下同时抛 `selection-change`：
+     * `row-select` 供属性面板绑定「主选中」，`selection-change` 供批量操作。
+     * 两条并存而不互斥，与 view-tree 同一口径。
+     */
+    const selectRow = (rowId: string, event?: MouseEvent) => {
       internalSelected.value = rowId;
       emit('row-select', rowId);
+      if (!props.multiSelect) return;
+      const additive = Boolean(event && (event.metaKey || event.ctrlKey));
+      const next = additive ? new Set(internalSelectedIds.value) : new Set<string>();
+      if (additive && next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      internalSelectedIds.value = next;
+      emit('selection-change', [...next]);
+    };
+
+    /**
+     * 列宽拖拽。
+     *
+     * 用 pointer 事件而非 mousemove：指针捕获由浏览器保证，即使光标移出表头
+     * 也能继续收到事件——不用自己监听 document 再解绑（那是最容易漏解绑的地方）。
+     */
+    const startResize = (column: TableColumn, event: PointerEvent) => {
+      if (!props.resizableColumns) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const header = (event.currentTarget as HTMLElement).parentElement;
+      const startX = event.clientX;
+      const startWidth = header?.getBoundingClientRect().width
+        ? columnWidths.value[column.key] ?? column.width ?? 120
+        : columnWidths.value[column.key] ?? column.width ?? 120;
+      const min = column.minWidth ?? MIN_COLUMN_WIDTH;
+      const target = event.currentTarget as HTMLElement;
+      target.setPointerCapture?.(event.pointerId);
+
+      const onMove = (moveEvent: PointerEvent) => {
+        const width = Math.max(min, Math.round(startWidth + (moveEvent.clientX - startX)));
+        columnWidths.value = { ...columnWidths.value, [column.key]: width };
+      };
+      const onUp = () => {
+        target.removeEventListener('pointermove', onMove);
+        target.removeEventListener('pointerup', onUp);
+        target.removeEventListener('pointercancel', onUp);
+        const width = columnWidths.value[column.key];
+        if (typeof width === 'number') {
+          const intent: TableColumnResizeIntent = { columnKey: column.key, width };
+          emit('column-resize-intent', intent);
+        }
+      };
+      target.addEventListener('pointermove', onMove);
+      target.addEventListener('pointerup', onUp);
+      target.addEventListener('pointercancel', onUp);
     };
 
     const toggleSort = (column: TableColumn) => {
@@ -107,14 +180,18 @@ export const TableView = defineComponent({
         return {
           scrollTop: viewportEl.value?.scrollTop ?? scrollTop.value,
           selectedRowId: internalSelected.value,
+          selectedRowIds: [...internalSelectedIds.value],
           sort: sort ? { key: sort.key, direction: sort.direction } : null,
+          columnWidths: { ...columnWidths.value },
         };
       },
       restoreViewState: (state) => {
         if (destroyed) return;
         const snapshot = state as Partial<TableViewState>;
         if ('selectedRowId' in snapshot) internalSelected.value = snapshot.selectedRowId ?? null;
+        if (Array.isArray(snapshot.selectedRowIds)) internalSelectedIds.value = new Set(snapshot.selectedRowIds);
         if ('sort' in snapshot) internalSort.value = snapshot.sort ?? null;
+        if (snapshot.columnWidths && typeof snapshot.columnWidths === 'object') columnWidths.value = { ...snapshot.columnWidths };
         if (typeof snapshot.scrollTop === 'number') restoreScroll(snapshot.scrollTop);
       },
       onDestroy: () => {
@@ -155,13 +232,44 @@ export const TableView = defineComponent({
           key: column.key,
           class: ['main-ui-view-table__header-cell', column.sortable ? 'is-sortable' : ''],
           style: {
-            ...cellStyle(column), display: 'flex', alignItems: 'center',
+            ...cellStyle(column), display: 'flex', alignItems: 'center', position: 'relative',
             fontWeight: 600, fontSize: '12px', color: 'var(--mui-color-text-muted)',
             cursor: column.sortable ? 'pointer' : 'default',
           },
           onClick: () => toggleSort(column),
-        }, `${column.title}${indicator}`);
+        }, [
+          `${column.title}${indicator}`,
+          props.resizableColumns ? h('span', {
+            class: 'main-ui-view-table__resize-handle',
+            style: {
+              position: 'absolute', top: 0, right: '-2px', width: '5px', height: '100%',
+              cursor: 'col-resize', userSelect: 'none',
+            },
+            onPointerdown: (event: PointerEvent) => startResize(column, event),
+            onClick: (event: MouseEvent) => event.stopPropagation(),
+          }) : null,
+        ]);
       });
+
+      // 多选开启时表头前置全选复选框（作用于当前可见行）
+      const visibleRowIds = sortedRows.value.map((row, index) => resolveRowId(row, index, props.rowKey));
+      const allSelected = visibleRowIds.length > 0 && visibleRowIds.every((id) => internalSelectedIds.value.has(id));
+      const headerSelectCell = props.multiSelect ? h('div', {
+        key: '__select__',
+        class: 'main-ui-view-table__header-select',
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      }, [
+        h('input', {
+          type: 'checkbox',
+          style: { accentColor: 'var(--mui-color-accent)' },
+          checked: allSelected,
+          onChange: () => {
+            const next = allSelected ? new Set<string>() : new Set(visibleRowIds);
+            internalSelectedIds.value = next;
+            emit('selection-change', [...next]);
+          },
+        }),
+      ]) : null;
 
       const visibleRows = sortedRows.value.slice(virtual.value.start, virtual.value.end);
       const bodyRows = visibleRows.map((row, index) => {
@@ -199,15 +307,37 @@ export const TableView = defineComponent({
         });
         return h('div', {
           key: rowId,
-          class: ['main-ui-view-table__row', selected ? 'is-selected' : ''],
+          class: ['main-ui-view-table__row', (props.multiSelect ? internalSelectedIds.value.has(rowId) : selected) ? 'is-selected' : ''],
           style: {
             position: 'absolute', top: `${rowIndex * props.rowHeight}px`, left: 0, right: 0,
             height: `${props.rowHeight}px`, display: 'grid', gridTemplateColumns: gridTemplate.value,
             cursor: 'pointer',
-            background: selected ? 'color-mix(in srgb, var(--mui-color-accent) 14%, transparent)' : 'transparent',
+            background: (props.multiSelect ? internalSelectedIds.value.has(rowId) : selected)
+              ? 'color-mix(in srgb, var(--mui-color-accent) 14%, transparent)' : 'transparent',
           },
-          onClick: () => selectRow(rowId),
-        }, cells);
+          onClick: (event: MouseEvent) => selectRow(rowId, event),
+        }, [
+          props.multiSelect ? h('div', {
+            key: '__select__',
+            class: 'main-ui-view-table__row-select',
+            style: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+            onClick: (event: MouseEvent) => event.stopPropagation(),
+          }, [
+            h('input', {
+              type: 'checkbox',
+              style: { accentColor: 'var(--mui-color-accent)' },
+              checked: internalSelectedIds.value.has(rowId),
+              onChange: () => {
+                const next = new Set(internalSelectedIds.value);
+                if (next.has(rowId)) next.delete(rowId);
+                else next.add(rowId);
+                internalSelectedIds.value = next;
+                emit('selection-change', [...next]);
+              },
+            }),
+          ]) : null,
+          ...cells,
+        ]);
       });
 
       return h('div', { class: 'main-ui-view-table', style: rootStyle }, [
@@ -219,7 +349,7 @@ export const TableView = defineComponent({
             borderBottom: '1px solid var(--mui-color-border)',
             background: 'color-mix(in srgb, var(--mui-color-text) 4%, transparent)',
           },
-        }, headerCells),
+        }, [headerSelectCell, ...headerCells].filter(Boolean) as never),
         h('div', {
           class: 'main-ui-view-table__viewport',
           ref: viewportEl,

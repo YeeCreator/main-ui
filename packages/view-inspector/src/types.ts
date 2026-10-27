@@ -25,14 +25,42 @@ export type InspectorBooleanField = FormBooleanField;
 /** 下拉选择字段。 */
 export type InspectorSelectField = FormSelectField;
 
+/**
+ * 只读字段（纯呈现，不可编辑）：ID、计算值、系统注入的属性。
+ *
+ * 为什么不复用 `disabled`：二者语义不同。`disabled` 是「此刻不能改」（如条件未满足），
+ * 而 `readonly` 是「永远不该改」（如实例 id）。用 `disabled` 冒充会让用户
+ * 以为自己漏满足了什么条件。
+ */
+export type InspectorReadonlyField = {
+  kind: 'readonly';
+  key: string;
+  label: string;
+  description?: string;
+  /** 呈现形式：`text`（缺省）或 `code`（等宽字体） */
+  display?: 'text' | 'code';
+};
+
 export type InspectorField =
   | InspectorStringField
   | InspectorNumberField
   | InspectorBooleanField
-  | InspectorSelectField;
+  | InspectorSelectField
+  | InspectorReadonlyField;
 
-/** 表单 schema（字段顺序即呈现顺序）。 */
-export type InspectorSchema = InspectorField[];
+/** 字段分组（呈现顺序即数组顺序；省略分组即平铺字段列表）。 */
+export type InspectorGroup = {
+  id: string;
+  title: string;
+  /** 分组级描述 */
+  description?: string;
+  fields: InspectorField[];
+};
+
+/** 表单 schema（字段顺序即呈现顺序；与 `groups` 并存时分组优先）。 */
+export type InspectorSchema =
+  | InspectorField[]
+  | { fields?: InspectorField[]; groups?: InspectorGroup[] };
 
 /** 字段值表（宿主侧的单一事实源经 Props 注入）。 */
 export type InspectorValues = FormValues;

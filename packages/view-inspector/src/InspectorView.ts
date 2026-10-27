@@ -1,7 +1,7 @@
 import { computed, defineComponent, h, ref, watch, type PropType } from 'vue';
 import { useViewLifecycle } from 'main-ui/vue';
 import type { MainUiViewLifecycle } from 'main-ui/core';
-import { coerceFieldValue, resolveFieldValue } from './inspector';
+import { coerceFieldValue, groupInspectorSchema, resolveFieldValue } from './inspector';
 import type { InspectorChangePayload, InspectorField, InspectorSchema, InspectorValues, InspectorViewState } from './types';
 
 /**
@@ -33,6 +33,7 @@ export const InspectorView = defineComponent({
 
     // ---------- 变更意图（一律经 Emits 抛出，携带旧值） ----------
     const commit = (field: InspectorField, raw: unknown) => {
+      if (field.kind === 'readonly') return;
       if (field.disabled) return;
       const previous = resolve(field);
       if (field.kind === 'number' && raw === '') return; // 空输入保留原值
@@ -88,7 +89,7 @@ export const InspectorView = defineComponent({
 
     const renderControl = (field: InspectorField) => {
       const value = resolve(field);
-      const disabled = Boolean(field.disabled);
+      const disabled = field.kind === 'readonly' ? true : Boolean(field.disabled);
       switch (field.kind) {
         case 'string':
           return h('input', {
@@ -113,10 +114,46 @@ export const InspectorView = defineComponent({
             style: controlBaseStyle, disabled, value: String(value ?? ''),
             onChange: (event: Event) => commit(field, (event.target as HTMLSelectElement).value),
           }, field.options.map((option) => h('option', { key: option.value, value: option.value }, option.label)));
+        case 'readonly':
+          // 纯呈现：不是禁用的输入框，而是一行文本——避免让用户以为自己漏满足了条件
+          return h('div', {
+            class: 'main-ui-view-inspector__readonly',
+            style: {
+              ...controlBaseStyle,
+              border: '1px solid transparent',
+              background: 'transparent',
+              color: 'var(--mui-color-text-muted)',
+              fontFamily: field.display === 'code' ? 'var(--mui-font-mono)' : undefined,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            } as const,
+            title: String(value ?? ''),
+          }, String(value ?? '—'));
       }
     };
 
-    const fields = computed(() => props.schema);
+    const groups = computed(() => groupInspectorSchema(props.schema));
+
+    const renderRow = (field: InspectorField) => h('div', {
+      key: field.key,
+      class: 'main-ui-view-inspector__row',
+      style: { display: 'grid', gridTemplateColumns: '40% 1fr', alignItems: 'center', gap: '8px', marginBottom: '6px' },
+    }, [
+      h('div', { style: labelStyle, title: field.description ?? field.label }, field.label),
+      renderControl(field),
+    ]);
+
+    const renderGroup = (group: { id: string; title: string; description?: string; fields: InspectorField[] }) => h('fieldset', {
+      key: group.id,
+      class: 'main-ui-view-inspector__group',
+      style: {
+        border: '1px solid var(--mui-color-border)', borderRadius: 'var(--mui-radius)',
+        padding: '6px 8px', margin: '0 0 8px',
+      },
+    }, [
+      h('legend', { style: { fontSize: '11px', fontWeight: 600, padding: '0 4px', color: 'var(--mui-color-text-muted)' } }, group.title),
+      group.description ? h('div', { style: { ...labelStyle, marginBottom: '4px' } }, group.description) : null,
+      ...group.fields.map(renderRow),
+    ]);
 
     return () => {
       if (props.loading) {
@@ -132,16 +169,9 @@ export const InspectorView = defineComponent({
           ref: scrollEl,
           style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' },
           onScroll: (event: Event) => { scrollTop.value = (event.target as HTMLElement).scrollTop; },
-        }, fields.value.length === 0
+        }, groups.value.length === 0
           ? h('div', { style: { padding: '16px', color: 'var(--mui-color-text-muted)', textAlign: 'center' } }, 'Nothing selected')
-          : fields.value.map((field) => h('div', {
-            key: field.key,
-            class: 'main-ui-view-inspector__row',
-            style: { display: 'grid', gridTemplateColumns: '40% 1fr', alignItems: 'center', gap: '8px', marginBottom: '6px' },
-          }, [
-            h('div', { style: labelStyle, title: field.description ?? field.label }, field.label),
-            renderControl(field),
-          ]))),
+          : groups.value.map((group) => (group.title ? renderGroup(group) : h('div', { key: group.id }, group.fields.map(renderRow))))),
       ]);
     };
   },
