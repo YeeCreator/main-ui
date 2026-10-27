@@ -117,11 +117,55 @@ grep -rE "fetch\(|axios|XMLHttpRequest|WebSocket" packages/*/src         # 必�
 2. editor 注册自动叠加插槽登记；纯视图可经 `registerSlot` 单独登记。
 3. 视图实现 `MainUiViewLifecycle` 后经 `runtime.core.viewLifecycles` 登记；布局保存时统一收集 `getViewState()`，恢复时调用 `restoreViewState`；`onDestroy` 必须幂等。
 
-### Command 与快捷键
+### Command 与输入绑定
 
-命令统一通过 `runtime.core.executeCommand(id, payload)` 执行。`when` 支持函数形式与 context-key 表达式；快捷键通过 `registerKeybinding` 注册，权重更高的宿主绑定优先解析。Vue provider 安装全局 keydown 监听，依据最近的 `data-main-ui-scope` 或输入控件自动设置 focus scope。
+命令统一通过 `runtime.core.executeCommand(id, payload)` 执行。`when` 支持函数形式与 context-key 表达式。
 
-菜单通过 `registerMenu` 贡献；命令面板、Quick Open 和 context menu 复用同一 command registry。菜单贡献是 opt-in 的；没有菜单注册时 shell 不显示空菜单栏。
+**输入系统分两层**，这是理解本模块的关键：
+
+| 层 | 位置 | 职责 |
+| --- | --- | --- |
+| `@main-ui/core/input` | 框架无关、零 DOM | 归一化信号 → 识别手势 → 匹配绑定 |
+| `main-ui/core` 的 `runtime.input` | 依赖命令系统与 Vue | 命令桥、绑定库、持久化、面板 |
+
+之所以这样切：画布模板（`view-world` / `view-canvas`）只依赖 `@main-ui/core`，不该为了手势判定引入整个主包；而且纯函数化才能无浏览器验证 Blender 级时序语义。
+
+```ts
+// 宿主注册（旧写法仍可用，语义不变）
+runtime.core.registerKeybinding({ commandId: 'demo.open', keybinding: 'Ctrl+Shift+P' })
+// 新写法：支持长按、序列、鼠标与触控板
+runtime.input.register({ commandId: 'demo.erase', ...draftFromText('alt+drag:0:x:8') })
+```
+
+**绑定语法**（`parseBinding` / `formatBinding` 一对纯函数，往返一致有属性测试守护）：
+
+```text
+[chord +] <gesture> [then <gesture> ...]
+```
+
+| 写法 | 含义 |
+| --- | --- |
+| `press:KeyF` | 按 F |
+| `hold:Space:250` | 按住 250ms |
+| `tap:KeyQ:200` | 200ms 内抬起 |
+| `cmd+shift+press:KeyP` | 组合键 |
+| `alt+click:1:2` | ⌥ + 双击中键 |
+| `alt+drag:0:x:8` | ⌥ + 沿 X 轴拖拽（阈值 8px） |
+| `cmd+pinch:out` | ⌘ + 双指捏合外扩 |
+| `press:KeyG then press:KeyG` | G 后接 G |
+
+**四条必须知道的实现纪律**（改这块代码前先读）：
+
+1. **手势比较只比形状**（`gestureShape`）。绑定存阈值（`minMs: 250`），识别器产出实测值（`heldMs: 312`）；把两者塞进同一字段比较会让匹配永不成立。
+2. **纯修饰键不许 `press`/`hold`/`repeat`**。浏览器给不出「按住」的独立语义，允许它们触发会让 `⌘S` 永远按不出来。诊断项 `modifier-press` 会拦住。
+3. **`press` 与 `hold`/`tap` 互斥**。同一输入上共存必然双触发，注册时判为 `conflict`。
+4. **序列前缀要等窗口**（默认 250ms）。`G` 与 `GG` 共存时，首个 `G` 必须先挂起，超时才执行单键绑定。
+
+**作用域栈**：`global` < `workspace` < `editor` < `canvas` < `modal`，深者优先。`MainUiProvider` 按焦点自动维护 `editor`/`global` 与 `inInput` 标记；宿主可显式 `pushScope`。录制态会压入 `modal`，使既有绑定完全暂停。
+
+**扩展点**：`runtime.input.addProvider({ id, start, capabilities })` 可接入原生输入（Electron 的 `before-input-event`、`globalShortcut`、`NSEvent`）。网页层拿不到三/四指手势与 Chromium 的触控板旋转，这些只能经原生桥补。
+
+菜单通过 `registerMenu` 贡献；命令面板、Quick Open 和 context menu 复用同一 command registry。菜单贡献是 opt-in 的；没有菜单注册时 shell 不显示空菜单栏。命令面板与 Quick Open 的 `⌘P` 系列现在是**默认绑定**而非硬编码键位。
 
 ### Settings
 

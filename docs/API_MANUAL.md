@@ -43,12 +43,48 @@ runtime.core.registerWorkspace(descriptor)
 runtime.core.registerEditor(descriptor)
 runtime.core.registerSlot({ viewType, constraints }) // 纯视图插槽登记（可选，editor 注册时自动叠加登记）
 runtime.core.registerCommand(descriptor)
-runtime.core.registerKeybinding({ commandId: 'demo.open', keybinding: 'Ctrl+Shift+P' })
+runtime.input.register({ commandId: 'demo.open', ...draftFromText('cmd+shift+press:KeyP') })
 await runtime.core.executeCommand('demo.open')
 runtime.core.registerMenu({ id: 'file.open', location: 'menubar', label: 'Open', commandId: 'demo.open' })
 ```
 
-Command descriptor 的旧 `run(context)` 形式保持兼容。运行时会统一检查 `when`/`enablement`，记录最近执行命令，并将代码调用与快捷键调用归一到 `executeCommand`。`KeybindingRegistry` 支持组合键解析、macOS 平台映射、权重覆盖和冲突查询；宿主可以调用 `unregisterKeybinding` 覆盖默认绑定。
+Command descriptor 的旧 `run(context)` 形式保持兼容。运行时会统一检查 `when`/`enablement`，记录最近执行命令，并将代码调用、菜单点击、快捷键、手势与命令面板全部归一到 `executeCommand`。
+
+**输入与手势**：输入由 `@main-ui/core/input` 统一承接，`main-ui/core` 通过 `runtime.input` / `runtime.shortcuts` 暴露命令桥。旧式 `runtime.core.registerKeybinding({ commandId, keybinding: 'Ctrl+Shift+P' })` 仍然可用（解析层语法糖，语义不变），新代码建议用 `draftFromText` 或完整 `Binding` 表达更复杂的手势。
+
+```ts
+// 简单按键
+runtime.input.register({ commandId: 'demo.open', ...draftFromText('press:KeyO') })
+// 长按
+runtime.input.register({ commandId: 'demo.hold', ...draftFromText('hold:Space:250') })
+// 组合键（mac 上 cmd 即 ⌘，ctrl 映射到主修饰键）
+runtime.input.register({ commandId: 'demo.save', ...draftFromText('cmd+press:KeyS') })
+// 鼠标手势
+runtime.input.register({ commandId: 'demo.erase', ...draftFromText('alt+drag:0:x:8') })
+// 触控板
+runtime.input.register({ commandId: 'demo.zoom', ...draftFromText('cmd+pinch:out') })
+// 序列
+runtime.input.register({ commandId: 'demo.go', ...draftFromText('press:KeyG then press:KeyG') })
+```
+
+`runtime.input` 接口：
+
+| 成员 | 说明 |
+| --- | --- |
+| `register(registration)` | 注册绑定，返回 `bindingId`。接受完整 `Binding`、草稿 + `commandId`、或旧式 `{ commandId, keybinding }` |
+| `unregister(idOrCommandId)` | 按绑定 id 或命令 id 注销 |
+| `list()` | 当前生效绑定（默认 + 宿主 + 用户覆盖三层合并） |
+| `pushScope(scope)` / `popScope(scope?)` | 输入作用域栈（`global` < `workspace` < `editor` < `canvas` < `modal`，深者优先） |
+| `setInInput(boolean)` | 焦点是否在可编辑元素内（`allowInInput: false` 的绑定将不触发） |
+| `captureOnce({ timeoutMs })` | 录制态：忽略既有绑定，返回首个识别出的手势草稿 |
+| `cancelCapture()` | 取消录制 |
+| `diagnose()` | 冲突 / 修饰键误用 / 不可达诊断；`conflict` 与 `modifier-press` 为阻断级 |
+| `addProvider(provider)` | 注册原生输入源（Electron 桥扩展点） |
+| `setUserOverride(id, { binding })` | 写用户覆盖；`binding: null` 表示解绑 |
+| `resetUserOverride(id)` / `resetAll()` | 清除单个 / 全部覆盖 |
+| `exportJson()` / `importJson(text)` | 导入导出；导入逐条校验，未知命令跳过并计数 |
+
+命令上下文新增 `trigger` 字段：`{ bindingId, source, gesture, phase, delta? }`。连续手势（`mode: 'stream'`）会按 `begin → update* → end` 回调，`end` 的 `delta` 是累计位移。
 
 `EditorDescriptor` 的关键字段：
 
@@ -189,6 +225,94 @@ runtime.vue.registerEditorMountAdapter('external-renderer', adapter)
 
 `EditorMountAdapter` 不依赖任何外部框架，React、Canvas 或其他渲染库由宿主自行 mount / update / unmount。
 
+## 应用面（Surface，v0.8）
+
+Surface 是 **Docking 布局树之外**的一层：决定「此刻整窗显示哪一整屏」。它与 Workspace **正交** —— Workspace 管同一份内容内部换哪些工具。
+
+```ts
+import {
+  createSurfaceStack,
+  useSurfaceStack,
+  SurfaceHost,
+  SurfaceShell,
+  type SurfaceDescriptor,
+  type SurfacePayload,
+  type SurfaceStackApi,
+} from 'main-ui/vue'
+```
+
+### `SurfaceDescriptor`
+
+```ts
+type SurfaceDescriptor = {
+  id: string
+  title: string
+  component: Component      // 普通 Vue 组件，不是 IView
+  root?: boolean            // 栈根，back() 不越过它
+  description?: string
+}
+```
+
+### `createSurfaceStack` / `useSurfaceStack`
+
+```ts
+const stack = createSurfaceStack({ initial: 'hall' })
+
+stack.active.value            // 当前面 id，恒等于 stack.stack 末项
+stack.stack.value             // 历史栈
+stack.payloads.value          // 各面最近一次参数（运行期，不落盘）
+stack.canBack.value           // 栈深 > 1
+stack.open('options', { itemId: 'x' })
+stack.back()
+stack.reset()                 // 回栈根
+```
+
+`useSurfaceStack()` 在 `<SurfaceHost>` 内部 `inject` 同一实例，因此在面组件里可直接取用，无需层层传 props。在 `<SurfaceHost>` 之外调用会抛错（避免「点了没反应」难以定位）。
+
+### `<SurfaceHost>`
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `surfaces` | `SurfaceDescriptor[]` | `[]` | 全部可用面 |
+| `initial` | `string` | `''` | 初始面；缺省取第一个 `root` 面，再缺省取第一个面 |
+| `transition` | `'none' \| 'fade' \| 'slide'` | `'none'` | 切换动效 |
+| `keepAlive` | `boolean` | `false` | 是否缓存已访问面。默认切面即卸载 |
+| `stack` | `SurfaceStackApi` | `null` | 外部注入的栈；缺省自建 |
+
+| Emit | 载荷 | 说明 |
+| --- | --- | --- |
+| `change` | `(id, payload?)` | 面已切换 |
+| `back` | `()` | 栈深减小时触发 |
+
+| Slot | 说明 |
+| --- | --- |
+| `default` | 接管渲染：`({ descriptor, payload }) => VNode` |
+| `missing` | 当前 id 无对应 descriptor 时的兜底：`({ id }) => VNode` |
+
+### `<SurfaceShell>`
+
+通用壳：标题 + 副标题 + 返回按钮 + 右侧操作区 + 主体。**不内置任何业务表单**。
+
+| Prop | 说明 |
+| --- | --- |
+| `title` / `subtitle` | 标题区文本；都为空且无 `onBack`、无 `actions` 时不渲染标题栏 |
+| `onBack` | 传入才渲染返回按钮并在此回调；不传则不渲染 |
+| `backLabel` | 返回按钮文案，默认「返回」 |
+| `theme` | 脱离 `WorkbenchShell` 独立渲染时同步 `data-mui-theme` |
+
+| Slot | 说明 |
+| --- | --- |
+| `default` | 主体 |
+| `actions` | 右侧操作区 |
+
+### 关键约束
+
+1. Surface **不进** Docking 布局树，**不实现** `MainUiViewLifecycle`，**不参与**布局快照。
+2. `<SurfaceHost>` 一次只挂载一个面；切面即旧面 `unmount`（依赖此点释放渲染循环或连接的宿主可正常工作）。
+3. Surface 的 `payload` 是**运行期传参**，不落盘 —— 与 editor 的持久化 `payload` 语义不同。
+4. 原语**域无关**：多步向导、结账流程、配置流程与游戏大厅等价可用。
+5. 单屏宿主不 import 即零影响。
+
 ## Mount Adapter
 
 ```ts
@@ -293,7 +417,7 @@ const items = snapshotToItems(snapshot);   // → {texts, sprites, polygons, pol
 
 ## Menu、Command Palette 与 Quick Open
 
-通过 `registerMenu` 注册 `menubar`、`editor/tab`、`workspace`、`view`、`panel` 或 `context` 入口；菜单项的 `when` 和 command enablement 与快捷键共享同一上下文。Vue 层导出 `MenuBar`、`CommandPalette`、`QuickOpen` 和 `ContextMenu`，`WorkbenchShell` 默认提供 `Ctrl/Cmd+Shift+P` 命令面板与 `Ctrl/Cmd+P` Quick Open。宿主只需注册 command/menu contribution 即可获得入口。`menubar` 顶层项若未配置 `submenu` 而是直接挂 `commandId`，会渲染为可直接点击执行的命令按钮（点击即触发命令）；配置 `submenu` 的项则展开为下拉子菜单。
+通过 `registerMenu` 注册 `menubar`、`editor/tab`、`workspace`、`view`、`panel` 或 `context` 入口；菜单项的 `when` 和 command enablement 与输入绑定共享同一上下文。Vue 层导出 `MenuBar`、`CommandPalette`、`QuickOpen`、`ContextMenu` 与 `ShortcutEditor`。`WorkbenchShell` 通过**默认绑定**提供 `⌘/Ctrl+Shift+P` 命令面板与 `⌘/Ctrl+P` Quick Open（不再是硬编码键位，用户可在快捷键面板改绑或解绑）。宿主只需注册 command/menu contribution 即可获得入口。`menubar` 顶层项若未配置 `submenu` 而是直接挂 `commandId`，会渲染为可直接点击执行的命令按钮（点击即触发命令）；配置 `submenu` 的项则展开为下拉子菜单。
 
 ## Settings schema
 

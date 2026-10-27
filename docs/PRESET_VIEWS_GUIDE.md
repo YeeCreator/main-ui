@@ -187,6 +187,7 @@ Props：
 | `clickButtonPolicy` | `'left' \| 'any'` | `'left'` | `world-click` 抛出策略：`left`=仅左键（右键抛 `world-contextmenu`）；`any`=旧行为（任意键） |
 | `nativeGestureGuard` | `boolean` | `true` | 内置原生手势隔离（`user-select:none` / pointerdown `preventDefault` / 抑制右键原生菜单 / `touch-action`） |
 | `rotateOnGesture` | `boolean` | `false` | 是否启用双指旋转手势（“单指按住 + 另一指拖动”） |
+| `tapTolerancePx` | `number \| null` | `null`（自动） | 轻点容差（CSS 像素）：松手位移 ≤ 该值才算 `world-click`。缺省为**自动**——`panOnDrag=true` 取 4px，`panOnDrag=false` 取「不参与判别」（棋类轻点落子的原行为）。编辑器「拖拽移动实体」传 4；触摸端棋盘可传 10–12 |
 | `rotateStep` | `number` | `π/12` | 旋转步长（弧度），供宿主自行绑定快捷键时复用默认值 |
 | `loading` / `error` | `boolean` / `string \| null` | — | 加载三态 |
 | `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期（相机进快照） |
@@ -250,6 +251,8 @@ batches.road = {
 **兼容性提示（v0.7.0 行为变更）**：`world-click` 默认从“任意键抛”改为“仅左键抛”。旧宿主若依赖右键也抛 `world-click`，传 `click-button-policy="any"` 可恢复旧行为；详见 `MIGRATION_GUIDE_0.7.0.md`。
 
 **相机旋转**：`WorldCameraState` / `Camera2D` 增可选 `rotation`（弧度，缺省 0，向后兼容），已进 `getViewState` / `restoreViewState` 快照契约（旧快照无此字段照常工作）。
+
+**与输入系统的关系**：滚轮/平移/捏合判型已上移到 `@main-ui/core/input`（`classifyWheel`），画布模板与宿主的快捷键系统共用同一口径，不再各自判 `deltaX` / `ctrlKey`。画布内手势（平移、缩放、旋转）仍由模板自身处理；若要把某个手势改绑到命令，用 `runtime.input.register` 并在 `scope: 'canvas'` 下声明。
 
 ### 4.3.2 `@main-ui/view-canvas`（DOM/SVG 画布视口）
 

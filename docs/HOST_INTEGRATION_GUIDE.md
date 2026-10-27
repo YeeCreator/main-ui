@@ -335,6 +335,58 @@ import { createMainUiRuntime, MainUiProvider, WorkbenchShell } from 'main-ui/vue
 4. 在没有 renderer 或 adapter 的情况下，只注册 editor descriptor。
 5. 将不同宿主复用同一个 persistence key。
 
+## 6.1 多步流程：优先用 Surface，不要自研 `AppMode`
+
+宿主若有「顶层整屏切换」需求（如 `menu → list → detail → settings`），**不要**在自己 `App.vue` 里堆 `v-if` 状态机，直接用 `<SurfaceHost>`：
+
+```ts
+const surfaces: SurfaceDescriptor[] = [
+  { id: 'menu',     title: '主菜单', component: MenuSurface,     root: true },
+  { id: 'list',     title: '列表',   component: ListSurface },
+  { id: 'detail',   title: '详情',   component: DetailSurface },
+  { id: 'settings', title: '设置',   component: SettingsSurface },
+]
+```
+
+```vue
+<MainUiProvider :runtime="runtime">
+  <SurfaceHost :surfaces="surfaces" initial="menu" />
+</MainUiProvider>
+```
+
+面内部跳转：
+
+```ts
+const { open, back } = useSurfaceStack()
+open('detail', { itemId: 'x' })
+```
+
+**判据**（Surface / Workspace / Layout Snapshot 三者怎么分）：
+
+| 问 | 答「是」 |
+| --- | --- |
+| 数据或任务也一起换了？ | **Surface**（整屏替换） |
+| 只是可用工具/面板换了，内容不变？ | **Workspace**（工具语境） |
+| 只是摆放位置不同、能力未变？ | **Layout Snapshot**（位置存档） |
+
+反例（应避免）：把顶层整屏切换实现成「关一个 tab 开另一个 tab」，或把 Workspace 当页面路由用。
+
+### 什么时候该把「编辑器内部的视图切换」提升为 Surface
+
+用三条判据同时问：
+
+| # | 判据 | 通过才该提升 |
+| --- | --- | --- |
+| 1 | 切换时**整窗内容整体替换**（不是挤到侧栏、不是换 tab） | ✅ |
+| 2 | 外层**没有恒定外壳**（标题栏 / 导航条不横跨所有态） | ✅ |
+| 3 | 该切换**不实现** View 生命周期、不进布局快照 | ✅ |
+
+三条全过 → 提升为 Surface；任一条不过（典型：外壳恒定 + tab 级切换）→ 留在编辑器内部。
+
+参考反例 → 正例：`某下游宿主` 原先 8 态 `view` 锁在编辑器内部（`.app-shell` 恒不变），
+按上述判据判定**应提升**（因为它的外壳其实只是那个编辑器的标题栏，各态本就整窗替换），
+重构为 6 个应用面后 `App.vue` 从 17 → 49 行、单个编辑器文件 586 行归零。
+
 ## 7. 最小验收清单
 
 宿主接入 `main-ui` 后，至少应通过以下检查：
