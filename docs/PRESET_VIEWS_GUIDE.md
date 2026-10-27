@@ -1,6 +1,6 @@
 # PRESET_VIEWS_GUIDE
 
-> 官方视图模板库（preset-views）统一指南。对应模板库 `0.6.0`（`@main-ui/core` 0.5.0 / 内核主包 `main-ui` 0.4.0）。本文档随 `main-ui` 包分发（`node_modules/main-ui/docs/PRESET_VIEWS_GUIDE.md`）；每个模板包自身的 `README.md` 是安装后的第一入口，内容与本文一致。
+> 官方视图模板库（preset-views）统一指南。对应模板库 `0.9.0`（`@main-ui/core` 0.8.0 / 内核主包 `main-ui` 0.9.0）。本文档随 `main-ui` 包分发（`node_modules/main-ui/docs/PRESET_VIEWS_GUIDE.md`）；每个模板包自身的 `README.md` 是安装后的第一入口，内容与本文一致。
 
 ## 1. 定位
 
@@ -22,22 +22,27 @@
 | --- | --- | --- | --- |
 | `@main-ui/view-tree` | 0.3.0 | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
 | `@main-ui/view-inspector` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 属性检视：对象 + schema，变更经 Emits 抛出 |
-| `@main-ui/view-world` | 0.7.0 | `@main-ui/core/rendering`（pixi） | 2D 世界可视化：相机状态进 `getViewState` |
-| `@main-ui/view-canvas` | 0.7.0 | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互；取代已废弃的 `viewport-2d-kit/vue` |
+| `@main-ui/view-world` | 0.8.0 | `@main-ui/core/rendering`（pixi）+ 可插拔后端 | 世界视口：二维/三维两档共用同一模板；相机状态进 `getViewState` |
+| `@main-ui/view-canvas` | 0.8.0 | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互；取代已废弃的 `viewport-2d-kit/vue` |
 | `@main-ui/view-table` | 0.3.0 | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
-| `@main-ui/view-form` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出 |
+| `@main-ui/view-form` | 0.4.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：含数组字段与条件显隐；提交/预设存取以意图抛出 |
 | `@main-ui/view-node` | 0.4.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
 | `@main-ui/view-console` | 0.4.0 | 自研虚拟滚动 | 日志/控制台追加列表：过滤、自动跟随/锁滚 |
 | `@main-ui/view-flow` | 0.5.0 | `@vue-flow/core`（peer `^1.48`）+ FSM 纯库 | 流程/状态机文档：类型化端口、数据流/控制流双边（三件套：内核 + `FlowCanvas` 组件 + 薄壳） |
 | `@main-ui/view-sandbox` | 0.6.0 | 自研 `SandboxKernel`（无头纯 TS） | 自由沙盘画布（旗舰复合）：异构元素 + 嵌入任意 View + 嵌套保护 |
 | `@main-ui/view-host-engine` | 0.6.0 | 无（纯 DOM 挂载点） | 外部引擎转播窗口：布局归我方、渲染归外部引擎 |
-| `@main-ui/preset-views` | 0.7.0 | — | 聚合包：命名空间重导出（无逻辑） |
+| `@main-ui/view-formula` | 0.1.0 | `katex`（peer） | 公式排版 + 变量级锚点（源自数学工坊收编） |
+| `@main-ui/view-run-control` | 0.1.0 | 自研 | 运行控制：播放/暂停/步进/速度 |
+| `@main-ui/view-timeline` | 0.1.0 | 自研 | 时间轴：刻度 + 游标 + 区间选中 |
+| `@main-ui/view-storyboard` | 0.1.0 | 自研 | 分镜/序列板：卡片序列 + 拖拽排序意图 |
+| `@main-ui/render-3d` | 0.1.0 | `three`（peer，`WebGPURenderer` + TSL） | **渲染后端（非模板）**：无 editorKind，只实现 `ViewportBackend`，被 `view-world` 解析 |
+| `@main-ui/preset-views` | 0.9.0 | — | 聚合包：命名空间重导出（无逻辑） |
 
-配套基座：`@main-ui/core`（0.5.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含数组字段与条件显隐扩展）+ 虚拟滚动基座（`computeVirtualWindow` / `isNearBottom`）+ 嵌入 View 托管（`createEmbeddedViewHost` / `checkNestingDepth`），供各模板共用，宿主亦可单独消费。
+配套基座：`@main-ui/core`（0.7.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含**数组字段**与**条件显隐**）+ 虚拟滚动基座（`computeVirtualWindow` / `isNearBottom`）+ 嵌入 View 托管（`createEmbeddedViewHost` / `checkNestingDepth`）+ 渲染基础设施（`core/rendering`：`ViewportBackend` 契约、后端注册表、相机桥）+ 图元系统（`core/primitives`），供各模板共用，宿主亦可单独消费。
 
 ### 2.2 安装矩阵
 
-所有模板包把 `main-ui`（`^0.4.0`）与 `vue` 声明为 peerDependency，重型内核留在各包 peer 中，需显式安装：
+所有模板包把 `main-ui`（`^0.9.0`）与 `vue` 声明为 peerDependency，重型内核留在各包 peer 中，需显式安装：
 
 ```bash
 # 按需安装（示例：只要树和表格）
@@ -46,23 +51,29 @@ pnpm add @main-ui/view-tree @main-ui/view-table main-ui vue
 # 全量安装
 pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-canvas @main-ui/view-table \
          @main-ui/view-form @main-ui/view-node @main-ui/view-console \
-         @main-ui/view-flow @main-ui/view-sandbox @main-ui/view-host-engine main-ui vue
+         @main-ui/view-flow @main-ui/view-sandbox @main-ui/view-host-engine \
+         @main-ui/view-formula @main-ui/view-run-control @main-ui/view-timeline @main-ui/view-storyboard main-ui vue
 
 # 聚合包（仅重导出，仍建议显式安装模板包本体）
 pnpm add @main-ui/preset-views
+
+# 三维档（可选后端；只装二维时不装即可，视图不会报错也没有开关）
+pnpm add @main-ui/render-3d three troika-three-text
 ```
 
 额外内核依赖：
 
 | 模板 | 额外必装 |
 | --- | --- |
-| `view-world` | `@main-ui/core/rendering` + `pixi.js` |
+| `view-world` | `@main-ui/core/rendering` + `pixi.js`（二维档）；三维档另装 `@main-ui/render-3d` |
 | `view-canvas` | `@main-ui/core/rendering`（纯 DOM，无 pixi） |
 | `view-node` | `@vue-flow/core@^1.48`（结构样式为包内 vendored，运行时自动注入，无需宿主处理） |
 | `view-form` / `view-inspector` | `@main-ui/core`（peer） |
 | `view-flow` | `@vue-flow/core@^1.48` + `@main-ui/core`（peer） |
 | `view-sandbox` | `@main-ui/core`（peer，消费 EmbeddedViewHost/嵌套保护） |
+| `view-formula` | `katex`（peer） |
 | `view-host-engine` | 无（宿主自备外部引擎） |
+| `render-3d` | `three`（`^0.186`）+ `troika-three-text`（均在包内 peer，由宿主显式安装） |
 
 ### 2.3 安装后文档位置
 
@@ -85,7 +96,7 @@ import { registerTreeViewEditor } from '@main-ui/view-tree'
 registerTreeViewEditor(runtime, { allowedWorkspaceIds: ['my-workspace'], title: 'Project Tree' })
 ```
 
-- `options.allowedWorkspaceIds` 声明模板可出现的 workspace；同时需把模板 kind（`view-tree` / `view-inspector` / `view-world` / `view-table` / `view-form` / `view-node` / `view-console` / `view-flow` / `view-sandbox`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
+- `options.allowedWorkspaceIds` 声明模板可出现的 workspace；同时需把模板 kind（`view-tree` / `view-inspector` / `view-world` / `view-canvas` / `view-table` / `view-form` / `view-node` / `view-console` / `view-flow` / `view-sandbox` / `view-formula` / `view-run-control` / `view-timeline` / `view-storyboard`）并入对应 `WorkspaceDescriptor.allowedEditorKinds`。
 - 底层拆解可用：`createXxxEditorDescriptor(options)` 只生成 descriptor；`createXxxEditorRenderer(resolveProps?, extraProps?)` 只生成 renderer 适配器。
 
 ### 步骤 2：数据经 Props 进
@@ -191,8 +202,11 @@ Props：
 | `rotateStep` | `number` | `π/12` | 旋转步长（弧度），供宿主自行绑定快捷键时复用默认值 |
 | `loading` / `error` | `boolean` / `string \| null` | — | 加载三态 |
 | `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期（相机进快照） |
+| `dimension` | `2 \| 3` | `2` | 呈现维度：二维档（Pixi，缺省）或三维档（需注入 `@main-ui/render-3d`）。**切换时组件实例不销毁，相机态连续** |
+| `backends` | `ViewportBackend[]` | `[]` | 额外注册的渲染后端（宿主注入 `createThreeBackend()` 即可获得三维档） |
+| `backendKey` | `string \| null` | `null` | 指定后端键；`null` 时按 `dimension` 由注册表自动选择 |
 
-Emits：`ready(api)`（手动模式逃生舱，宿主可直接操作 PixiJS world 容器）/ `camera-change(camera)` / `world-pointerdown` / `world-pointerup` / `world-click`（默认仅左键）/ `world-contextmenu`（右键） / `cell-pointerdown` / `cell-click` / `cell-contextmenu`。
+Emits：`ready(api)`（手动模式逃生舱，返回**后端无关**最小句柄：画布尺寸 / 根容器 / `requestRender`；Pixi Application 与 three Scene 这类专属对象由各自后端包在自己公开面提供）/ `camera-change(camera)` / `world-pointerdown` / `world-pointerup` / `world-click`（默认仅左键）/ `world-contextmenu`（右键） / `cell-pointerdown` / `cell-click` / `cell-contextmenu` / `dimension-change(dimension)`。
 
 自动渲染图元：Grid / Sprite / Text / Polygon / **Polyline**；`screen→world` 命中由 InteractionLayer 提供，抛出 world/cell 意图。
 
@@ -254,7 +268,44 @@ batches.road = {
 
 **与输入系统的关系**：滚轮/平移/捏合判型已上移到 `@main-ui/core/input`（`classifyWheel`），画布模板与宿主的快捷键系统共用同一口径，不再各自判 `deltaX` / `ctrlKey`。画布内手势（平移、缩放、旋转）仍由模板自身处理；若要把某个手势改绑到命令，用 `runtime.input.register` 并在 `scope: 'canvas'` 下声明。
 
-### 4.3.2 `@main-ui/view-canvas`（DOM/SVG 画布视口）
+#### 4.3.2 三维档（可插拔渲染后端）
+
+三维能力**不是新模板**：`view-world` 是唯一的世界视口模板、唯一 editorKind、唯一组件实例，二维与三维是它的**两个可插拔后端**。维度是**后端属性**，不是包名属性 —— 因此不设 `view-3d`。
+
+```ts
+import { WorldView, registerThreeBackend } from '@main-ui/view-world'
+import { createThreeBackend, configureTextRendering } from '@main-ui/render-3d'
+
+// 1) 三维档使用文字前必须先指定字体来源（国内网络下若不指定会走 CDN，导致整帧崩）
+configureTextRendering({ defaultFontURL: '/fonts/label.ttf', unicodeFontsURL: null })
+
+// 2) 把三维后端交给模板；只装二维时不注册，视图不会报错、也不会出现开关
+const backends = [createThreeBackend()]
+```
+
+```vue
+<WorldView :snapshot="snapshot" :grid="grid" :backends="backends" :dimension="dimension" />
+```
+
+| 要点 | 说明 |
+| --- | --- |
+| 能力探测在运行时 | 维度开关由**已安装后端**的 `capabilities` 决定；只装二维的宿主自动没有开关，不会出现「声明支持三维但包没装」的假声明 |
+| 切换不销毁实例 | 拨开关时组件实例不销毁，**相机状态天然连续**；宿主只注册一次 |
+| 二维档是预设，非兼容层 | 二维档在三维后端里是写死的六条预设（正交投影 · 无光照 unlit · 线条禁贴图 · `devicePixelRatio` 对齐 · 网格命中 `col`/`row` 优先 · 悬停反馈专门规定）。**永久一等公民，不得标注为「兼容层」或「待废弃」** |
+| 数据契约升维 | `EntitySnapshot.dimensions?: 2 \| 3`；`EntityBatch.columns` 支持可选 `z`（缺省 0）；图元项支持 `z` / `extrude`（缺省 0）。**全部可选**，旧快照完全兼容 |
+| 文字分档 | 三维档走**公告牌二维贴片**（Canvas 2D 栅格化 → `CanvasTexture` → 平面 + 每帧对齐相机），二维档走 MSDF。两档互不替代 |
+| 文字朝向 | `TextItem.billboard?: 'full' \| 'axis' \| 'none'`（缺省 `full`：完全面向相机） |
+
+**宿主接入形态**：
+
+| 宿主形态 | 做法 |
+| --- | --- |
+| 快照驱动型 | 注册三维后端 + `dimension` 开关；条目输出 `EntitySnapshot` 即自动获得两档 |
+| 双轨存量 | 存量内容保持二维档不变，用户可拨到三维档（同一实例、相机连续） |
+| 新条目 | 直接用 `createWorldStageRenderer` 建 `world-stage` 条目，3D-first，不留二维轨 |
+| 手动模式自绘 | 若渲染走自有绘制而非快照，则**声明 2D-only**（不显示开关、不复制 `-2d` 目录） |
+
+### 4.3.3 `@main-ui/view-canvas`（DOM/SVG 画布视口）
 
 组件 `ViewportCanvas`（画布视口）+ `ViewportCanvasShell`（三栏业务壳）+ `useViewportHostBridge`（宿主自绘坐标桥）。内核为 `@main-ui/core/rendering` 的**相机纯函数**（**纯 DOM/SVG，不依赖 PixiJS**）。
 
@@ -383,6 +434,59 @@ Props：
 
 Emits：`change(FormChangePayload)`（单字段变更，含旧值）/ `submit({ values, valid, errors })` / `save-preset-intent` / `apply-preset-intent`（预设存取均走意图，存储介质由宿主决定）。
 
+#### 4.5.1 数组字段（`kind: 'array'`）
+
+数组字段渲染为「可增删的行列表」，每行内嵌 `itemFields` 定义的子控件：
+
+```ts
+const schema: FormSchema = {
+  fields: [
+    {
+      kind: 'array', key: 'edges', label: 'Edges',
+      minItems: 1, maxItems: 8,                       // 项数约束（触界时按钮禁用，不产生意图）
+      itemFields: [
+        { kind: 'string', key: 'from', label: 'From', required: true },
+        { kind: 'string', key: 'to', label: 'To', required: true },
+        { kind: 'number', key: 'weight', label: 'Weight', min: 0, max: 100, defaultValue: 1 },
+      ],
+    },
+  ],
+}
+```
+
+| 行为 | 说明 |
+| --- | --- |
+| 追加 / 删除 | 由视图内「＋ 添加一项」/「删除」按钮触发，受 `minItems` / `maxItems` 限制 |
+| 意图形状 | **整体折叠为一次 `change`** —— `{ key: 'edges', value: 新数组, previous: 旧数组 }`，宿主无需为数组字段写第二套消费逻辑 |
+| 越界 | 触界时按钮 `disabled`，且纯函数 `applyArrayIntent` 返回原引用（不产生意图） |
+| 子字段显隐 | 子字段同样支持 `visibleWhen`，判断基准是**该行自身的值** |
+| 嵌套数组 | 不支持（避免无限递归）；需要嵌套时由宿主拆成独立字段 |
+
+校验语义：隐藏的子字段不参与校验；数组项数触界报 `min` / `max` 错误码。
+
+#### 4.5.2 条件显隐（`visibleWhen`）
+
+任意字段（含数组子字段、分组）可声明条件显隐：
+
+```ts
+{
+  kind: 'string', key: 'proxyUrl', label: 'Proxy URL',
+  visibleWhen: { field: 'useProxy', equals: true },      // 依赖字段值匹配时可见
+}
+{
+  kind: 'string', key: 'note', label: 'Note',
+  visibleWhen: { field: 'mode', equals: ['a', 'b'] },    // 数组 = 任一匹配
+}
+{
+  kind: 'string', key: 'legacy', label: 'Legacy',
+  visibleWhen: { field: 'mode', equals: 'v1', negate: true },  // 取反：匹配时隐藏
+}
+```
+
+**校验联动（重要）**：条件隐藏的字段**不参与校验**。理由是用户看不见的必填项不应阻断提交 —— 否则表单会陷入「报错却找不到出错位置」的死局。此语义在 `validateFormValues` 与数组子字段校验中一致。
+
+纯函数（`@main-ui/core` 直接可用）：`evaluateVisibility(field, values)`。
+
 标准链路：提交 → 宿主校验裁决 → 落库（可异步）→ 经数据源回写回填。参考实现：`demo/src/adapter/registerPresetViewEditors.ts`。
 
 ### 4.6 `@main-ui/view-node`（节点图，v0.4）
@@ -466,7 +570,103 @@ Props：
 | `loading` / `error` | — | 三态 |
 | `editorInstanceId` | `string \| null` | 挂载视图生命周期（视图状态为容器尺寸） |
 
-无 Emits（引擎交互归宿主）。**`onResize` 契约**：模板只通知尺寸变化，宿主引擎自行处理 resize 后重绘（如 p5 `resizeCanvas()` 会重置画布内容，pixi `renderer.resize()` 同理，宿主须在 resize 后重新渲染）。面向游戏舞台（Y 型）与任意外部渲染嵌入场景。
+无 Emits（引擎交互归宿主）。**`onResize` 契约**：模板只通知尺寸变化，宿主引擎自行处理 resize 后重绘（如 p5 `resizeCanvas()` 会重置画布内容，pixi `renderer.resize()` 同理，宿主须在 resize 后重新渲染）。面向整屏外部渲染与任意外部渲染嵌入场景。
+
+### 4.11 `@main-ui/view-formula`（公式视图 + 变量级锚点，v0.1）
+
+组件 `FormulaView`；内核 `katex`（peer）。**本包不提供 `register.ts`**：它导出组件、契约与纯函数，由宿主自行组装注册（与 `view-host-engine` 同类）。
+
+Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `latex` | `string` | 必填 | 公式源（LaTeX） |
+| `displayMode` | `boolean` | `true` | 行内 / 独立行公式 |
+| `anchors` | `FormulaVarAnchor[]` | `[]` | 可锚定变量声明：`{ name, symbolId, occurrence?, hint? }` |
+| `throwOnError` | `boolean` | `false` | 解析失败是否抛错（缺省渲染错误态） |
+
+Emits：`anchor-hover(FormulaAnchorIntent)` / `anchor-click(FormulaAnchorIntent)` —— 载荷含 `name` / `symbolId` / `occurrence` / `clientX` / `clientY`（宿主据此定位弹窗）。
+
+配套纯函数：`scanner.ts`（扫描 token 序列）、`anchor.ts`（锚点命中）。**符号解析与规范化由宿主（后端）完成，本包只消费映射结果。**
+
+视图状态（`FormulaViewState`）：`{ expandedSymbolIds: string[] }`。
+
+### 4.12 `@main-ui/view-run-control`（运行控制，v0.1）
+
+组件 `RunControlView`；注册 `registerRunControlViewEditor`。播放 / 暂停 / 单步 / 重置 / 速率。**全部术语为通用仿真/控制语义（status / rate / tick），不含任何领域专属概念。**
+
+Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `status` | `'idle' \| 'running' \| 'paused'` | `'idle'` | 当前运行状态 |
+| `rate` | `number` | `1` | 速率（tick/s，语义由宿主定义） |
+| `tick` | `number` | `0` | 当前帧/步计数 |
+| `connected` | `boolean` | `true` | 连接态（断开时禁用操作） |
+| `canReset` | `boolean` | `true` | 能否重置 |
+| `rateEditable` | `boolean` | `true` | 速率可否编辑 |
+| `rateBounds` | `Partial<RunControlRateBounds>` | `{ min: 0.1, max: 1000, step: 1 }` | 速率输入边界 |
+| `availability` | `RunControlAvailability \| null` | `null` | 显式覆盖各按钮可用性 |
+| `statusLabel` | `string \| null` | `null` | 状态文案（宿主本地化） |
+| `loading` / `error` | — | — | 三态 |
+| `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期 |
+
+Emits：`play` / `pause` / `step` / `reset` / `rate-change(rate)`。
+
+视图状态（`RunControlViewState`）：`{ rateDraft: string }`（未提交的速率草稿）。
+
+### 4.13 `@main-ui/view-timeline`（时间轴，v0.1）
+
+组件 `TimelineView`；注册 `registerTimelineViewEditor`。帧序列时间轴 + 定位游标；**不自持播放时钟**，只呈现与抛出定位意图。
+
+Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `frames` | `TimelineFrame[]` | `[]` | 帧序列（`{ tick, time, label? }`，按时间递增） |
+| `currentIndex` | `number \| null` | `null` | 当前定位帧索引；`null` = 实时（跟随最新帧） |
+| `totalTicks` | `number \| null` | `null` | 总 tick 数（缺省由 `frames` 推导） |
+| `liveLabel` | `string` | `'实时'` | 「实时」位置的显示文案 |
+| `loading` / `error` | — | — | 三态 |
+| `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期 |
+
+Emits：`seek(index)`（提交定位）/ `scrub(index)`（拖拽中定位）/ `live`（切回实时）。
+
+视图状态（`TimelineViewState`）：`{ currentIndex: number \| null }`。
+
+### 4.14 `@main-ui/view-storyboard`（分镜/序列板，v0.1）
+
+组件 `StoryboardView`；注册 `registerStoryboardViewEditor`。分镜卡片序列 + 注释编辑 + 导出。**截图由宿主在 `add-card` 意图回调中生成并回填，视图不自行截图。**
+
+Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `cards` | `StoryboardCard[]` | `[]` | 卡片列表（`{ id, tick, note, image? }`；`image` 为宿主生成的 data URL） |
+| `draftNote` | `string` | `''` | 新增卡片的注释草稿（受控） |
+| `addEnabled` | `boolean` | `true` | 新增按钮开关 |
+| `exportEnabled` | `boolean` | `true` | 导出按钮开关 |
+| `addLabel` / `exportLabel` / `draftPlaceholder` | `string` | — | 文案可覆写（宿主本地化） |
+| `loading` / `error` | — | — | 三态 |
+| `editorInstanceId` | `string \| null` | `null` | 挂载视图生命周期 |
+
+Emits：`add-card(StoryboardCardDraft)`（仅含注释，`tick`/`image` 由宿主补全）/ `remove-card(id)` / `update-note(id, note)` / `update-draft(note)` / `export(StoryboardCard[])`。
+
+视图状态（`StoryboardViewState`）：`{ draftNote: string }`。
+
+### 4.15 `@main-ui/render-3d`（三维渲染后端，**不是模板**）
+
+**命名 lane：`render-*` 无 `editorKind`、不可注册为编辑器、只实现 `ViewportBackend`**；被 `view-world` 解析，不被宿主直接挂载。
+
+```ts
+import { createThreeBackend, configureTextRendering } from '@main-ui/render-3d'
+const backend = createThreeBackend()          // 交给 view-world 的 backends prop
+configureTextRendering({ defaultFontURL: '/fonts/label.ttf', unicodeFontsURL: null })
+```
+
+主要导出：`createThreeBackend` / `configureTextRendering` / `createWorldStageRenderer` / `createSpriteText` / 保真对照判据（`render-3d/fidelity`）/ 外接两档契约（`render-3d/external`）。
+
+硬规矩（违反即返工）：不写 GLSL、不用 `onBeforeCompile`（自定义着色器一律 TSL）· 同类实体必须共享原型几何再实例化 · 线不得独立成几何贴在平面上 · **文字不出现在 `core` 与主包的公开签名里**（three 类型止于本包内部）。
 
 ## 5. 宿主适配层职责（模板不承担）
 
@@ -490,4 +690,4 @@ Props：
 - `view-asset`（资产网格）：v0.5 / v0.6 两度顺延（缩略图契约待下游信箱回执），继续顺延。
 - 既有模板剩余增强（table 列拉伸/冻结/多选、tree 多选/懒加载、inspector 嵌套/数组、node 小地图、console 换行/导出等）与 `view-flow` 增强（diff/invert 撤销、反向 FSM 解析、自动布局、小地图）：见任务文档顺延清单。
 - **三维能力 = `view-world` 的可插拔后端**（`render-*` lane）。不新建 `view-3d` 模板包：维度是**后端属性**，不是包名属性；模板永远只有 `view-world` 一个 editorKind。首个三维后端为 `@main-ui/render-3d`（three.js），二维档是它内部写死的预设（正交 · 无光照 · 线条禁贴图 · DPR 对齐 · 网格命中优先 · 悬停反馈规定）。详见 `design-main-ui-20260922-001` **§十九** 与 `HOST_INTEGRATION_GUIDE.md` 的包边界四条判据。
-- 长期候选：`view-dashboard` / `view-timeline` / `view-chat` / `view-whiteboard` / `view-terminal`，按需求信号滚动。
+- 长期候选：`view-dashboard` / `view-chat` / `view-whiteboard` / `view-terminal`，按需求信号滚动（`view-timeline` / `view-storyboard` 已交付，见 §4.13 / §4.14）。

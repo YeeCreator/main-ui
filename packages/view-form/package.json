@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/view-form",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": false,
   "description": "main-ui 官方视图模板：schema 驱动分组表单（校验呈现、提交与预设模板保存/应用意图），与 view-inspector 共享 @main-ui/core 表单基座。",
   "license": "MIT",
@@ -32,8 +32,8 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.7.0",
-    "main-ui": "^0.8.0",
+    "@main-ui/core": "^0.8.0",
+    "main-ui": "^0.9.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
  * 表单校验纯函数（框架无关）：输入 schema + values，输出字段级错误表。
  * 视图层据此呈现错误提示；是否阻断提交由宿主裁决（意图照抛）。
  */
-import { flattenFormSchema, type FormField, type FormSchema, type FormValues } from './types';
+import { evaluateVisibility, flattenFormSchema, type FormField, type FormSchema, type FormValues } from './types';
 
 export type FormValidationError = {
   /** 语义化错误码（非文案），宿主可据此本地化 */
@@ -95,6 +95,8 @@ export const validateArrayField = (
   for (let i = 0; i < arr.length; i++) {
     const item = arr[i] as FormValues;
     for (const subField of field.itemFields) {
+      // 隐藏的子字段不参与校验：用户看不见的表单项不应阻断提交
+      if (!evaluateVisibility(subField, item ?? {})) continue;
       const subError = validateFormField(subField, item?.[subField.key]);
       if (subError) {
         errors.push({ ...subError, key: `${field.key}[${i}].${subField.key}` });
@@ -104,10 +106,16 @@ export const validateArrayField = (
   return errors;
 };
 
-/** 校验整表：逐字段执行，返回全部错误。 */
+/**
+ * 校验整表：逐字段执行，返回全部错误。
+ *
+ * 条件隐藏的字段（`visibleWhen` 不满足）**不参与校验** ——
+ * 用户看不见的必填项不应阻断提交，否则表单会陷入「报错但找不到出错位置」的死局。
+ */
 export const validateFormValues = (schema: FormSchema, values: FormValues): FormValidationResult => {
   const errors: Record<string, FormValidationError> = {};
   for (const field of flattenFormSchema(schema)) {
+    if (!evaluateVisibility(field, values)) continue;
     const error = validateFormField(field, values[field.key]);
     if (error) errors[field.key] = error;
   }

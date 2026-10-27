@@ -98,16 +98,32 @@ export type VisibleWhen = {
   negate?: boolean;
 };
 
-export type FormField =
+/**
+ * 字段联合类型，统一携带条件显隐属性。
+ *
+ * `visibleWhen` 是可选字段（opt-in），不带该字段的旧 schema 行为完全不变；
+ * 放在联合类型外侧而非每种字段各写一次，是为了让「字段即可见性主体」这一事实
+ * 在类型层面直接成立 —— 视图层无需类型断言即可调用 `evaluateVisibility`。
+ */
+export type FormField = (
   | FormStringField
   | FormNumberField
   | FormBooleanField
   | FormSelectField
   | FormTextareaField
-  | FormArrayField;
+  | FormArrayField
+) & {
+  /** 条件显隐规则（缺省恒可见） */
+  visibleWhen?: VisibleWhen;
+};
 
-/** 所有字段可选的条件显隐属性（opt-in，不影响既有宿主行为）。 */
-export type FormFieldWithVisibility = FormField & { visibleWhen?: VisibleWhen };
+/**
+ * 带条件显隐能力的字段别名。
+ *
+ * 保留此别名是为了兼容既有调用点；自 `visibleWhen` 并入 `FormField` 后，
+ * 二者已完全等价。
+ */
+export type FormFieldWithVisibility = FormField;
 
 /** 字段分组（呈现顺序即数组顺序；省略分组即平铺字段列表）。 */
 export type FormGroup = {
@@ -115,7 +131,10 @@ export type FormGroup = {
   title: string;
   /** 分组级描述 */
   description?: string;
+  /** 组内字段（顺序即呈现顺序） */
   fields: FormField[];
+  /** 分组级条件显隐（缺省恒可见） */
+  visibleWhen?: VisibleWhen;
 };
 
 /** 表单 schema：平铺字段或分组字段二选一（两者并存时分组优先）。 */

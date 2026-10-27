@@ -2,8 +2,10 @@ import { computed, defineComponent, h, ref, watch, type PropType } from 'vue';
 import { useViewLifecycle } from 'main-ui/vue';
 import type { MainUiViewLifecycle } from 'main-ui/core';
 import {
+  evaluateVisibility,
   validateFormValues,
   type FormApplyPresetIntentPayload,
+  type FormArrayField,
   type FormChangePayload,
   type FormField,
   type FormGroup,
@@ -13,7 +15,7 @@ import {
   type FormValidationResult,
   type FormValues,
 } from '@main-ui/core';
-import { coerceFieldValue, resolveFieldValue } from './form';
+import { applyArrayIntent, coerceFieldValue, resolveFieldValue, type ArrayIntent } from './form';
 import type { FormViewState } from './types';
 
 /**
@@ -60,6 +62,9 @@ export const FormView = defineComponent({
     const selectedPreset = ref('');
 
     const resolve = (field: FormField): unknown => resolveFieldValue(field, internalValues.value);
+
+    /** 字段是否可见（消费 core 纯函数，宿主用 visibleWhen 声明条件显隐）。 */
+    const isVisible = (field: FormField): boolean => evaluateVisibility(field, internalValues.value);
 
     // ---------- 变更意图（一律经 Emits 抛出，携带旧值） ----------
     const commit = (field: FormField, raw: unknown) => {
@@ -179,10 +184,132 @@ export const FormView = defineComponent({
             style: { ...controlBaseStyle, border }, disabled, value: String(value ?? ''),
             onChange: (event: Event) => commit(field, (event.target as HTMLSelectElement).value),
           }, field.options.map((option) => h('option', { key: option.value, value: option.value }, option.label)));
+        case 'array':
+          return renderArrayControl(field);
       }
     };
 
+    /**
+     * 数组字段控件：动态增删行，每行内嵌 `itemFields` 定义的子控件。
+     *
+     * 子控件变更一律折叠为单个 `change` 意图（key 为数组字段 key，value 为整表新数组），
+     * 保持与其它字段一致的意图形状 —— 宿主无需为数组字段写第二套消费逻辑。
+     */
+    const renderArrayControl = (field: FormArrayField) => {
+      const raw = resolve(field);
+      const items = Array.isArray(raw) ? (raw as FormValues[]) : [];
+      const disabled = Boolean(field.disabled);
+      const canRemove = !disabled && (field.minItems === undefined || items.length > field.minItems);
+      const canAppend = !disabled && (field.maxItems === undefined || items.length < field.maxItems);
+
+      // 数组意图统一在此提交：形状与普通字段一致（key + 新值 + 旧值）
+      const commitArray = (intent: ArrayIntent) => {
+        if (disabled) return;
+        const next = applyArrayIntent(field, items, intent);
+        if (next === items) return; // 越界：不产生意图
+        touched.value = { ...touched.value, [field.key]: true };
+        const previous = resolve(field);
+        internalValues.value = { ...internalValues.value, [field.key]: next };
+        const payload: FormChangePayload = { key: field.key, value: next, previous };
+        emit('change', payload);
+      };
+
+      const renderItemField = (sub: FormField, index: number) => {
+        if (!evaluateVisibility(sub, items[index] ?? {})) return null;
+        const itemValue = items[index]?.[sub.key];
+        const onInput = (rawInput: unknown) => {
+          const coerced = coerceFieldValue(sub, rawInput, itemValue);
+          commitArray({ type: 'patch', index, item: { ...items[index], [sub.key]: coerced } });
+        };
+        const subStyle = { ...controlBaseStyle, border: controlBaseStyle.border };
+        let control: unknown;
+        switch (sub.kind) {
+          case 'string':
+            control = h('input', {
+              type: 'text', style: subStyle, disabled,
+              placeholder: sub.placeholder ?? '', value: String(itemValue ?? ''),
+              onInput: (event: Event) => onInput((event.target as HTMLInputElement).value),
+            });
+            break;
+          case 'textarea':
+            control = h('textarea', {
+              style: { ...subStyle, resize: 'vertical', minHeight: '40px' }, disabled,
+              rows: sub.rows ?? 2, placeholder: sub.placeholder ?? '', value: String(itemValue ?? ''),
+              onInput: (event: Event) => onInput((event.target as HTMLTextAreaElement).value),
+            });
+            break;
+          case 'number':
+            control = h('input', {
+              type: 'number', style: subStyle, disabled,
+              min: sub.min, max: sub.max, step: sub.step, value: String(itemValue ?? ''),
+              onInput: (event: Event) => onInput((event.target as HTMLInputElement).value),
+            });
+            break;
+          case 'boolean':
+            control = h('input', {
+              type: 'checkbox', style: { accentColor: 'var(--mui-color-accent)' }, disabled,
+              checked: Boolean(itemValue),
+              onChange: (event: Event) => onInput((event.target as HTMLInputElement).checked),
+            });
+            break;
+          case 'select':
+            control = h('select', {
+              style: subStyle, disabled, value: String(itemValue ?? ''),
+              onChange: (event: Event) => onInput((event.target as HTMLSelectElement).value),
+            }, sub.options.map((option) => h('option', { key: option.value, value: option.value }, option.label)));
+            break;
+          default:
+            // 嵌套数组不支持：schema 嵌套由宿主拆成独立字段，避免无限递归
+            control = h('div', { style: { ...labelStyle, paddingTop: '4px' } }, '（嵌套数组不支持）');
+        }
+        return h('div', {
+          key: `${sub.key}-${index}`,
+          style: { display: 'grid', gridTemplateColumns: '32% 1fr', gap: '6px', alignItems: 'start' },
+        }, [
+          h('div', { style: { ...labelStyle, paddingTop: '4px' }, title: sub.description ?? sub.label }, sub.label),
+          control as never,
+        ]);
+      };
+
+      return h('div', {
+        class: 'main-ui-view-form__array',
+        style: { display: 'flex', flexDirection: 'column', gap: '6px' },
+      }, [
+        ...items.map((_item, index) => h('div', {
+          key: `row-${index}`,
+          class: 'main-ui-view-form__array-row',
+          style: {
+            border: '1px solid var(--mui-color-border)', borderRadius: 'var(--mui-radius)',
+            padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '4px',
+            background: 'var(--mui-color-panel)',
+          },
+        }, [
+          h('div', {
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' },
+          }, [
+            h('span', { style: { ...labelStyle, fontSize: '11px' } }, `#${index + 1}`),
+            h('button', {
+              type: 'button',
+              class: 'main-ui-view-form__array-remove',
+              style: { ...buttonStyle, padding: '1px 8px', fontSize: '11px' },
+              disabled: !canRemove,
+              onClick: () => commitArray({ type: 'remove', index }),
+            }, '删除'),
+          ]),
+          ...field.itemFields.map((sub) => renderItemField(sub, index)),
+        ])),
+        h('button', {
+          type: 'button',
+          class: 'main-ui-view-form__array-append',
+          style: { ...buttonStyle, alignSelf: 'flex-start', padding: '2px 10px', fontSize: '11px' },
+          disabled: !canAppend,
+          onClick: () => commitArray({ type: 'append' }),
+        }, '＋ 添加一项'),
+      ]);
+    };
+
     const renderFieldRow = (field: FormField) => {
+      if (!isVisible(field)) return null;
       const message = visibleError(field.key);
       return h('div', {
         key: field.key,

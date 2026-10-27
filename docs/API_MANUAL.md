@@ -2,7 +2,7 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.4.0`。API 以本地 `.tgz` 版本包交付；本版本新增停靠引导拖拽（五向指示器 + Ghost 预览）、二期三个官方视图模板包（`@main-ui/view-form` / `view-node` / `view-console`）与表单基座包 `@main-ui/core`、主题密度变量；既有注册方式继续有效，持久化文档版本不变（仍为 3）。
+本文档对应 `main-ui 0.9.0`（`@main-ui/core 0.8.0`，官方视图模板库 0.9.0）。API 以本地 `.tgz` 版本包交付；本版本新增 `view-form` 的数组字段与条件显隐、统一输入与手势系统、应用面（Surface）编排原语、渲染后端抽象与三维后端（`@main-ui/render-3d`）；既有注册方式继续有效，持久化文档版本不变（仍为 3）。
 
 ## 入口
 
@@ -338,20 +338,29 @@ export type EditorMountAdapter = {
 
 ## 官方视图模板包（@main-ui/view-*）
 
-一期四个 + 二期三个模板包 + 聚合包，均为独立 npm 包，`main-ui`（`^0.4.0`）为 peerDependency。**模板库的安装矩阵、接入三步与全量 Props/Emits/视图状态 API 见 [PRESET_VIEWS_GUIDE.md](PRESET_VIEWS_GUIDE.md)**；下表为速览：
+官方模板共 **15 个**模板包 + 1 个聚合包 + 1 个渲染后端包，均为独立 npm 包，`main-ui`（`^0.9.0`）为 peerDependency。**模板库的安装矩阵、接入三步与全量 Props/Emits/视图状态 API 见 [PRESET_VIEWS_GUIDE.md](PRESET_VIEWS_GUIDE.md)**；下表为速览：
 
 | 包 | 内核 | 用途 |
 | --- | --- | --- |
 | `@main-ui/view-tree` | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、选中高亮 |
 | `@main-ui/view-inspector` | schema 驱动表单 | 属性检视：对象 + schema，变更经 Emits 抛出 |
-| `@main-ui/view-world` | `@main-ui/core/rendering`（pixi） | 2D 世界可视化：相机状态进 `getViewState` |
+| `@main-ui/view-world` | `@main-ui/core/rendering`（pixi）+ 可插拔后端 | 世界视口：二维/三维两档共用同一模板，`dimension` 开关切换 |
+| `@main-ui/view-canvas` | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互 |
 | `@main-ui/view-table` | 自研虚拟滚动 | 表格浏览/编辑：单元格编辑意图经 Emits 抛出 |
-| `@main-ui/view-form`（v0.4） | schema 驱动表单（`@main-ui/core` 基座） | 配置面板：提交/预设存取以意图抛出，宿主裁决后回填 |
-| `@main-ui/view-node`（v0.4） | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState`，移动/连线以意图抛出 |
-| `@main-ui/view-console`（v0.4） | 自研虚拟滚动 | 日志/控制台追加列表：等级/文本过滤、自动跟随/锁滚、清空意图 |
-| `@main-ui/preset-views` | — | 聚合包：命名空间重导出（`tree` / `inspector` / `view2d` / `table` / `form` / `node` / `consoleView`） |
+| `@main-ui/view-form` | schema 驱动表单（`@main-ui/core` 基座） | 配置面板：含数组字段与条件显隐；提交/预设存取以意图抛出 |
+| `@main-ui/view-node` | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState`，移动/连线以意图抛出 |
+| `@main-ui/view-console` | 自研虚拟滚动 | 日志/控制台追加列表：等级/文本过滤、自动跟随/锁滚、清空意图 |
+| `@main-ui/view-flow`（v0.5） | `@vue-flow/core` + FSM 纯库 | 流程/状态机文档：类型化端口、双边（三件套：内核 + `FlowCanvas` + 薄壳） |
+| `@main-ui/view-sandbox`（v0.6） | 自研 `SandboxKernel` | 自由沙盘画布（旗舰复合）：异构元素 + 嵌入任意 View + 嵌套保护 |
+| `@main-ui/view-host-engine`（v0.6） | 无（纯 DOM 挂载点） | 外部引擎转播窗口：布局归我方、渲染归外部引擎 |
+| `@main-ui/view-formula` | `katex`（peer） | 公式排版 + 变量级锚点 |
+| `@main-ui/view-run-control` | 自研 | 运行控制（播放/暂停/步进） |
+| `@main-ui/view-timeline` | 自研 | 时间轴 |
+| `@main-ui/view-storyboard` | 自研 | 分镜/序列板 |
+| `@main-ui/render-3d`（渲染后端，非模板） | `three`（peer） | 三维渲染后端：**无 editorKind**，只实现 `ViewportBackend`，被 `view-world` 解析 |
+| `@main-ui/preset-views` | — | 聚合包：命名空间重导出（无逻辑） |
 
-另：`@main-ui/core`（v0.4 新增）为框架无关的表单基座包（`FormFieldSchema` / `FormValues` / 校验纯函数），供 `view-form` 与 `view-inspector` 共用，宿主自定义表单亦可单独消费。
+另：`@main-ui/core` 为框架无关的模板基座包，提供表单基座（含**数组字段** `kind: 'array'` 与**条件显隐** `visibleWhen`）、虚拟滚动基座、EmbeddedViewHost/嵌套保护、渲染基础设施（`core/rendering`）与图元系统（`core/primitives`），供全部模板共用，宿主自定义表单亦可单独消费。
 
 每包统一结构：`types.ts` 数据契约（TS 类型）+ 主组件（`MainUiViewLifecycle` 四成员全实现）+ `register.ts` 一键注册：
 
