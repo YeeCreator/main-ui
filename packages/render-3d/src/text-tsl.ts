@@ -3,63 +3,74 @@
  *
  * ## 一句话状态
  *
- * 顶点/朝向/varying/图集绑定**全部打通并逐层验证过**；
- * 只剩最后一层未通：**片元里 SDF 采样值恒为 0**，故文字仍不显示。
- * `text-factory.ts` 因此继续走 troika 原材质，并如实声明「三维档文字不可用」。
+ * 整条链路已逐层验证到「片元输出正常」，**唯一卡点是 SDF 图集的采样坐标**：
+ * 采样值恒为 0，故文字不显示。`text-factory.ts` 继续走 troika 原材质，
+ * 并如实声明「三维档文字不可用」。
  *
- * ## 已逐层验证通过的（每层都有独立判定手段，不是推测）
+ * ## 逐层验证结果（每层都有独立判定手段）
  *
  * | 层 | 判定方式 | 结果 |
- * | --- | --- | --- |
- * | 对象进入渲染列表 | 切 `visible` 看 draw call 变化 | ✅ 会变（20 → 29 → 42） |
- * | `positionNode` 生效 | 顶点写成常量方块 + 同步跳过 `Discard` | ✅ 出现两个红块 |
+ * --- | --- | --- |
+ * | 对象进渲染列表 | 切 `visible` 看 draw call | ✅ 会变（20 → 29 → 42） |
+ * | `positionNode` 生效 | 顶点写常量方块 + 片元跳过 `Discard` | ✅ 出现两个红块 |
+ * | 几何位置正确 | 片元输出恒定色（`__TSL_ALWAYS`） | ✅ 蓝块正好落在文字位置 |
  * | `varying` 传到片元 | 输出 `glyphUV` 当颜色 | ✅ 红绿渐变 |
- * | 图集绑定 | 读材质 uniform 的纹理对象 | ✅ `HTMLCanvasElement 2048×128` |
- * | 图集坐标 | 输出 `atlasUV` | ✅ 数值合理 |
- * | **SDF 采样值** | 输出 `alphaPacked` 灰度 | ❌ **恒为 0（全黑）** |
+ * | 图集绑定 | 读材质的纹理对象 | ✅ 读到 `2048×128` |
+ * | **图集内容非空** | `gl.readPixels` 统计 | ✅ 4096 非零像素 / maxV=187 |
+ * | **图集采样值** | 固定 UV 采样格中心 | ❌ **恒为 0** |
  *
- * ## 四个必须知道的接口差异（解掉这四个才有上面那些判定）
+ * ## 五个必须知道的接口差异（解掉才能走到上面那一步）
  *
  * 1. **必须设 `isTroikaTextMaterial = true`**
- *    `Text.js:483` 的 `onBeforeRender` 里是
+ *    `Text.js:483` 的 `onBeforeRender` 是
  *    `if (material.isTroikaTextMaterial) this._prepareForRender(material)`；
  *    缺标记 → 图集/包围盒/裁剪矩形等 uniform 永不写入。
  *
  * 2. **`WebGPURenderer` 不会自动调 `Object3D.onBeforeRender`**
  *    实测调用次数恒为 0。绕法：在 `text.sync()` 回调里手动调一次。
- *    调过之后 uniform 立刻全部正确（`sdfGlyphSize=64`、图集 `2048×128`、
- *    `clipRect=-2400.5..2431.5`）。
+ *    调过之后 uniform 立刻全部正确。
  *
  * 3. **`MeshBasicNodeMaterial` 没有 `material.uniforms`**
  *    troika 直接写 `material.uniforms.uTroikaXxx.value`，故须自挂同形状对象。
  *
- * 4. **纹理必须用 `uniformTexture`，且初值要是真 `Texture` 实例**
- *    - `uniform(undefined/null)` → 编译期推不出 sampler，绑定落空；
- *    - `texture(tex)` → 构造时就把纹理引用固化进 `TextureNode`，
- *      troika 之后改写 `.value` 换图集**不生效**（实测采样恒 0）；
+ * 4. **纹理必须用 `uniformTexture`，且初值要是真 `Texture`**
+ *    - `uniform(undefined/null)` → 编译期推不出 sampler；
+ *    - `texture(tex)` → 构造时把引用固化进 `TextureNode`，troika 之后改写
+ *      `.value` 换图集**不生效**；
  *    - 正解：`uniformTexture(placeholderDataTexture)` 再让 troika 覆盖 `.value`。
  *
- * ## 最后一层没通的排查方向（下次从这里接，别再从头走）
+ * 5. **troika 的 SDF 图集是 WebGL canvas，须桥成 `DataTexture`**
+ *    `TextBuilder.js:434` 用 `getContext('webgl')` 渲出距离场。把 WebGL canvas
+ *    直接交给 WebGPU 采样取不到数据。troika 自己在 `safariPre15Workaround` 里
+ *    给了正解：`gl.readPixels` 读出像素换成同尺寸 `DataTexture`。
+ *    本文件的 `bridgeAtlasIfNeeded()` 就实现这条，**且判据必须是「当前值是否
+ *    已是桥接后的 DataTexture」**——troika 每次 `_prepareForRender` 都会把
+ *    uniform 写回它的 canvas 纹理，只看「桥过几次」会失效。
  *
- * 图集已确认绑定正确、`atlasUV` 已确认落在合理区间，但采样结果为 0。可能原因：
+ * ## 最后一层没通：图集采样坐标（下次从这里接）
  *
- * 1. **`atlasUV` 的行列算错**：troika 的图集是「横向排格子、每格 4 个通道」，
- *    我的 `txCols`/`txUvPerSquare` 推算可能与实际布局差一列/一行。
- *    验证办法：把 `atlasUV` 直接当颜色输出，看格子边界是否与字形位置对齐。
- * 2. **Canvas 纹理在 WebGPU 下的采样限制**：troika 用 `Texture(canvas)`，
- *    某些 WebGPU 后端对 Canvas 源的格式/采样状态有额外要求。
- *    验证办法：把同一 Canvas 转成 `DataTexture` 再采样对比。
- * 3. **`texture()` 对 `uniformTexture` 节点的采样重载**：
- *    `texture(uSDFTexture, uv)` 是否被正确编译成「动态纹理 + 动态 uv」。
- *    验证办法：改用 `.sample(uv)` 或手写 `textureLoad` 对比。
+ * 已确认：图集非空（4096 像素、maxV=187）、采样链路能返回数值（不是 NaN/丢弃）、
+ * `atlasUV` 数值落在 [0,1]。但采样结果恒为 0。三处可疑：
  *
- * ## 若要在三维档保留文字，三条更稳的路线
+ * 1. **格子行数算错**。troika 写入用
+ *    `x = (idx%4 转 squareIndex) % (textureWidth/sdfGlyphSize) * sdfGlyphSize`、
+ *    `y = floor(squareIndex / (textureWidth/sdfGlyphSize)) * sdfGlyphSize`；
+ *    图集高只有 128（= 2 行 64），而 `txCols` 是 32。**我的列数用
+ *    `textureWidth/sdfGlyphSize`（=32）与之一致，但需核实 `atlasIndex` 与
+ *    `aTroikaGlyphIndex` 是否同一个数。**
+ * 2. **`readPixels` 的 y 方向**。WebGL 原点在左下，`DataTexture` 我设了
+ *    `flipY = false`。若方向反了，采样会落到空行。
+ *    验证办法：把图集按格中心扫一遍（32×2 个采样点）看内容落在哪一行。
+ * 3. **多进程/多 canvas**：troika 的 `atlases` 按 `sdfGlyphSize` 缓存，
+ *    同一页里两段文字共用同一图集，桥接时 `readPixels` 的时机可能早于绘制。
+ *
+ * ## 三条更稳的替代路线（若不愿再啃采样）
  *
  * | 路线 | 做法 | 主要风险 |
  * | --- | --- | --- |
  * | B | 换 WebGPU 原生文字库 | 失去 MSDF 任意缩放锐利度，CJK 需预烘 |
  * | C | 文字走二维叠加层 | 失去深度遮挡与透视变形 |
- * | A2 | 只取 troika 的图集与 `glyphBounds`，自建**非实例化**几何 | 顶点数随字数线性增长（1 万字 ≈ 4 万顶点，可接受），但绕开整个实例化路径 |
+ * | A2 | 只取 troika 的图集与 `glyphBounds`，自建**非实例化**几何 | 顶点数随字数线性增长（1 万字 ≈ 4 万顶点，可接受） |
  *
  * 已实测：**三维档文字当前不显示**；保真对照 `text-clarity` 判为未通过。
  */
@@ -362,6 +373,49 @@ export function createTslTextMaterial(baseMaterial?: unknown): TslTextMaterial {
 
   material.syncUniforms = (): void => {
     // TSL uniform node 的 value 已是活引用，此处仅留显式入口便于调试。
+  };
+
+
+  // ---- 6. 图集桥接：把 troika 的 WebGL canvas 图集读成 DataTexture ----
+  //
+  // troika 的 SDF 图集是 **WebGL canvas**（`TextBuilder.js:434` 用 `getContext('webgl')`
+  // 渲出距离场），而本后端是 `WebGPURenderer`。直接把 WebGL canvas 交给 WebGPU 采样
+  // 实测取不到数据（采样恒为 0）。troika 自己在 `safariPre15Workaround` 里给了绕法：
+  // 用 `gl.readPixels` 把像素读出来，替换成同尺寸 `DataTexture`。
+  // 这里采用同一路径，但**始终**执行（不只在 Safari<15），因为它正是跨渲染器最稳的桥。
+  let bridgedAtlas: { src: unknown; tex: Texture } | null = null;
+
+  /**
+   * 若当前图集 canvas 尚未桥接，读像素建 `DataTexture` 并挂到 uniform 上。
+   *
+   * @returns 是否发生了桥接（未变化时返回 false，避免每帧重建）。
+   */
+  const bridgeAtlasIfNeeded = (): boolean => {
+    const current = uSDFTexture.value as (Texture & { image?: unknown }) | null;
+    const canvas = current?.image as HTMLCanvasElement | undefined;
+    if (!canvas || typeof canvas.getContext !== 'function') return false;
+    // troika 每次 `_prepareForRender` 都会把 uniform 写回它的 canvas 纹理，
+    // 所以判据必须是「当前值是不是已桥接的 DataTexture」，而不是「桥过几次」。
+    if (bridgedAtlas && bridgedAtlas.src === canvas && current === bridgedAtlas.tex) return false;
+
+    const gl = canvas.getContext('webgl') as WebGLRenderingContext | null;
+    if (!gl) return false;
+
+    const { width, height } = canvas;
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    const dataTexture = new DataTexture(pixels, width, height, RGBAFormat);
+    // WebGL 的纹理原点在左下，three 默认 flipY=true；读出来的已是 GL 顺序，故不翻转
+    dataTexture.flipY = false;
+    dataTexture.generateMipmaps = false;
+    dataTexture.minFilter = current?.minFilter ?? dataTexture.minFilter;
+    dataTexture.magFilter = current?.magFilter ?? dataTexture.magFilter;
+    dataTexture.needsUpdate = true;
+
+    bridgedAtlas = { src: canvas, tex: dataTexture };
+    uSDFTexture.value = dataTexture;
+    return true;
   };
 
 
