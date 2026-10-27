@@ -96,9 +96,9 @@ type EditorMountAdapter = {
 规则：
 
 1. adapter 由宿主实现。
-2. `main-ui` 不导入 React、ReactDOM、p5、Konva、Three.js 或业务渲染库。
+2. `main-ui` 主包与 `@main-ui/core` **零强制第三方运行时依赖**；三方类型不进公开签名。业务渲染库只在宿主自己的包声明（包边界四条判据见 `HOST_INTEGRATION_GUIDE.md`）。
 3. adapter 必须负责 mount、update、unmount 生命周期。
-4. adapter 内部可以临时承载 React 或 Canvas 内容，但这些依赖留在宿主项目。
+4. adapter 内部可以临时承载任意框架或 Canvas 内容，但这些依赖留在宿主项目。
 5. editor payload 只存恢复参数，不存大体量业务数据。
 
 当前 demo 的 `external-mount-demo` 使用原生 DOM 实现 adapter smoke test，验证 mount adapter 不需要任何外部框架。
@@ -111,7 +111,7 @@ type EditorMountAdapter = {
 2. `canvas-workspace` 的画布能通过 `@main-ui/view-world` 完成平移、缩放与 fit。
 3. `matches-workspace` 能打开多个 `game-session` tab，且 payload 不互相覆盖。
 4. `external-mount-demo` 能通过 `registerEditorMountAdapter` 渲染内容。
-5. `package.json` 不出现 React 运行时依赖。
+5. 宿主 `package.json` 里的渲染库依赖归属宿主自身（不在 `main-ui` 主包或 `@main-ui/core` 的强制依赖里）。
 
 ## 7. 浮动窗口能力边界（v0.3）
 

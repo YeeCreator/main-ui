@@ -489,5 +489,5 @@ Props：
 
 - `view-asset`（资产网格）：v0.5 / v0.6 两度顺延（缩略图契约待下游信箱回执），继续顺延。
 - 既有模板剩余增强（table 列拉伸/冻结/多选、tree 多选/懒加载、inspector 嵌套/数组、node 小地图、console 换行/导出等）与 `view-flow` 增强（diff/invert 撤销、反向 FSM 解析、自动布局、小地图）：见任务文档顺延清单。
-- `view-3d`：三期，先与 场景编辑型宿主 的 @scene-kit 路线对齐（不因咨询会话理想化设定提前）。
+- **三维能力 = `view-world` 的可插拔后端**（`render-*` lane）。不新建 `view-3d` 模板包：维度是**后端属性**，不是包名属性；模板永远只有 `view-world` 一个 editorKind。首个三维后端为 `@main-ui/render-3d`（three.js），二维档是它内部写死的预设（正交 · 无光照 · 线条禁贴图 · DPR 对齐 · 网格命中优先 · 悬停反馈规定）。详见 `design-main-ui-20260922-001` **§十九** 与 `HOST_INTEGRATION_GUIDE.md` 的包边界四条判据。
 - 长期候选：`view-dashboard` / `view-timeline` / `view-chat` / `view-whiteboard` / `view-terminal`，按需求信号滚动。

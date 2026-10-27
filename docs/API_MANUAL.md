@@ -334,7 +334,7 @@ export type EditorMountAdapter = {
 1. adapter 返回的 cleanup 与 `unmount` 都会被尊重。
 2. adapter 应自行管理第三方渲染库实例。
 3. adapter 不应该把大型业务对象写入 `EditorInstance.payload`。
-4. `main-ui` 不把 React、p5、Konva、Three.js 作为依赖。
+4. `main-ui` 主包与 `@main-ui/core` 不将任何渲染库作为**强制**运行时依赖；`@main-ui/view-*` 与 `@main-ui/render-*` 各自声明其渲染后端（四条判据见 `HOST_INTEGRATION_GUIDE.md`）。
 
 ## 官方视图模板包（@main-ui/view-*）
 
