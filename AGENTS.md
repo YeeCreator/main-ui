@@ -13,7 +13,7 @@
 - **对应笔记区（可写）**：
   - Engs 笔记 Main UI → `${OBSIDIAN_ROOT}/Notebook/Projects/MainUI`
   - Engs 笔记 Main UI Kit → `${OBSIDIAN_ROOT}/Notebook/Projects/Main UI Kit`
-- **只读依赖（挂载但不可写）**：
+- **依赖（同联合体成员，可直接改；默认改不改见 联合体 AGENTS.md §0 · 4.5）**：
   - 画布型宿主 → `${PROJECTS_ROOT}/画布型宿主`
   - 对局宿主 → `${PROJECTS_ROOT}/对局宿主`
   - 多资料管理型宿主 → `${PROJECTS_ROOT}/多资料管理型宿主`
