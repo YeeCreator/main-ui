@@ -15,16 +15,40 @@
 /** 滚轮类手势的三种语义。 */
 export type WheelGesture = 'pinch' | 'pan' | 'zoom';
 
-/** `classifyWheel` 的输入：只取判定所需字段，便于纯函数单测。 */
+/** 滚轮事件的**设备**来源。决定灵敏度档（两者 delta 量级差约两个数量级）。 */
+export type WheelDevice = 'trackpad' | 'mouse';
+
+/** 滚轮事件的**修饰键**状态。只作语义记录，不参与设备判定。 */
+export type WheelModifier = 'none' | 'ctrl' | 'meta' | 'shift';
+
+/**
+ * 一次滚轮事件的**三维读数**。
+ *
+ * 三个维度互不推导：设备决定灵敏度，意图决定动作，修饰键记录语义覆盖。
+ */
+export type WheelReading = {
+  /** 事件来自哪种设备（决定用哪个缩放灵敏度）。 */
+  device: WheelDevice;
+  /** 该事件应触发缩放还是平移。 */
+  intent: 'zoom' | 'pan';
+  /** 按下的修饰键（`shift` 仅记录，不改变 `intent`）。 */
+  modifier: WheelModifier;
+};
+
+/**
+ * `readWheel` / `classifyWheel` 的输入：只取判定所需字段，便于纯函数单测。
+ */
 export type WheelLike = {
   ctrlKey: boolean;
   metaKey: boolean;
   deltaX: number;
   deltaY: number;
   deltaMode: number;
+  /** 是否按下 Shift（可选；仅记录进 `modifier`，不影响 `intent`）。 */
+  shiftKey?: boolean;
   /**
    * 与上一滚轮事件的间隔（毫秒）。**可选**：提供时启用「事件流密度」判据；
-   * 缺失时退回按单次 delta 大小判（见 {@link classifyWheel}）。
+   * 缺失时退回按单次 delta 大小判（见 {@link readWheel}）。
    */
   intervalMs?: number;
 };
@@ -61,24 +85,38 @@ export const WHEEL_ZOOM_SPEED = 0.0016;
 export const PINCH_ZOOM_SPEED = 0.01;
 
 /**
- * 判定一次 `wheel` 事件属于哪种手势。
+ * 读取一次 `wheel` 事件的**三维读数**（设备 · 意图 · 修饰键）。
  *
- * 判定顺序不可调换：
+ * 这是滚轮判型的**唯一真相源**。此前该判定分散在三处：本模块的一维
+ * `classifyWheel`、`rendering/interactions` 的仅看 `ctrlKey` 的
+ * `classifyWheelIntent`、以及 Pixi 内核里完全没有判型的一律缩放 ——
+ * 导致同一个鼠标在不同模板上表现不同。
  *
- * 1. `ctrlKey`/`metaKey` → **捏合**。这是浏览器对触控板捏合的既定约定
- *    （Safari/Chrome 都置 `ctrlKey=true`），也是 Cmd+滚轮的语义，均属缩放。
- * 2. `deltaMode !== 0`（行/页模式）→ 老式鼠标滚轮 → 缩放。
- * 3. `deltaX !== 0` → 触控板横向平移。鼠标滚轮**不产生**横向分量，故这是可靠的触控板特征。
- * 4. `|deltaY|` 非整数 → 触控板（其上报为浮点）；鼠标滚轮上报整数刻度。
- * 5. `intervalMs` 可用且 ≤ {@link TRACKPAD_STREAM_MAX_INTERVAL_MS} → **触控板流** → 平移。
+ * ## 设备判定顺序不可调换
+ *
+ * 1. `deltaMode !== 0`（行/页模式）→ **鼠标**。触控板从不上报非像素模式。
+ * 2. `deltaX !== 0` → **触控板**横向平移。鼠标滚轮不产生横向分量。
+ * 3. `|deltaY|` 非整数 → **触控板**（其上报为浮点）；鼠标上报整数刻度。
+ * 4. `intervalMs` ≤ {@link TRACKPAD_STREAM_MAX_INTERVAL_MS} → **触控板流**。
  *    **这条在 `|deltaY|` 判据之前**，专治「触控板快扫被当成鼠标滚轮」。
- * 6. `|deltaY| < TRACKPAD_PAN_MAX_DELTA_Y` → 小幅滚动，按触控板平移处理。
- * 7. 其余 → 鼠标滚轮 → 缩放。
+ * 5. `|deltaY| < {@link TRACKPAD_PAN_MAX_DELTA_Y}` → **触控板**小幅滚动。
+ * 6. 其余 → **鼠标**。
+ *
+ * ## 意图判定
+ *
+ * - `Ctrl` / `Meta` → **缩放**。浏览器把「触控板捏合」与「Ctrl/⌘+滚轮」都上报为
+ *   带 `ctrlKey` 的 wheel；视口内一律解释为画布缩放（页面缩放已被②拦截），
+ *   语义归属为既定事实。
+ * - 否则：**触控板 → 平移**（双指推内容）；**鼠标 → 缩放**。
+ *
+ * **设备与意图分离的收益**：`Ctrl + 鼠标滚轮` 现在得到
+ * `{ device: 'mouse', intent: 'zoom' }` ⇒ 走鼠标灵敏度；而触控板捏合得到
+ * `{ device: 'trackpad', intent: 'zoom' }` ⇒ 走捏合灵敏度。两者不再共用系数。
  *
  * ## 关于流首事件（`intervalMs === undefined`）
  *
- * 一次手势的**第一个事件天然没有前驱**，故它只能走 6/7 的 delta 判据。
- * 对触控板快扫而言，首个事件的大整数 delta 会被判成 `zoom` —— 表现为
+ * 一次手势的**第一个事件天然没有前驱**，故只能走 2–5 / 6 的 delta 判据。
+ * 对触控板快扫而言，首个事件的大整数 delta 会被判成鼠标 → 缩放，表现为
  * 「快扫的第一下会轻微缩放，随后才平移」。
  *
  * 这是**已知残余**，不是遗漏：要修它必须让首个事件延迟一个窗口等后续
@@ -87,33 +125,122 @@ export const PINCH_ZOOM_SPEED = 0.01;
  * 不由实现方单方面决定。真机若确认「首下跳一下」不可接受，再加突发分类器。
  *
  * @param event 具备 `ctrlKey` / `metaKey` / `deltaX` / `deltaY` / `deltaMode`，
- *   可选 `intervalMs` 的事件。
- * @returns 手势语义。
+ *   可选 `shiftKey` / `intervalMs` 的事件。
+ * @returns 三维读数。
  * @example
- * classifyWheel({ ctrlKey: true, metaKey: false, deltaX: 0, deltaY: 4, deltaMode: 0 }) // 'pinch'
- * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 12, deltaY: -3, deltaMode: 0 }) // 'pan'
- * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 }) // 'zoom'
- * // 触控板快扫（流中间的事件）：大整数 delta，但间隔仅 8ms → 平移
- * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -55, deltaMode: 0, intervalMs: 8 }) // 'pan'
- * // 鼠标滚轮：一格，间隔 120ms → 缩放
- * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0, intervalMs: 120 }) // 'zoom'
+ * // 触控板捏合：小 delta + 带 ctrlKey
+ * readWheel({ ctrlKey: true, metaKey: false, deltaX: 0, deltaY: 4, deltaMode: 0 })
+ * // → { device: 'trackpad', intent: 'zoom', modifier: 'ctrl' }
+ *
+ * // Ctrl + 鼠标滚轮：大整数 delta + 带 ctrlKey → 走鼠标灵敏度，不再爆倍率
+ * readWheel({ ctrlKey: true, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 })
+ * // → { device: 'mouse', intent: 'zoom', modifier: 'ctrl' }
+ *
+ * // 触控板双指平移
+ * readWheel({ ctrlKey: false, metaKey: false, deltaX: 12, deltaY: -3, deltaMode: 0 })
+ * // → { device: 'trackpad', intent: 'pan', modifier: 'none' }
+ *
+ * // 鼠标滚轮
+ * readWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 })
+ * // → { device: 'mouse', intent: 'zoom', modifier: 'none' }
  */
-export function classifyWheel(event: WheelLike): WheelGesture {
-  if (event.ctrlKey || event.metaKey) return 'pinch';
-  if (event.deltaMode !== 0) return 'zoom';
-  if (event.deltaX !== 0) return 'pan';
-  if (!Number.isInteger(event.deltaY)) return 'pan';
-  // 事件流密度：密集流必是触控板（鼠标滚轮不会 24ms 内连发）
+export function readWheel(event: WheelLike): WheelReading {
+  const modifier: WheelModifier = event.ctrlKey
+    ? 'ctrl'
+    : event.metaKey
+      ? 'meta'
+      : event.shiftKey
+        ? 'shift'
+        : 'none';
+
+  const device = detectWheelDevice(event);
+  const wantsZoom = modifier === 'ctrl' || modifier === 'meta';
+  const intent: WheelReading['intent'] = wantsZoom ? 'zoom' : (device === 'trackpad' ? 'pan' : 'zoom');
+
+  return { device, intent, modifier };
+}
+
+/**
+ * 判定滚轮事件的**设备**来源（`readWheel` 的设备维度，单独导出便于单测）。
+ *
+ * @param event 具备 `deltaX` / `deltaY` / `deltaMode`，可选 `intervalMs` 的事件。
+ * @returns 设备来源。
+ */
+export function detectWheelDevice(event: WheelLike): WheelDevice {
+  // 行/页模式：只有老式鼠标滚轮会上报（触控板恒为像素模式）
+  if (event.deltaMode !== 0) return 'mouse';
+  // 横向分量：鼠标滚轮不产生，是可靠的触控板特征
+  if (event.deltaX !== 0) return 'trackpad';
+  // 浮点 delta：触控板连续流；鼠标上报整数刻度
+  if (!Number.isInteger(event.deltaY)) return 'trackpad';
+  // 事件流密度：密集流必是触控板（鼠标滚轮人手极限约 10 格/秒）
   if (
     typeof event.intervalMs === 'number'
     && Number.isFinite(event.intervalMs)
     && event.intervalMs >= 0
     && event.intervalMs <= TRACKPAD_STREAM_MAX_INTERVAL_MS
   ) {
-    return 'pan';
+    return 'trackpad';
   }
-  if (Math.abs(event.deltaY) < TRACKPAD_PAN_MAX_DELTA_Y) return 'pan';
-  return 'zoom';
+  if (Math.abs(event.deltaY) < TRACKPAD_PAN_MAX_DELTA_Y) return 'trackpad';
+  return 'mouse';
+}
+
+/**
+ * 判定一次 `wheel` 事件属于哪种手势（`readWheel` 的一维投影，保留作兼容面）。
+ *
+ * 新代码应优先用 {@link readWheel} —— 三维读数能让调用方对
+ * `Ctrl/⌘ + 鼠标滚轮` 与「触控板捏合」选用不同灵敏度；本函数把两者
+ * 都压成 `'pinch'` 以外的一维语义时已尽量区分（见下）。
+ *
+ * 映射规则：
+ *
+ * | 读数 | 结果 |
+ * | --- | --- |
+ * | `ctrl`/`meta` + 触控板 | `'pinch'` |
+ * | `ctrl`/`meta` + 鼠标 | `'zoom'` ← **与旧行为的差异点** |
+ * | 触控板、无修饰键 | `'pan'` |
+ * | 鼠标、无修饰键 | `'zoom'` |
+ *
+ * **与旧行为的差异（有意修复）**：旧实现把 `Ctrl + 鼠标滚轮` 也判成 `'pinch'`，
+ * 于是套用为触控板小 delta 设计的 `PINCH_ZOOM_SPEED`；鼠标 deltaY 是 ±100 量级，
+ * 每次事件倍率 `exp(100 × 0.01) ≈ 2.718`，连拨两次即撞上 `maxScale`。
+ * 这是语义耦合，不是参数调错。
+ *
+ * @param event 具备 `ctrlKey` / `metaKey` / `deltaX` / `deltaY` / `deltaMode`，
+ *   可选 `shiftKey` / `intervalMs` 的事件。
+ * @returns 手势语义。
+ * @example
+ * classifyWheel({ ctrlKey: true, metaKey: false, deltaX: 0, deltaY: 4, deltaMode: 0 }) // 'pinch'
+ * classifyWheel({ ctrlKey: true, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 }) // 'zoom'
+ * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 12, deltaY: -3, deltaMode: 0 }) // 'pan'
+ * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 }) // 'zoom'
+ * // 触控板快扫（流中间的事件）：大整数 delta，但间隔仅 8ms → 平移
+ * classifyWheel({ ctrlKey: false, metaKey: false, deltaX: 0, deltaY: -55, deltaMode: 0, intervalMs: 8 }) // 'pan'
+ */
+export function classifyWheel(event: WheelLike): WheelGesture {
+  const { device, intent, modifier } = readWheel(event);
+  if (intent === 'pan') return 'pan';
+  return modifier === 'ctrl' || modifier === 'meta'
+    ? (device === 'trackpad' ? 'pinch' : 'zoom')
+    : 'zoom';
+}
+
+/**
+ * 按三维读数选取缩放倍率。
+ *
+ * **这是缩放灵敏度的唯一选取点**：调用方不再自己判断该用哪个系数。
+ *
+ * @param reading `readWheel` 的读数。
+ * @param deltaY 该事件的纵向增量。
+ * @returns 缩放倍率。
+ * @example
+ * const r = readWheel(event)
+ * const factor = zoomFactorOf(r, event.deltaY)
+ */
+export function zoomFactorOf(reading: WheelReading, deltaY: number): number {
+  const speed = reading.device === 'trackpad' ? PINCH_ZOOM_SPEED : WHEEL_ZOOM_SPEED;
+  return Math.exp(-deltaY * speed);
 }
 
 /**

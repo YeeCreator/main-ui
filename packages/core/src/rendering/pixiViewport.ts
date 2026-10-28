@@ -18,6 +18,7 @@
 import { Application, Container } from 'pixi.js';
 import type { Camera2D, Vec2, ViewBox } from './camera';
 import { cameraRotation, clamp, fitCameraToViewBox, panBy, screenToWorld, worldToScreen, zoomAtScreenPoint } from './camera';
+import { readWheel, wheelPanDelta, zoomFactorOf } from '../input/wheel-session';
 
 export interface PixiViewportOptions {
   viewBox: ViewBox;
@@ -293,7 +294,20 @@ export class PixiViewport {
   private handleWheel(event: WheelEvent): void {
     event.preventDefault();
     const anchor = this.toLocalPoint(event);
-    const factor = Math.exp(-event.deltaY * 0.0016);
-    this.zoomAtScreenPoint(factor, anchor);
+    // 判型与灵敏度取唯一真相源（core/input）——不得在此硬编码系数，
+    // 否则 Ctrl+滚轮会套用触控板档而指数爆炸。
+    const reading = readWheel({
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
+      shiftKey: event.shiftKey,
+    });
+    if (reading.intent === 'pan') {
+      this.panBy(wheelPanDelta(event));
+      return;
+    }
+    this.zoomAtScreenPoint(zoomFactorOf(reading, event.deltaY), anchor);
   }
 }

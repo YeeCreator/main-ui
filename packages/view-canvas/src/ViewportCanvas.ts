@@ -176,6 +176,7 @@ export const ViewportCanvas = defineComponent({
         deltaX: event.deltaX,
         deltaY: event.deltaY,
         deltaMode: event.deltaMode,
+        shiftKey: event.shiftKey,
         ...(intervalMs === undefined ? {} : { intervalMs }),
       });
       // 触控板双指平移：不缩放，改为平移视口（鼠标滚轮永远不会走到这里）。

@@ -6,6 +6,7 @@
  */
 import type { Camera2D, Vec2 } from './camera';
 import { panBy, zoomAtScreenPoint } from './camera';
+import { readWheel, wheelPanDelta } from '../input/wheel-session';
 
 export type ViewportWheelEventLike = {
   ctrlKey: boolean;
@@ -19,28 +20,81 @@ export type ViewportWheelEventLike = {
 /** 滚轮手势语义：缩放 / 平移。 */
 export type WheelIntent = 'zoom' | 'pan';
 
-/** 滚轮分流策略：auto=捏合缩放·平移滑视口；zoom=一律缩放；pan=一律平移。 */
+/** 滚轮分流策略：auto=按设备与修饰键自动判定；zoom=一律缩放；pan=一律平移。 */
 export type WheelMode = 'zoom' | 'pan' | 'auto';
+
+/**
+ * `classifyWheelIntent` 的最小输入：`ctrlKey` 必填，其余字段可选。
+ *
+ * 给全 `deltaX` / `deltaY` / `deltaMode`（及可选 `intervalMs`）时走
+ * {@link readWheel} 的完整设备判定；只给 `ctrlKey` 时退回「有 Ctrl 即缩放」。
+ */
+export type WheelIntentQuery = {
+  ctrlKey: boolean;
+  metaKey?: boolean;
+  deltaX?: number;
+  deltaY?: number;
+  deltaMode?: number;
+  shiftKey?: boolean;
+  intervalMs?: number;
+};
 
 /**
  * 按手势语义分类一次 wheel 事件（纯函数，供交互层统一分流）。
  *
- * 判据：触控板捏合会带 `ctrlKey`（浏览器约定），故 auto 模式下
- * `ctrlKey` → 缩放；非 `ctrlKey` → 平移（双指滑视口 / 离散滚轮）。
+ * **判型委托 {@link readWheel}，本函数只负责叠加 `mode` 覆盖。**
+ *
+ * 历史：此处原为独立实现，只看 `ctrlKey`；它与 `core/input` 的 `classifyWheel`
+ * （含事件流密度与设备判定）并存，导致同一个鼠标在 `view-world` 与
+ * `view-canvas` 上表现不同（行模式滚轮一个判缩放、一个判平移）。
+ *
+ * @param event 滚轮事件；只给 `ctrlKey` 时按退化规则判定。
+ * @param mode 分流策略，缺省 `auto`。
+ * @returns 缩放还是平移。
+ * @example
+ * classifyWheelIntent({ ctrlKey: true }, 'auto')  // 'zoom'
+ * classifyWheelIntent({ ctrlKey: false }, 'auto') // 'pan'（缺 delta 信息时按平移处理）
+ * classifyWheelIntent({ ctrlKey: false }, 'zoom') // 'zoom'
+ * // 给全字段即为完整判型：鼠标滚轮（整数大刻度）→ 缩放
+ * classifyWheelIntent({ ctrlKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 }) // 'zoom'
  */
-export function classifyWheelIntent(event: { ctrlKey: boolean }, mode: WheelMode = 'auto'): WheelIntent {
+export function classifyWheelIntent(event: WheelIntentQuery, mode: WheelMode = 'auto'): WheelIntent {
   if (mode === 'zoom') return 'zoom';
   if (mode === 'pan') return 'pan';
-  return event.ctrlKey ? 'zoom' : 'pan';
+  if (!hasDeltaInfo(event)) return event.ctrlKey ? 'zoom' : 'pan';
+  return readWheel({
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey ?? false,
+    deltaX: event.deltaX,
+    deltaY: event.deltaY,
+    deltaMode: event.deltaMode,
+    shiftKey: event.shiftKey,
+    intervalMs: event.intervalMs,
+  }).intent;
+}
+
+/** 判断输入是否具备完整设备判定所需的 delta 字段。 */
+function hasDeltaInfo(
+  event: WheelIntentQuery,
+): event is WheelIntentQuery & { deltaX: number; deltaY: number; deltaMode: number } {
+  return typeof event.deltaX === 'number'
+    && typeof event.deltaY === 'number'
+    && typeof event.deltaMode === 'number';
 }
 
 /**
  * 计算平移型 wheel 的屏幕位移增量（触控板双指滑动 / 离散滚轮）。
- * deltaX/deltaY 单位与 wheel 一致（CSS 像素）；speed 为灵敏度。
+ *
+ * **这是 `wheelPanDelta` 的唯一实现**（定义在 `input/wheel-session`，此处转出）。
+ * 历史上本文件另有一份带 `speed` 参数的版本，与 `input` 的版本并存 ——
+ * 同一概念两套定义，正是"多个真相源"的典型来源。
+ *
+ * @param event 具备 `deltaX` / `deltaY` 的事件。
+ * @returns 屏幕位移（已取负：滚轮向上 → 内容上移）。
+ * @example
+ * wheelPanDelta({ deltaX: 10, deltaY: -5 }) // → { x: -10, y: 5 }
  */
-export function wheelPanDelta(event: { deltaX: number; deltaY: number }, speed = 1): Vec2 {
-  return { x: -event.deltaX * speed, y: -event.deltaY * speed };
-}
+export { wheelPanDelta };
 
 export type ViewportPointerEventLike = {
   pointerId: number;
@@ -244,9 +298,12 @@ export function createViewportInteractions(opts: CreateViewportInteractionsOptio
 
     if (mode.wheelPan && (e.deltaX !== 0 || e.deltaY !== 0)) {
       e.preventDefault();
-      const dx = -e.deltaX * mode.wheelPanSpeed;
-      const dy = -e.deltaY * mode.wheelPanSpeed;
-      apply(panBy(camera.get(), { x: dx, y: dy }));
+      // speed 归一致敏感度：此处是「控制器级」可调项，与设备档（core/input）不同层。
+      const base = wheelPanDelta(e);
+      apply(panBy(camera.get(), {
+        x: base.x * mode.wheelPanSpeed,
+        y: base.y * mode.wheelPanSpeed,
+      }));
     }
   };
 

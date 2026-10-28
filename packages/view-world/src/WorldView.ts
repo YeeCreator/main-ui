@@ -29,7 +29,6 @@ import {
   panBy,
   resolveTapTolerance,
   rotateAtScreenPoint,
-  wheelPanDelta,
   zoomAtScreenPoint,
   type BackendDimension,
   type Camera2D,
@@ -40,6 +39,7 @@ import {
   type WheelMode,
 } from '@main-ui/core/rendering';
 import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
+import { readWheel, wheelPanDelta, zoomFactorOf } from '@main-ui/core/input';
 import type { EntitySnapshot, GridSpec, TextureResolver } from '@main-ui/core/primitives';
 import {
   DEFAULT_WORLD_VIEWBOX,
@@ -421,13 +421,23 @@ export const WorldView = defineComponent({
       const mode: WheelMode = props.wheelMode === 'auto'
         ? (props.zoomOnWheel ? 'auto' : 'pan')
         : (props.wheelMode as WheelMode);
-      const intent = classifyWheelIntent(event, mode);
+      // 判型与灵敏度取唯一真相源（core/input）：设备维度决定系数，
+      // 不得在此硬编码 0.0016 —— 那会让 Ctrl+滚轮套用触控板档而指数爆炸。
+      const wheelEvent = {
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        shiftKey: event.shiftKey,
+      };
+      const reading = readWheel(wheelEvent);
+      const intent = classifyWheelIntent(wheelEvent, mode);
       if (intent === 'zoom') {
-        const factor = Math.exp(-event.deltaY * 0.0016);
         // 以锚点为中心缩放：用 core 的纯函数算新相机（喷点世界坐标保持不动）。
-        backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor, anchorScreen: local }));
+        backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor: zoomFactorOf(reading, event.deltaY), anchorScreen: local }));
       } else {
-        const delta = wheelPanDelta(event, 1);
+        const delta = wheelPanDelta(event);
         if (delta.x !== 0 || delta.y !== 0) backend.setCamera(panBy(backend.getCamera(), delta));
       }
     };

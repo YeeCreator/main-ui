@@ -62,8 +62,12 @@ describe('滚轮手势分类（触控板 vs 鼠标）', () => {
     expect(classifyWheel(at({ metaKey: true, deltaY: -6 }))).toBe('pinch');
   });
 
-  test('Ctrl/Cmd + 大 deltaY 仍是 pinch（缩放），不被滚轮分支截走', () => {
-    expect(classifyWheel(at({ ctrlKey: true, deltaY: 120 }))).toBe('pinch');
+  test('Ctrl/Cmd + 鼠标滚轮（大整数 delta）→ zoom，不走捏合档', () => {
+    // 回归护栏：Ctrl/⌘ 只表示「要缩放」，不表示「来自触控板」。
+    // 旧实现把两者压成一个 'pinch'，于是鼠标 deltaY=±100 套用 PINCH_ZOOM_SPEED
+    // → exp(100 × 0.01) ≈ 2.718，连拨两次即撞 maxScale。
+    expect(classifyWheel(at({ ctrlKey: true, deltaY: 120 }))).toBe('zoom');
+    expect(classifyWheel(at({ metaKey: true, deltaY: -100 }))).toBe('zoom');
   });
 
   test('触控板横向平移（deltaX≠0）→ pan', () => {

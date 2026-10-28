@@ -115,9 +115,20 @@ describe('core/rendering wheel intent', () => {
     expect(classifyWheelIntent({ ctrlKey: true }, 'pan')).toBe('pan');
   });
 
+  test('full delta info routes through readWheel (single source of truth)', () => {
+    // 只给 ctrlKey 时走退化规则；给全 delta 后才与 core/input 的判定一致。
+    const mouseWheel = { ctrlKey: false, deltaX: 0, deltaY: -100, deltaMode: 0 };
+    expect(classifyWheelIntent(mouseWheel, 'auto')).toBe('zoom');
+    // 行模式滚轮（老式鼠标）：旧实现只看 ctrlKey 会判成 pan，现统一为 zoom
+    expect(classifyWheelIntent({ ctrlKey: false, deltaX: 0, deltaY: 3, deltaMode: 1 }, 'auto')).toBe('zoom');
+    // 触控板双指平移
+    expect(classifyWheelIntent({ ctrlKey: false, deltaX: 12, deltaY: -3, deltaMode: 0 }, 'auto')).toBe('pan');
+  });
+
   test('wheelPanDelta negates the wheel delta', () => {
+    // speed 不再是本函数的参数：灵敏度归「控制器级」（wheelPanSpeed）与
+    // 「设备档」（core/input 的 readWheel）各自负责，本函数只做方向取负。
     expect(wheelPanDelta({ deltaX: 10, deltaY: -5 })).toEqual({ x: -10, y: 5 });
-    expect(wheelPanDelta({ deltaX: 3, deltaY: 4 }, 2)).toEqual({ x: -6, y: -8 });
   });
 });
 
