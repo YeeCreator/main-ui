@@ -96,11 +96,11 @@ describe('SandboxKernel - connections', () => {
 });
 
 describe('SandboxKernel - camera', () => {
-  test('setCamera partial update', () => {
+  test('setCamera merges a partial Camera2D update', () => {
     const kernel = createSandboxKernel();
-    kernel.setCamera({ zoom: 2 });
-    expect(kernel.camera.zoom).toBe(2);
-    expect(kernel.camera.x).toBe(0); // unchanged
+    kernel.setCamera({ scale: 2 });
+    expect(kernel.camera.scale).toBe(2);
+    expect(kernel.camera.pan).toEqual({ x: 0, y: 0 }); // unchanged
   });
 });
 
@@ -110,17 +110,29 @@ describe('SandboxKernel - serialization', () => {
     kernel.addElement(makeShape('a', 10, 20));
     kernel.addElement(makeShape('b', 100, 200));
     kernel.addConnection(makeConnection('c1', 'a', 'b'));
-    kernel.setCamera({ x: 50, y: 50, zoom: 1.5 });
+    kernel.setCamera({ scale: 1.5, pan: { x: 50, y: 50 } });
 
     const json = kernel.toJSON();
     expect(json.document.elements).toHaveLength(2);
     expect(json.document.connections).toHaveLength(1);
-    expect(json.camera.zoom).toBe(1.5);
+    expect(json.camera.scale).toBe(1.5);
 
     const kernel2 = createSandboxKernel();
     kernel2.fromJSON(json);
     expect(kernel2.document.elements).toHaveLength(2);
-    expect(kernel2.camera.zoom).toBe(1.5);
+    expect(kernel2.camera.scale).toBe(1.5);
+    expect(kernel2.camera.pan).toEqual({ x: 50, y: 50 });
+  });
+
+  test('fromJSON migrates legacy { x, y, zoom } snapshot', () => {
+    // 存量快照：旧版 getViewState 产出 { x, y, zoom }。
+    // 若不归一化，camera.scale 为 undefined → 世界层变换串非法 → 画面静止。
+    const kernel = createSandboxKernel();
+    kernel.fromJSON({
+      document: { elements: [], connections: [] },
+      camera: { x: 30, y: 40, zoom: 2 } as never,
+    });
+    expect(kernel.camera).toEqual({ scale: 2, pan: { x: 30, y: 40 } });
   });
 });
 

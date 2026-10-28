@@ -5,6 +5,9 @@
  * 嵌入一律经 @main-ui/core 的 EmbeddedViewHost，禁手写子实例生命周期。
  * 约束：零网络语义字段；嵌套只走数据引用，绝不渗透布局树。
  */
+import type { Camera2D } from '@main-ui/core/rendering';
+
+export type { Camera2D };
 
 // ============================================================
 // 元素模型
@@ -54,11 +57,17 @@ export type SandboxConnection = {
 };
 
 // ============================================================
-// 相机与文档
+// 相机
 // ============================================================
 
-/** 沙盘相机状态。 */
-export type SandboxCamera = { x: number; y: number; zoom: number };
+/**
+ * 沙盘相机状态。
+ *
+ * **就是 `Camera2D`**，不另立形状 —— 设计要求「相机内部只有一种可计算表示」
+ * （design-main-ui §二十 5）。历史上此处曾是 `{ x, y, zoom }`，与 `Camera2D`
+ * 的 `{ scale, pan }` 只是命名不同，却使两套桥接函数必须同时存在。
+ */
+export type SandboxCamera = Camera2D;
 
 /** 沙盘文档模型（进持久化）。 */
 export type SandboxDocument = {
@@ -90,7 +99,7 @@ export type SandboxSelectionIntent = { elementIds: string[] };
 // 默认值
 // ============================================================
 
-export const DEFAULT_SANDBOX_CAMERA: SandboxCamera = { x: 0, y: 0, zoom: 1 };
+export const DEFAULT_SANDBOX_CAMERA: SandboxCamera = { scale: 1, pan: { x: 0, y: 0 } };
 
 export const createEmptySandboxDocument = (): SandboxDocument => ({
   elements: [],

@@ -19,6 +19,7 @@ import type {
   SandboxDocument,
   SandboxElement,
 } from './types';
+import { normalizeSandboxCamera } from './camera';
 
 /** 变更事件类型。 */
 export type SandboxChangeType = 'element' | 'connection' | 'camera' | 'full';
@@ -88,7 +89,7 @@ export const createSandboxKernel = (
   options?: SandboxKernelOptions,
 ): SandboxKernelInstance => {
   let doc: SandboxDocument = initialDocument ?? { elements: [], connections: [] };
-  let camera: SandboxCamera = initialCamera ?? { x: 0, y: 0, zoom: 1 };
+  let camera: SandboxCamera = initialCamera ?? { scale: 1, pan: { x: 0, y: 0 } };
   const maxDepth = options?.maxNestingDepth ?? DEFAULT_MAX_NESTING_DEPTH;
   const listeners = new Set<SandboxChangeListener>();
   let destroyed = false;
@@ -210,7 +211,8 @@ export const createSandboxKernel = (
     fromJSON(data: { document: SandboxDocument; camera?: SandboxCamera }): void {
       if (destroyed) return;
       doc = data.document;
-      if (data.camera) camera = data.camera;
+      // 相机可能是旧版 `{x,y,zoom}` 形状的存量快照，必须归一化后再用。
+      if (data.camera) camera = normalizeSandboxCamera(data.camera);
       // 重建嵌入视图注册
       embeddedHost.destroyAll();
       for (const element of doc.elements) {

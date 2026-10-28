@@ -1,4 +1,5 @@
 export * from './types';
+export { normalizeSandboxCamera, type LegacySandboxCamera } from './camera';
 export { createSandboxKernel, type SandboxKernelInstance, type SandboxChangeEvent, type SandboxChangeListener, type SandboxKernelOptions } from './sandbox-kernel';
 export { SandboxView } from './SandboxView';
 export {

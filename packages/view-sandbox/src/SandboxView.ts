@@ -1,6 +1,8 @@
-import { defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type CSSProperties, type PropType } from 'vue';
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type CSSProperties, type PropType } from 'vue';
 import { useViewLifecycle } from 'main-ui/vue';
 import type { MainUiViewLifecycle } from 'main-ui/core';
+import { cameraToCssTransform, panBy, screenToWorld, zoomAtScreenPoint } from '@main-ui/core/rendering';
+import { readWheel, wheelPanDelta, zoomFactorOf } from '@main-ui/core/input';
 import { createSandboxKernel, type SandboxKernelInstance } from './sandbox-kernel';
 import type {
   SandboxCamera,
@@ -15,6 +17,10 @@ import type {
   SandboxSelectionIntent,
 } from './types';
 import { DEFAULT_SANDBOX_CAMERA } from './types';
+
+/** 相机缩放上下限（防止缩到不可见或无限放大）。 */
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 8;
 
 /**
  * SandboxView —— L3 旗舰复合视图（实现 MainUiViewLifecycle 四成员契约）。
@@ -66,7 +72,8 @@ export const SandboxView = defineComponent({
         // 用 {...} 展开为普通对象，规避内核 captureViewStates → cloneDocument 崩溃。
         const cam = cameraState.value;
         return {
-          camera: { x: cam.x, y: cam.y, zoom: cam.zoom },
+          // 纯值复制：内核会把快照喂给 structuredClone，绝不能带响应式 Proxy。
+          camera: { scale: cam.scale, pan: { x: cam.pan.x, y: cam.pan.y } },
           selectedElementIds: [...selectedIds.value],
           embeddedRefs: kernel.value?.document.elements
             .filter((e) => e.type === 'embed-view')
@@ -95,7 +102,81 @@ export const SandboxView = defineComponent({
     });
 
     // ---------- 交互 ----------
+    const rootRef = ref<HTMLElement | null>(null);
+    const panState = { pointerId: -1, lastX: 0, lastY: 0, active: false };
+
+    /** 屏幕坐标（相对容器左上角）。 */
+    const toLocal = (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const el = rootRef.value;
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    };
+
+    /** 约束缩放区间（相机其余字段原样保留）。 */
+    const constrain = (camera: SandboxCamera): SandboxCamera => ({
+      scale: Math.max(MIN_SCALE, Math.min(MAX_SCALE, camera.scale)),
+      pan: { x: camera.pan.x, y: camera.pan.y },
+      ...(camera.rotation === undefined ? {} : { rotation: camera.rotation }),
+    });
+
+    const applyCamera = (next: SandboxCamera): void => {
+      kernel.value?.setCamera(constrain(next));
+    };
+
+    /** 空白处左键拖拽平移（元素自身的 mousedown 会 stopPropagation）。 */
+    const onRootPointerDown = (event: PointerEvent): void => {
+      if (event.button !== 0) return;
+      panState.pointerId = event.pointerId;
+      panState.lastX = event.clientX;
+      panState.lastY = event.clientY;
+      panState.active = true;
+      rootRef.value?.setPointerCapture?.(event.pointerId);
+    };
+
+    const onRootPointerMove = (event: PointerEvent): void => {
+      if (!panState.active || panState.pointerId !== event.pointerId) return;
+      const dx = event.clientX - panState.lastX;
+      const dy = event.clientY - panState.lastY;
+      panState.lastX = event.clientX;
+      panState.lastY = event.clientY;
+      applyCamera(panBy(cameraState.value, { x: dx, y: dy }));
+    };
+
+    const endPan = (event: PointerEvent): void => {
+      if (panState.pointerId !== event.pointerId) return;
+      rootRef.value?.releasePointerCapture?.(event.pointerId);
+      panState.pointerId = -1;
+      panState.active = false;
+    };
+
+    /** 滚轮：判型与灵敏度全部取自 core/input，不在此重算系数。 */
+    const onRootWheel = (event: WheelEvent): void => {
+      const anchor = toLocal(event.clientX, event.clientY);
+      if (!anchor) return;
+      event.preventDefault();
+      const query = {
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        shiftKey: event.shiftKey,
+      };
+      const reading = readWheel(query);
+      if (reading.intent === 'pan') {
+        applyCamera(panBy(cameraState.value, wheelPanDelta(query)));
+        return;
+      }
+      applyCamera(zoomAtScreenPoint(cameraState.value, {
+        factor: zoomFactorOf(reading, event.deltaY),
+        anchorScreen: anchor,
+      }));
+    };
+
     const onElementMouseDown = (elementId: string, event: MouseEvent) => {
+      // 元素上的按下不得冒泡成画布平移。
+      event.stopPropagation();
       if (!props.editable) return;
       selectedIds.value = [elementId];
       emit('selection', { elementIds: [elementId] } satisfies SandboxSelectionIntent);
@@ -110,7 +191,20 @@ export const SandboxView = defineComponent({
     const rootStyle: CSSProperties = {
       width: '100%', height: '100%', overflow: 'hidden', position: 'relative',
       background: 'var(--mui-color-panel)', color: 'var(--mui-color-text)',
+      touchAction: 'none',
     };
+
+    /**
+     * 世界层样式：**唯一一次相机变换**。
+     *
+     * 必须用 `cameraToCssTransform`（带 `px`）而非手工拼串 —— 无单位串在
+     * CSS 里是非法值，浏览器会静默丢弃整条声明。
+     */
+    const worldStyle = computed<CSSProperties>(() => ({
+      position: 'absolute', top: 0, left: 0,
+      transformOrigin: '0 0',
+      transform: cameraToCssTransform(cameraState.value),
+    }));
 
     const elementStyle = (el: SandboxElement): CSSProperties => ({
       position: 'absolute',
@@ -137,10 +231,15 @@ export const SandboxView = defineComponent({
       const elements = kernel.value?.document.elements ?? props.document.elements;
       const connections = kernel.value?.document.connections ?? props.document.connections;
 
-      return h('div', { class: 'main-ui-view-sandbox', style: rootStyle }, [
-        // 连线层（简化为 SVG 直线）
+      /**
+       * 世界层内容：元素**按世界坐标**绝对定位，相机变换由**外层唯一一次**施加。
+       *
+       * 连线放在世界层内的 SVG 里，其 `viewBox` 用世界范围 —— 与元素同一坐标系，
+       * 因此连线不需要单独换算屏幕坐标（旧实现直算屏幕坐标，相机一动就错位）。
+       */
+      const worldContent = h('div', { class: 'main-ui-view-sandbox__world', style: worldStyle.value }, [
         h('svg', {
-          style: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' },
+          style: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' },
         }, connections.map((conn) => {
           const src = elements.find((e) => e.id === conn.source.elementId);
           const tgt = elements.find((e) => e.id === conn.target.elementId);
@@ -154,7 +253,6 @@ export const SandboxView = defineComponent({
             'stroke-dasharray': conn.style?.dash ? '4 4' : undefined,
           });
         })),
-        // 元素层
         ...elements.map((el) => {
           const selected = selectedIds.value.includes(el.id);
           return h('div', {
@@ -174,6 +272,17 @@ export const SandboxView = defineComponent({
           );
         }),
       ]);
+
+      return h('div', {
+        ref: rootRef,
+        class: 'main-ui-view-sandbox',
+        style: rootStyle,
+        onPointerdown: onRootPointerDown,
+        onPointermove: onRootPointerMove,
+        onPointerup: endPan,
+        onPointercancel: endPan,
+        onWheel: onRootWheel,
+      }, [worldContent]);
     };
   },
 });
