@@ -2,6 +2,20 @@
 
 按版本归并的对外变更记录。每版本只列**使用者可见**的契约变化。
 
+## 0.12.0（`@main-ui/core` 0.11.0）
+
+1. **视口双输出面**：`view-world` 新增 `contentItems` prop 与 `content-layer` 插槽，在 GPU 几何面之上叠加浏览器绘制的内容层，两面共用**同一台相机**。解决「GPU 视口里文字与公式放大即糊」——那是光栅化的固有性质，不是参数问题。内容层不接收指针（命中仍走交互覆盖层），且恒在几何面之上。
+2. **内容层纯函数**：`projectContentLayer` / `cullContentLayer` / `prepareContentLayer` / `visibleWorldRect`（零 DOM，可单测）。**裁剪默认生效**——不裁剪等于为所有项建 DOM 节点，是白板最常见的卡死形态。
+3. **文字纹理档位**：GPU 文字按「离散档 + 滞回」跨档重建（阶梯 1/2/4/8/16，升降档阈值不等以构成滞回带）。档位内继续 GPU 放大，不追求无限分辨率（显存会爆）。
+4. **引用三语义**：`RefRelation` = `embed`（展开，上限 3 层）/ `link`（不展开，无限）/ `drill`（不展开，无限）。新增 `checkEmbedChain` **同时报告超深与成环**——存储是图、展开是树，双链必然成环。
+5. **白板可编辑**：`view-sandbox` 接通此前「内核已有、视图层零调用」的全部编辑能力——拖拽移动 / 缩放 / 旋转 / 拖端口连线 / 双击内联编辑 / 撤销重做 / 多选 / 删除。位移一律经 `screenToWorld` 换算。
+6. **白板轻内容**：新增 `text` / `formula` / `link` 三种原生元素类型，不必为「一个公式」注册整个视图。`link` 只存不透明 `refId`，点击抛 `open-ref-intent`，跳转由宿主执行（MUI 不懂文件系统）。
+7. **嵌入视图真实渲染**：`view-sandbox` 新增 `embed-view` 插槽。此前只画 `[viewType]` 文字占位，`EmbeddedViewHost` 登记了却无人消费。
+8. **修两个真 bug**：① `EmbeddedViewHost.destroyAll()` 是**终态操作**（之后 `register` 全被忽略），被误当「清空」用导致子视图永远空白且无报错；② 传初始文档构造时从不注册嵌入视图，首屏即空白。
+9. **文档**：`PRESET_VIEWS_GUIDE` 新增「视口模板选型判据」——按内容形态而非「游戏/非游戏」选择模板。
+
+> 迁移细节见 `MIGRATION_GUIDE_0.12.0.md`。
+
 ## 0.11.0（`@main-ui/core` 0.10.0，`view-canvas` 0.9.0，`view-world` 0.9.0，`view-sandbox` 0.7.0，`view-node` 0.5.0，`view-flow` 0.6.0）
 
 1. **相机变换串分介质**：`cameraToSvgTransform` → `SvgTransform`、`cameraToCssTransform` → `CssTransform`（品牌类型），新增 `cameraToCssStyle`（返回含 `transformOrigin` 的样式对象）。跨介质赋值在 `tsc` 阶段失败 —— 此前无单位串放进 `style.transform` 会被浏览器静默丢弃整条声明。

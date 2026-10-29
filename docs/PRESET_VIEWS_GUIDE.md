@@ -85,7 +85,98 @@ pnpm add @main-ui/render-3d three troika-three-text
 | `@main-ui/core` | `node_modules/@main-ui/core/README.md` |
 | 统一指南（本文） | `node_modules/main-ui/docs/PRESET_VIEWS_GUIDE.md` |
 
-## 3. 统一接入模式（三步）
+## 3. 视口模板选型判据（先读这一节）
+
+「视口类」模板有 **5 个**，选错会付出长期代价。判据是**内容形态**，不是「游戏 / 非游戏」。
+
+### 3.1 三条技术路线
+
+| 路线 | 模板 | 渲染 | 特点 |
+| --- | --- | --- | --- |
+| **无引擎矢量** | `view-canvas` · `view-sandbox` | 浏览器（DOM/SVG） | 任意倍率锐利；元素量中等；天然支持文本与公式 |
+| **GPU 批量** | `view-world` | 2D=PixiJS · 3D=three.js（可插拔） | 千级～万级同质图元；动画流畅；**文字与公式需 DOM 层补** |
+| **第三方图内核** | `view-node` · `view-flow` | `@vue-flow/core` | 自带布局与端口语义 |
+
+### 3.2 选型表
+
+| 你的内容 | 选 | 理由 |
+| --- | --- | --- |
+| 成千上万个点/线/面，要动画与吞吐 | **`view-world` 2D** | GPU 批量是唯一能扛量级的路 |
+| 要真三维，或要「2D/3D 一键切换」 | **`view-world` 3D**（注入 `@main-ui/render-3d`） | 同一模板单实例换后端，相机连续 |
+| 元素不多但要**文字/公式永远锐利** | **`view-canvas`** | 浏览器按屏幕密度绘制，放大不糊 |
+| **可编辑**的异构内容（文本/表格/公式/媒体）+ 自由摆放 | **`view-sandbox`** | 白板形态；元素可原地编辑 |
+| 节点图 / 流程图（要自动布局、端口、环检测） | `view-node` / `view-flow` | 图内核已自带这些语义 |
+
+### 3.3 三条容易搞错的判据
+
+**① 「是不是游戏」不是判据，**「内容同质还是异构」**才是。**
+场景编辑器这类非游戏应用也用 `view-world`；反过来说，游戏里要做可编辑的白板，一样该用 `view-sandbox`。
+
+**② `view-world` 的「3D」是能力，不是默认值。**
+未注入三维后端时强制二维，不会白屏。注册了三维后端也不等于当前跑 3D —— 维度由宿主控制并持久化。
+
+**③ `view-world` 需要文字/公式时用内容层，不要换模板。**
+GPU 光栅化对文字是放大即糊（固有性质，非参数问题）。用 `contentItems` + `content-layer` 插槽把公式与富文本放到 DOM 面上，两面共用同一台相机：
+
+```vue
+<WorldView :snapshot="snapshot" :content-items="labels">
+  <template #content-layer="{ items }">
+    <div
+      v-for="item in items"
+      :key="item.id"
+      :style="{
+        position: 'absolute',
+        transform: `translate(${item.screen.x + item.offset.x}px, ${item.screen.y + item.offset.y}px)`,
+      }"
+    >
+      <FormulaView v-if="item.kind === 'formula'" :latex="item.data.latex" />
+    </div>
+  </template>
+</WorldView>
+```
+
+**内容层的三条硬约束**（违反会出现难查的问题）：
+
+| 约束 | 原因 |
+| --- | --- |
+| 内容层**不接收指针**（默认 `pointerEvents: 'none'`） | 否则与交互覆盖层形成「两套命中」，表现为点击穿透 / 双重触发 |
+| 内容项**不再施加相机变换** | 每项已由 `projectContentLayer` 算成屏幕坐标；再变换等于应用两遍 |
+| 内容层**恒在几何面之上** | 「几何遮挡内容」不可实现；需要交错时按带（band）拆分，不要靠 z 序 |
+
+**必须让裁剪生效**（`cullContent` 默认开）：不裁剪等于为所有项建 DOM 节点，节点数一多即卡死。
+
+### 3.4 白板（`view-sandbox`）的嵌套语义
+
+「白板里放白板」有三种关系，**混用会导致渲染爆炸**：
+
+| 关系 | 是否展开内容 | 深度 | 用法 |
+| --- | --- | --- | --- |
+| `embed` | **展开** | **上限 3 层** | 节点处直接显示活内容 |
+| `link` | 不展开，点击打开 | 无限 | 单元格 / 小节点引用另一份文档 |
+| `drill` | 不展开，进入替换视图 | 无限 | 双击下钻 |
+
+判据：**能不能在小尺寸里看**。放不下 ⇒ 只能 `link` / `drill`（不打开就不加载，故深度不受限）。
+
+**存储是图、展开是树**：引用允许成环（双链天然成环），展开层负责检测并降级 ——
+用 `checkEmbedChain`（同时报告超深与成环）。
+
+**MUI 不懂文件系统**：`refId` 是不透明标识，由宿主 resolver 解析；
+点击 `link` 元素抛 `open-ref-intent`，**跳转由宿主执行**。
+
+### 3.5 轻内容不要注册视图
+
+`view-sandbox` 的元素分三档：
+
+| 档 | 类型 | 说明 |
+| --- | --- | --- |
+| 原生轻内容 | `shape` / `text` / `formula` / `link` | 模板直接渲染，**无需注册** |
+| 资源 | `image` | 资源由宿主 provider 注入 |
+| 嵌入视图 | `embed-view` | 引用已注册 `viewType`，走 `EmbeddedViewHost` |
+
+判据：**它需不需要自己的生命周期与状态？** 需要才用 `embed-view`。
+为「一个公式」注册一整个 viewType 属过度设计。
+
+## 4. 统一接入模式（三步）
 
 每包统一结构：`types.ts`（数据契约 TS 类型）+ 主组件 + `register.ts`（一键注册）。
 
@@ -139,7 +230,7 @@ sandbox.registerSandboxViewEditor(runtime, { allowedWorkspaceIds: ['demo'] })
 // hostEngine 无注册器（引擎与宿主强相关），直接消费组件：hostEngine.HostEngineView
 ```
 
-## 4. 各模板 API
+## 5. 各模板 API
 
 ### 4.1 `@main-ui/view-tree`（虚拟滚动树）
 
@@ -703,7 +794,7 @@ Emits：`select(AssetSelectPayload)`（含 `id` / `additive` / `payload` 原样�
 
 **列数由断点表决定**（`resolveGridColumns`，1200/960/720/480 → 6/5/4/3/2 列），不用 CSS `auto-fill`：虚拟滚动必须知道「第 N 项在第几行」，而自动填充的结果 JS 拿不到。
 
-## 5. 宿主适配层职责（模板不承担）
+## 6. 宿主适配层职责（模板不承担）
 
 1. 取数、缓存、三态管理（参考实现：`demo/src/adapter/` 的 `mockApi` + `presetViewStore` + `registerPresetViewEditors`）。
 2. 编辑意图的校验/裁决与后端提交（含 `view-form` 的提交落库与回填）。
@@ -712,7 +803,7 @@ Emits：`select(AssetSelectPayload)`（含 `id` / `additive` / `payload` 原样�
 5. 编辑器实例关闭时的数据清理（可选，防内存增长）。
 6. 停靠引导为内核内置交互，无需宿主接入；若宿主自实现拖拽，可复用 `main-ui/core` 的 `resolveDropZone` / `dropZoneToSplitDirection` 纯函数。
 
-## 6. 扩展模式
+## 7. 扩展模式
 
 1. **配置式**：经 props 开关行为（如 `filterable` / `editable` / `presetsEnabled`）。
 2. **包装式**：在宿主侧包一层组件，组合模板与业务控件。
@@ -720,7 +811,7 @@ Emits：`select(AssetSelectPayload)`（含 `id` / `additive` / `payload` 原样�
 
 禁止修改模板源码；模板语义缺口应经反馈信道（反馈通道）回流。
 
-## 7. 顺延与规划
+## 8. 顺延与规划
 
 - `view-asset`（资产网格）：已于 2026-10-27 交付（`@main-ui/view-asset 0.1.0`），见 §4.16。
 - 既有模板剩余增强（table 列冻结/分页/列分组、tree 懒加载/拖拽、inspector 嵌套数组、node 小地图、flow 增强等）：见任务文档顺延清单。
