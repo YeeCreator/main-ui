@@ -24,6 +24,7 @@
 | `@main-ui/view-flow` | 新增 `normalizeFlowViewport` / `flowViewportToCamera` / `cameraToFlowViewport` | ✅ 只增 |
 | `main-ui/vue` | `SettingsEditor` 新增 `showAppearance` prop，内置外观（主题模式）区块 | ✅ 只增（默认开启） |
 | `main-ui/core` | 新增 `resolveThemeMode` / `THEME_MODES` / `isSystemThemeMode` / `matchAppearance` | ✅ 只增 |
+| `main-ui/vue` | 新增 `useThemeMode`（含 `setThemeMode`）与 `createSetThemeModeAction` | ✅ 只增 |
 | `main-ui` 样式 | 补齐设置页四组 class 的样式 | ✅ 只增（此前无样式） |
 
 ## 二、`view-canvas` 插槽：一个裸名拆成两个分介质的值
@@ -173,18 +174,27 @@
   </MainUiProvider>
 ```
 
-**主题切换必须走 `theme/setMode`**，且**必须同时给出 `resolvedMode`**：
+**主题切换必须走 `theme/setMode`**，且**必须同时给出 `resolvedMode`**。两种写法：
 
 ```ts
-import { resolveThemeMode, THEME_MODES } from 'main-ui/core'
+// A. 组件内（MainUiProvider 子树中）
+import { useThemeMode } from 'main-ui/vue'
+const { themeMode, setThemeMode } = useThemeMode()
+setThemeMode('system')
 
-dispatch({
-  type: 'theme/setMode',
-  mode,
-  // 省略时 reducer 按「非 dark 即 light」兜底 → mode:'system' 会被解析成 light
-  resolvedMode: resolveThemeMode(mode, window.matchMedia('(prefers-color-scheme: dark)').matches),
-})
+// B. Provider 之外（启动初始化 / 命令 / 普通函数）
+import { createSetThemeModeAction } from 'main-ui/vue'
+void runtime.core.dispatch(createSetThemeModeAction('system'))
 ```
+
+❗**不要自行拼 action**：
+
+```ts
+// 错：reducer 按「非 dark 即 light」兜底 ⇒ system 被解析成 light，不跟随系统
+dispatch({ type: 'theme/setMode', mode: 'system' })
+```
+
+该错误无报错、无告警，症状仅为「选了跟随系统却没反应」。实测有多处宿主如此写。
 
 `showAppearance: false` 可关掉内置区块（**不建议** —— 除非宿主确有自建主题 UI 且同样走 `theme/setMode`）。
 
@@ -199,6 +209,6 @@ dispatch({
 [ ] 若使用 view-sandbox 且持久化过相机：确认 normalizeSandboxCamera 已覆盖读取路径
 [ ] 若有绕开「行模式滚轮判型不一致」的临时分支：删除
 [ ] 若有自建的主题设置面板：删除，改用官方 SettingsEditor（见 §九）
-[ ] 若自行发过 theme/setMode：确认带上 resolvedMode（否则 system 不跟随系统）
+[ ] 若自行发过 theme/setMode：改用 useThemeMode / createSetThemeModeAction（否则 system 不跟随系统）
 [ ] 跑一遍 build + 单测，基线不降
 ```

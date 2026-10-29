@@ -12,15 +12,9 @@
  */
 import { computed, defineComponent, h, ref } from 'vue';
 import type { JsonValue, SettingScope } from '../../core';
-import {
-  APPEARANCE_CATEGORY,
-  matchAppearance,
-  THEME_MODES,
-  resolveThemeMode,
-  type SettingSchema,
-  type ThemeMode,
-} from '../../core';
+import { APPEARANCE_CATEGORY, matchAppearance, THEME_MODES, type SettingSchema, type ThemeMode } from '../../core';
 import { useWorkbench } from '../composables/useWorkbench';
+import { useThemeMode } from '../composables/useThemeMode';
 
 /** 主题模式的显示文案。 */
 const THEME_MODE_LABELS: Record<ThemeMode, string> = {
@@ -50,28 +44,12 @@ export const SettingsEditor = defineComponent({
     showAppearance: { type: Boolean, default: true },
   },
   setup(props) {
-    const { runtime, document, dispatch } = useWorkbench();
+    const { runtime } = useWorkbench();
+    // 主题读写走 composable：它已处理 resolvedMode（漏传会让 system 不跟随系统）。
+    const { themeMode, setThemeMode } = useThemeMode();
     const query = ref('');
     const category = ref<string>();
     const errors = ref<Record<string, string>>({});
-
-    /** 当前主题模式（MUI 核心状态，随布局快照持久化）。 */
-    const themeMode = computed<ThemeMode>(() => document.value.theme.mode);
-
-    /**
-     * 切换主题模式。
-     *
-     * **必须同时给出 `resolvedMode`**：reducer 在缺省时按「非 dark 即 light」
-     * 兜底，会把 `system` 解析成 `light` 而不跟随系统。此处用纯函数现算，
-     * 不依赖 `MainUiProvider` 的媒体查询监听是否已就绪。
-     */
-    const setThemeMode = (mode: ThemeMode): void => {
-      void dispatch({
-        type: 'theme/setMode',
-        mode,
-        resolvedMode: resolveThemeMode(mode, systemPrefersDark()),
-      });
-    };
 
     const schemas = computed(() => runtime.core.settings.search(query.value, category.value));
     const categories = computed(() => [

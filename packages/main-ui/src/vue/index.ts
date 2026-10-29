@@ -2,6 +2,7 @@ export * from './runtime';
 export * from './provider/context';
 export * from './provider/MainUiProvider';
 export * from './composables/useWorkbench';
+export * from './composables/useThemeMode';
 export * from './composables/useViewLifecycle';
 export * from './composables/useSurfaceStack';
 export * from './dockingDrag';

@@ -10,7 +10,7 @@
 4. **滚轮判型收敛为三维读数**：`readWheel` 返回 `device` / `intent` / `modifier`；新增 `detectWheelDevice` / `zoomFactorOf`。`classifyWheelIntent` 改为委托。修复「同一个鼠标在 `view-canvas` 与 `view-world` 上判型不同」，以及 `Ctrl/⌘ + 鼠标滚轮` 套用触控板灵敏度导致倍率爆炸。
 5. **相机表示统一**：`SandboxCamera` 改为 `Camera2D`；新增 `normalizeSandboxCamera`（迁移存量 `{x,y,zoom}` 快照）；`view-node` / `view-flow` 增显式双向桥（形状不变）。
 6. **`view-sandbox` 相机接入渲染**：此前相机是「只写不读」的死状态（拖拽/缩放对画面零影响）。
-7. **设置页内置外观区块**：`SettingsEditor` 新增 `showAppearance` prop，内置「主题模式（浅色/深色/跟随系统）」；新增 `resolveThemeMode` / `THEME_MODES` / `isSystemThemeMode` / `matchAppearance`。补齐设置页四组 class 的样式（此前完全无样式，官方页面是裸 HTML）。
+7. **设置页内置外观区块**：`SettingsEditor` 新增 `showAppearance` prop，内置「主题模式（浅色/深色/跟随系统）」；新增 `resolveThemeMode` / `THEME_MODES` / `isSystemThemeMode` / `matchAppearance`；新增 `useThemeMode`（组件内）与 `createSetThemeModeAction`（Provider 之外）。补齐设置页四组 class 的样式（此前完全无样式，官方页面是裸 HTML）。
 8. **入口纪律**：`view-canvas` 停止转发 `@main-ui/core/*` 符号 —— 同一概念只许一条取得路径。
 9. **主题变量统一**：`view-canvas` 样式改用 `--mui-color-*` 真源（`--main-ui-*` 保留为兜底）。
 
