@@ -5,6 +5,7 @@
  * 绝不返回 Vue 响应式 Proxy。
  */
 import {
+  cameraToSvgTransform,
   clamp,
   fitCameraToViewBox,
   panBy,
@@ -12,6 +13,7 @@ import {
   worldToScreen,
   zoomAtScreenPoint,
   type Camera2D,
+  type SvgTransform,
   type Vec2,
   type ViewBox,
 } from '@main-ui/core/rendering';
@@ -74,9 +76,15 @@ export function panCamera(camera: Camera2D, deltaScreen: Vec2): Camera2D {
   return panBy(camera, deltaScreen);
 }
 
-/** 供 `<g :transform>` 使用的相机变换串。 */
-export function cameraTransformOf(camera: Camera2D): string {
-  return `translate(${camera.pan.x} ${camera.pan.y}) scale(${camera.scale})`;
+/**
+ * 供 `<g :transform>` 使用的相机变换串。
+ *
+ * @deprecated 改用 `@main-ui/core/rendering` 的 {@link cameraToSvgTransform}
+ *   —— 本函数是它的历史别名，仅为不破坏既有 import 路径而保留。
+ *   同名存在两处产出点是"多个真相源"的来源，请勿在新代码中使用。
+ */
+export function cameraTransformOf(camera: Camera2D): SvgTransform {
+  return cameraToSvgTransform(camera);
 }
 
 /**

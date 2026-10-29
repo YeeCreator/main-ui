@@ -11,6 +11,8 @@
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, type CSSProperties, type PropType, type VNode } from 'vue';
 import {
   DEFAULT_TAP_TOLERANCE_PX,
+  cameraToCssTransform,
+  cameraToSvgTransform,
   createPointerGestureTracker,
   screenToWorld,
   worldToScreen,
@@ -20,10 +22,17 @@ import {
 } from '@main-ui/core/rendering';
 import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
 import { classifyWheel, wheelPanDelta } from '@main-ui/core/input';
+import {
+  createSpaceKeyState,
+  isMiddleButton,
+  isShiftWheel,
+  isSpacePanGesture,
+  isTypingTarget,
+  shiftWheelPanDelta,
+} from '@main-ui/core/input';
 import type { ViewportCanvasExpose, ViewportContainerSize } from './types';
 import {
   ZOOM_STEP,
-  cameraTransformOf,
   fitCamera,
   panCamera,
   pinchZoomFactor,
@@ -53,6 +62,22 @@ export const ViewportCanvas = defineComponent({
     nativeGestureGuard: { type: Boolean as PropType<boolean | null>, default: null },
     /** 是否右键抑制原生菜单（缺省取 ShellPolicy.suppressContextMenu）。 */
     suppressContextMenu: { type: Boolean as PropType<boolean | null>, default: null },
+    /**
+     * 中键拖拽平移。默认 `true` —— 任何画布宿主都需要的通用能力。
+     *
+     * 与 `disablePan` 的关系：`disablePan` 是**全部平移的总开关**，置 true 时
+     * 本项一并失效。
+     */
+    panOnMiddleDrag: { type: Boolean, default: true },
+    /**
+     * 空格 + 左键拖拽平移。默认 `true`。
+     *
+     * 左键被业务占用（点选 / 框选 / 拖拽实体）时的平移出口。
+     * 焦点在输入控件内时空格不触发（不打断打字）。
+     */
+    panOnSpaceDrag: { type: Boolean, default: true },
+    /** Shift + 滚轮横向平移。默认 `true`。 */
+    panOnShiftWheel: { type: Boolean, default: true },
   },
   emits: {
     zoomPercentChange: (value: number) => Number.isFinite(value),
@@ -73,9 +98,12 @@ export const ViewportCanvas = defineComponent({
 
     const pointerState = reactive({ pointerId: -1, lastX: 0, lastY: 0, active: false, captured: false });
     const gesture = createPointerGestureTracker({ tolerancePx: props.tapTolerancePx });
+    /** 空格修饰键状态（仅 `panOnSpaceDrag` 用）。 */
+    const spaceKey = createSpaceKeyState();
     let resizeObserver: ResizeObserver | null = null;
 
-    const cameraTransform = computed(() => cameraTransformOf(camera.value));
+    const svgTransform = computed(() => cameraToSvgTransform(camera.value));
+    const cssTransform = computed(() => cameraToCssTransform(camera.value));
 
     /** 对外发布相机快照（纯值复制，避免把响应式 Proxy 交给宿主）。 */
     const snapshotCamera = (): Camera2D => ({ ...camera.value, pan: { ...camera.value.pan } });
@@ -105,8 +133,25 @@ export const ViewportCanvas = defineComponent({
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
 
+    /**
+     * 这次按下是否应当启动平移。
+     *
+     * 判据全部取自 `@main-ui/core/input` 的纯函数 —— 模板不自带判定逻辑，
+     * 也不允许下游另抄一份（那正是本次收归的原因）。
+     */
+    const wantsPanStart = (event: PointerEvent): boolean => {
+      if (props.disablePan) return false;
+      // 左键直拖（既有行为）；空格按住时左键改由「空格+左键」接管，语义为平移而非业务
+      if (event.button === 0 && !spaceKey.held) return true;
+      // 空格 + 左键
+      if (props.panOnSpaceDrag && isSpacePanGesture(spaceKey.held, event)) return true;
+      // 中键
+      if (props.panOnMiddleDrag && isMiddleButton(event)) return true;
+      return false;
+    };
+
     const onPointerDown = (event: PointerEvent): void => {
-      if (event.button !== 0 || props.disablePan) return;
+      if (!wantsPanStart(event)) return;
       if (gestureGuard.value) event.preventDefault();
       pointerState.pointerId = event.pointerId;
       pointerState.lastX = event.clientX;
@@ -163,6 +208,14 @@ export const ViewportCanvas = defineComponent({
 
     const onWheel = (event: WheelEvent): void => {
       if (!containerRef.value) return;
+      // Shift + 滚轮：横向平移（优先于缩放判型，属独立的修饰键语义）
+      if (props.panOnShiftWheel && !props.disablePan && isShiftWheel(event)) {
+        event.preventDefault();
+        // 取 deltaY：多数平台在 Shift 下把纵向滚动重定向为横向意图。
+        // **该取值须真机核对**，不同平台对 deltaX/deltaY 的填充不一致。
+        applyCamera(panCamera(camera.value, shiftWheelPanDelta(event.deltaY)));
+        return;
+      }
       const stamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const intervalMs = lastWheelAt === null ? undefined : stamp - lastWheelAt;
       lastWheelAt = stamp;
@@ -197,6 +250,28 @@ export const ViewportCanvas = defineComponent({
       if (contextMenuGuard.value) event.preventDefault();
     };
 
+    /**
+     * 空格键状态跟踪。
+     *
+     * **焦点在输入控件内时不得拦截** —— 空格在输入框里是打字。
+     * 挂在 window 上而非容器上：空格通常先于鼠标进入画布时按下，
+     * 若绑容器则「先按空格、再移到画布」会被漏掉。
+     */
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.code !== 'Space' || isTypingTarget(event.target)) return;
+      if (!props.panOnSpaceDrag || props.disablePan) return;
+      spaceKey.hold();
+      // 阻止页面滚动（空格默认行为）
+      event.preventDefault();
+    };
+
+    const onKeyUp = (event: KeyboardEvent): void => {
+      if (event.code === 'Space') spaceKey.release();
+    };
+
+    /** 窗口失焦时清掉空格状态，避免「切回来发现空格卡住」。 */
+    const onWindowBlur = (): void => { spaceKey.reset(); };
+
     const updateContainerSize = (): void => {
       const el = containerRef.value;
       if (!el) return;
@@ -224,6 +299,9 @@ export const ViewportCanvas = defineComponent({
       window.addEventListener('pointercancel', finishPointer);
       el.addEventListener('wheel', onWheel, { passive: false });
       el.addEventListener('contextmenu', onContextMenu);
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+      window.addEventListener('blur', onWindowBlur);
     });
 
     onBeforeUnmount(() => {
@@ -239,6 +317,10 @@ export const ViewportCanvas = defineComponent({
       window.removeEventListener('pointercancel', finishPointer);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('contextmenu', onContextMenu);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onWindowBlur);
+      spaceKey.reset();
     });
 
     expose<ViewportCanvasExpose>({
@@ -271,7 +353,10 @@ export const ViewportCanvas = defineComponent({
         ? slots.default({
             width: containerSize.width,
             height: containerSize.height,
-            cameraTransform: cameraTransform.value,
+            svgTransform: svgTransform.value,
+            cssTransform: cssTransform.value,
+            // @deprecated 兼容期别名：与 svgTransform 同值（SVG 语法）。
+            cameraTransform: svgTransform.value,
             scale: camera.value.scale,
             camera: snapshotCamera(),
           })

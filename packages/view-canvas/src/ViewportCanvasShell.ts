@@ -25,15 +25,15 @@ const ROOT_STYLE: CSSProperties = {
   minHeight: 0,
   width: '100%',
   height: '100%',
-  background: 'var(--main-ui-bg, #f8fafc)',
-  color: 'var(--main-ui-text, #0f172a)',
+  background: 'var(--mui-color-bg, var(--main-ui-bg, #f8fafc))',
+  color: 'var(--mui-color-text, var(--main-ui-text, #0f172a))',
 };
 
 const PANEL_STYLE: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
   overflow: 'auto',
-  background: 'var(--main-ui-panel, #ffffff)',
+  background: 'var(--mui-color-panel, var(--main-ui-panel, #ffffff))',
   padding: '10px',
 };
 
@@ -50,8 +50,8 @@ const TOOLBAR_STYLE: CSSProperties = {
   alignItems: 'center',
   gap: '10px',
   padding: '0 10px',
-  borderBottom: '1px solid var(--main-ui-border, #d7dbe3)',
-  background: 'var(--main-ui-panel, #ffffff)',
+  borderBottom: '1px solid var(--mui-color-border, var(--main-ui-border, #d7dbe3))',
+  background: 'var(--mui-color-panel, var(--main-ui-panel, #ffffff))',
 };
 
 const TOOLBAR_CENTER_STYLE: CSSProperties = { minWidth: 0, overflow: 'hidden' };
@@ -95,7 +95,7 @@ export const ViewportCanvasShell = defineComponent({
 
       if (hasLeft.value || !props.collapseEmptySidePanels) {
         children.push(
-          h('aside', { style: { ...PANEL_STYLE, borderRight: '1px solid var(--main-ui-border, #d7dbe3)' } }, renderSlot('left')),
+          h('aside', { style: { ...PANEL_STYLE, borderRight: '1px solid var(--mui-color-border, var(--main-ui-border, #d7dbe3))' } }, renderSlot('left')),
         );
       }
 
@@ -112,7 +112,7 @@ export const ViewportCanvasShell = defineComponent({
 
       if (hasRight.value || !props.collapseEmptySidePanels) {
         children.push(
-          h('aside', { style: { ...PANEL_STYLE, borderLeft: '1px solid var(--main-ui-border, #d7dbe3)' } }, renderSlot('right')),
+          h('aside', { style: { ...PANEL_STYLE, borderLeft: '1px solid var(--mui-color-border, var(--main-ui-border, #d7dbe3))' } }, renderSlot('right')),
         );
       }
 
