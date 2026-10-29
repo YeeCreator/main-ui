@@ -378,6 +378,9 @@ importers:
 
   packages/view-node:
     devDependencies:
+      '@main-ui/core':
+        specifier: workspace:*
+        version: link:../core
       '@vue-flow/core':
         specifier: ^1.48.2
         version: 1.48.2(vue@3.5.32(typescript@5.7.3))
