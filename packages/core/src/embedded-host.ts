@@ -90,7 +90,14 @@ export type EmbeddedViewHostContract = {
   register(descriptor: EmbeddedViewDescriptor): void;
   /** 移除并销毁一个子实例（幂等：不存在时静默）。 */
   unregister(id: string): void;
-  /** 销毁全部子实例（幂等，onDestroy 级联调用）。 */
+  /**
+   * 销毁**全部**子实例并**终结该托管件**（幂等）。
+   *
+   * ⚠ **这是终态操作**：调用后 `register` 全部被静默忽略。
+   * 若目的是「清空后重新登记」（如文档重载、撤销重做），
+   * 必须逐个 {@link unregister}，不能用本方法 —— 否则表现为「子视图永远空白」，
+   * 且没有任何报错。
+   */
   destroyAll(): void;
   /** 查询子实例是否存在。 */
   has(id: string): boolean;
