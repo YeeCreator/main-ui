@@ -1,6 +1,7 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, provide, shallowRef, type PropType } from 'vue';
 import { createDomInputSource } from '@main-ui/core/input';
 import type { WorkbenchDocument } from '../../core';
+import { resolveThemeMode } from '../../core/theme/mode';
 import { MainUiContextKey } from './context';
 import type { MainUiRuntime } from '../runtime';
 
@@ -44,7 +45,8 @@ export const MainUiProvider = defineComponent({
         const syncSystemMode = () => {
           const snapshot = props.runtime.core.getSnapshot();
           if (snapshot.theme.mode !== 'system') return;
-          const resolved = mediaQuery.matches ? 'dark' : 'light';
+          // 解析规则取 core 的纯函数（单一真相源）——此处不再自算明暗。
+          const resolved = resolveThemeMode('system', mediaQuery.matches);
           if (snapshot.theme.resolvedMode !== resolved) {
             void dispatch({ type: 'theme/setMode', mode: 'system', resolvedMode: resolved });
           }

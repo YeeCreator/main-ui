@@ -1485,3 +1485,123 @@
   color: var(--mui-color-text-muted);
   font-size: 12px;
 }
+
+/* ============================================================
+ * 设置页（SettingsEditor）
+ *
+ * 这四组 class 此前**完全没有样式** —— 官方设置页是裸 HTML。
+ * 于是每个宿主都自建一层带样式的设置面板（同一份组件曾在多个仓里
+ * 逐字节相同），官方能力形同虚设。补齐后宿主无需再包一层。
+ * ============================================================ */
+
+.main-ui-settings-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--mui-color-panel);
+  color: var(--mui-color-text);
+  font-size: 13px;
+}
+
+.main-ui-settings-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--mui-color-border);
+  background: var(--mui-color-panel);
+}
+
+.main-ui-settings-editor__toolbar input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--mui-color-border);
+  border-radius: var(--mui-radius);
+  background: var(--mui-color-panel-muted);
+  color: inherit;
+}
+
+.main-ui-settings-editor__toolbar select {
+  flex: none;
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--mui-color-border);
+  border-radius: var(--mui-radius);
+  background: var(--mui-color-panel-muted);
+  color: inherit;
+}
+
+.main-ui-settings-editor__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.main-ui-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--mui-color-border);
+  border-radius: var(--mui-radius);
+  background: var(--mui-color-panel);
+}
+
+.main-ui-setting-row > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.main-ui-setting-row strong {
+  font-weight: 500;
+}
+
+.main-ui-setting-row small {
+  color: var(--mui-color-text-muted);
+  font-size: 12px;
+}
+
+.main-ui-setting-row em {
+  color: var(--mui-color-danger);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.main-ui-setting-row select,
+.main-ui-setting-row input:not([type='checkbox']) {
+  flex: none;
+  max-width: 220px;
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--mui-color-border);
+  border-radius: var(--mui-radius);
+  background: var(--mui-color-panel-muted);
+  color: inherit;
+}
+
+.main-ui-setting-row button {
+  flex: none;
+  font: inherit;
+  padding: 4px 10px;
+  border: 1px solid var(--mui-color-border);
+  border-radius: var(--mui-radius);
+  background: var(--mui-color-panel-muted);
+  color: inherit;
+  cursor: pointer;
+}
+
+.main-ui-setting-row button:hover {
+  border-color: var(--mui-color-accent);
+  color: var(--mui-color-accent);
+}

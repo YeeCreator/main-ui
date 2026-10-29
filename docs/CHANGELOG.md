@@ -2,6 +2,20 @@
 
 按版本归并的对外变更记录。每版本只列**使用者可见**的契约变化。
 
+## 0.11.0（`@main-ui/core` 0.10.0，`view-canvas` 0.9.0，`view-world` 0.9.0，`view-sandbox` 0.7.0，`view-node` 0.5.0，`view-flow` 0.6.0）
+
+1. **相机变换串分介质**：`cameraToSvgTransform` → `SvgTransform`、`cameraToCssTransform` → `CssTransform`（品牌类型），新增 `cameraToCssStyle`（返回含 `transformOrigin` 的样式对象）。跨介质赋值在 `tsc` 阶段失败 —— 此前无单位串放进 `style.transform` 会被浏览器静默丢弃整条声明。
+2. **`view-canvas` 插槽拆名**：`cameraTransform` → `svgTransform` / `cssTransform`（旧名保留 1 个 minor）。
+3. **通用相机手势内置**：`panOnMiddleDrag` / `panOnSpaceDrag` / `panOnShiftWheel`（默认全开）；判定纯函数入 `@main-ui/core/input`（`camera-gestures`）。
+4. **滚轮判型收敛为三维读数**：`readWheel` 返回 `device` / `intent` / `modifier`；新增 `detectWheelDevice` / `zoomFactorOf`。`classifyWheelIntent` 改为委托。修复「同一个鼠标在 `view-canvas` 与 `view-world` 上判型不同」，以及 `Ctrl/⌘ + 鼠标滚轮` 套用触控板灵敏度导致倍率爆炸。
+5. **相机表示统一**：`SandboxCamera` 改为 `Camera2D`；新增 `normalizeSandboxCamera`（迁移存量 `{x,y,zoom}` 快照）；`view-node` / `view-flow` 增显式双向桥（形状不变）。
+6. **`view-sandbox` 相机接入渲染**：此前相机是「只写不读」的死状态（拖拽/缩放对画面零影响）。
+7. **设置页内置外观区块**：`SettingsEditor` 新增 `showAppearance` prop，内置「主题模式（浅色/深色/跟随系统）」；新增 `resolveThemeMode` / `THEME_MODES` / `isSystemThemeMode` / `matchAppearance`。补齐设置页四组 class 的样式（此前完全无样式，官方页面是裸 HTML）。
+8. **入口纪律**：`view-canvas` 停止转发 `@main-ui/core/*` 符号 —— 同一概念只许一条取得路径。
+9. **主题变量统一**：`view-canvas` 样式改用 `--mui-color-*` 真源（`--main-ui-*` 保留为兜底）。
+
+> 迁移细节见 `MIGRATION_GUIDE_0.11.0.md`。
+
 ## 0.10.0（`@main-ui/core` 0.9.0）
 
 1. **docking 结构性增量**：焦点服务正式化（`core/editor/focus-service.ts`，焦点由布局派生、不自持状态）；局部微件体系（`core/editor/auxiliary.ts`，条目绑 `commandId`、禁 inline 回调）；侧栏与活动栏分区能力；停靠引导增强。

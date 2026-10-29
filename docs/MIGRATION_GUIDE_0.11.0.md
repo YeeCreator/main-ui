@@ -22,6 +22,9 @@
 | `@main-ui/view-sandbox` | 新增 `normalizeSandboxCamera`（迁移旧快照） | ✅ 只增 |
 | `@main-ui/view-node` | 新增 `nodeViewportToCamera` / `cameraToNodeViewport`；补 `@main-ui/core` peer | ✅ 只增 |
 | `@main-ui/view-flow` | 新增 `normalizeFlowViewport` / `flowViewportToCamera` / `cameraToFlowViewport` | ✅ 只增 |
+| `main-ui/vue` | `SettingsEditor` 新增 `showAppearance` prop，内置外观（主题模式）区块 | ✅ 只增（默认开启） |
+| `main-ui/core` | 新增 `resolveThemeMode` / `THEME_MODES` / `isSystemThemeMode` / `matchAppearance` | ✅ 只增 |
+| `main-ui` 样式 | 补齐设置页四组 class 的样式 | ✅ 只增（此前无样式） |
 
 ## 二、`view-canvas` 插槽：一个裸名拆成两个分介质的值
 
@@ -146,7 +149,46 @@
 
 **不追求"全部退化成一种形状"**：`NodeViewport` / `FlowViewport` 的形状就是 `@vue-flow/core` 的契约，改形会引入每次调用的来回转换与第三处真相源。
 
-## 九、升级检查清单
+## 九、设置页：内置外观区块，宿主删除自建副本
+
+**旧状**：`SettingsEditor` 只渲染宿主注册的 schema 项，**4 个 class 完全没有样式**（裸 HTML）。于是宿主各自包一层带样式的设置面板，主题下拉也各画一遍。
+
+后果：同一份 101 行的主题设置组件在多个宿主仓里**逐字节相同**；官方设置页形同虚设。
+
+**新状**：
+
+1. `SettingsEditor` 内置「外观 → 主题模式（浅色 / 深色 / 跟随系统）」区块；
+2. 四组 class（`main-ui-settings-editor` / `__toolbar` / `__list`、`main-ui-setting-row`）已有样式；
+3. 外观区块参与同一套搜索与分类筛选（分类名「外观」）。
+
+**宿主应删除自建的主题设置面板**，直接渲染官方组件：
+
+```diff
+- import ThemeSettingsPanel from './editors/ThemeSettingsPanel.vue'
++ import { SettingsEditor } from 'main-ui/vue'
+
+  <MainUiProvider :runtime="runtime">
+-   <ThemeSettingsPanel />
++   <SettingsEditor />
+  </MainUiProvider>
+```
+
+**主题切换必须走 `theme/setMode`**，且**必须同时给出 `resolvedMode`**：
+
+```ts
+import { resolveThemeMode, THEME_MODES } from 'main-ui/core'
+
+dispatch({
+  type: 'theme/setMode',
+  mode,
+  // 省略时 reducer 按「非 dark 即 light」兜底 → mode:'system' 会被解析成 light
+  resolvedMode: resolveThemeMode(mode, window.matchMedia('(prefers-color-scheme: dark)').matches),
+})
+```
+
+`showAppearance: false` 可关掉内置区块（**不建议** —— 除非宿主确有自建主题 UI 且同样走 `theme/setMode`）。
+
+## 十、升级检查清单
 
 ```
 [ ] view-canvas 插槽：cameraTransform → svgTransform / cssTransform
@@ -156,5 +198,7 @@
 [ ] 若调用 wheelPanDelta 并传第二参数：改为自行乘系数
 [ ] 若使用 view-sandbox 且持久化过相机：确认 normalizeSandboxCamera 已覆盖读取路径
 [ ] 若有绕开「行模式滚轮判型不一致」的临时分支：删除
+[ ] 若有自建的主题设置面板：删除，改用官方 SettingsEditor（见 §九）
+[ ] 若自行发过 theme/setMode：确认带上 resolvedMode（否则 system 不跟随系统）
 [ ] 跑一遍 build + 单测，基线不降
 ```
