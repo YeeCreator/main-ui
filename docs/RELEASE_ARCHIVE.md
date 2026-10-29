@@ -10,6 +10,6 @@ To preserve the original runtime artifact, `main-ui-0.0.2.tgz` is left unchanged
 pnpm add ./main-ui-0.0.2-with-docs.tgz
 ```
 
-The companion package keeps version `0.0.2` and the original compiled files. Its docs include `USER_MANUAL.md`, `API_MANUAL.md`, `DEVELOPER_GUIDE.md`, `DEVELOPMENT_LOG.md`, host integration/adapter guides, profile validation, and the upgrade checklist.
+The companion package keeps version `0.0.2` and the original compiled files. Its docs include `USER_MANUAL.md`, `API_MANUAL.md`, `DEVELOPER_GUIDE.md`, host integration/adapter guides, profile validation, and the upgrade checklist.
 
 For normal new releases, docs are now included automatically through the package `files` configuration and are available at `node_modules/main-ui/docs/README.md`.

@@ -581,7 +581,7 @@ Editor surface 具备 loading/error/retry boundary；`EditorMountAdapter` 的 mo
 包含：
 
 1. `hostProfileEditors`：中性 editor descriptor。
-2. `hostProfileWorkspaces`：demo、资料管理宿主、画布型宿主、对局宿主 workspace。
+2. `hostProfileWorkspaces`：`workspace-demo`、`inspector-demo`、`docs-workspace`、`canvas-workspace`、`matches-workspace` 五个 workspace。
 3. `hostProfileValidationCases`：首批宿主验证表。
 
 fixture 不是正式 API，但它是宿主接入的推荐参考写法。

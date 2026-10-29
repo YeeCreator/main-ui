@@ -35,7 +35,7 @@
 
 依赖铁律：`main-ui` 与 `@main-ui/core` 不依赖任何模板包、viewport kit 或重型渲染内核；模板包把 `main-ui`（与各自内核）声明为 peerDependency；聚合包只做重导出。
 
-宿主业务不进入本仓库。`资料管理宿主`、`画布型宿主`、`对局宿主` 等只在 demo fixture 中以中性 payload 表达。
+宿主业务不进入本仓库。demo fixture 只以中性 descriptor 与 payload 表达各类宿主形态，不含任何真实宿主业务代码。
 
 ## 目录地图（以 `packages/main-ui/` 为根）
 
@@ -245,7 +245,7 @@ Demo 中的 `external-mount-demo` 是原生 DOM smoke test，用于证明契约�
 5. [HOST_INTEGRATION_GUIDE.md](HOST_INTEGRATION_GUIDE.md)
 6. [HOST_ADAPTER_GUIDE.md](HOST_ADAPTER_GUIDE.md)
 7. [HOST_PROFILE_VALIDATION.md](HOST_PROFILE_VALIDATION.md)
-8. [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md)
+8. [CHANGELOG.md](CHANGELOG.md)
 
 ## 浏览器调试
 

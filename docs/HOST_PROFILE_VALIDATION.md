@@ -73,9 +73,9 @@ pnpm run demo:dev
 
 当前实现满足阶段 K 的核心要求：
 
-1. `多资料管理型宿主` 可被解释为多 workspace 资料管理宿主。
-2. `画布型宿主` 可被解释为由 `@main-ui/view-world` 承载的画布型宿主。
-3. `对局宿主` 可被解释为游戏库、对局实例与棋盘视口宿主。
+1. `docs-workspace` 可被解释为多 workspace 资料管理型宿主。
+2. `canvas-workspace` 可被解释为由 `@main-ui/view-world` 承载的画布型宿主。
+3. `matches-workspace` 可被解释为游戏库、对局实例与棋盘视口型宿主。
 4. 三者都不要求 `main-ui` 内置业务逻辑。
 5. `@main-ui/view-world` 作为 demo 级 editor foundation 被组合进 renderer，没有向 `main-ui/core` 引入业务或 React 依赖。
 6. 外部内容过渡路径通过通用 mount adapter 表达，没有向 `main-ui` 引入 React 依赖。
@@ -84,7 +84,7 @@ pnpm run demo:dev
 
 以下内容不在阶段 K 中实现：
 
-1. 改造真实 `多资料管理型宿主` 业务代码。
-2. 改造真实 `画布型宿主` React shell。
-3. 改造真实 `对局宿主` 游戏 screen。
+1. 改造任何真实宿主业务代码。
+2. 改造任何真实宿主的 React shell。
+3. 改造任何真实宿主的游戏 screen。
 4. 提供 React 兼容包。

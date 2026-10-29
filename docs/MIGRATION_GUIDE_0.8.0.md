@@ -68,12 +68,12 @@ const surfaces: SurfaceDescriptor[] = [
 
 ### 单屏宿主
 
-不 import 即零影响，**无需改代码、无需升版本**。画布型宿主 / 多资料管理型宿主 / 治理型宿主 /
-场景编辑型宿主 / 画廊型宿主 / 工作流型宿主 均属此类。
+不 import 即零影响，**无需改代码、无需升版本**。未直接调用 `registerKeybinding` 的下游宿主，
+无论其形态如何，均属此类。
 
 ## 一句话结论
 
-旧的 `registerKeybinding({ commandId, keybinding: 'Ctrl+X' })` 继续可用，语义完全不变（macOS 上 `Ctrl` 仍是 ⌘）。联合国项目组内的六家下游已在本世代内**全部改为新 API**，同时旧写法保留给未来接入者。
+旧的 `registerKeybinding({ commandId, keybinding: 'Ctrl+X' })` 继续可用，语义完全不变（macOS 上 `Ctrl` 仍是 ⌘）。已在场的下游宿主在本世代内**全部改为新 API**，同时旧写法保留给未来接入者。
 
 ## 一、破坏面清单
 
@@ -101,18 +101,15 @@ runtime.core.registerKeybinding({ commandId: 'demo.del', keybinding: 'Delete' })
 
 这是**解析层语法糖**：字符串键位被解析为 `press:<key>` 草稿，`Ctrl` 在 macOS 上仍映射为 ⌘。
 
-## 二之二、现有下游的迁移结果
+## 二之二、迁移工作量估计
 
-六家下游共 11 处调用点已全部改为新 API（`draftFromText` + `runtime.input.register`）：
+调用点集中在宿主自己的 runtime 装配文件里，通常每处只有一行。按调用点计：
 
-| 仓库 | 处数 | 文件 |
+| 调用点形态 | 特征 | 典型位置 |
 | --- | --- | --- |
-| 画布型宿主 | 5 | `src/core/workbench.ts` |
-| 对局宿主 | 4 | `src/main-ui/createMatchesRuntime.ts` |
-| 场景编辑型宿主 | 1 | `src/studioRuntime.ts`（循环内） |
-| 画廊型宿主 | 1 | `src/runtime/createGalleryRuntime.ts` |
-| 多资料管理型宿主 | 0 | 无调用点 |
-| 工作流型宿主 | 0 | 无调用点 |
+| 快捷键注册 | 聚合在单一装配函数 | `src/core/workbench.ts` 这类 runtime 装配文件 |
+| 循环注册 | 在循环体内按数据批量注册 | 数组遍历内 |
+| 无调用点 | 未使用 `registerKeybinding` | 无需改动 |
 
 写法对照：
 

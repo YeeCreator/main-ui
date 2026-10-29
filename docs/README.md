@@ -21,7 +21,7 @@
 - [API_MANUAL.md](API_MANUAL.md)：API 手册。Core 类型、Registry、Action、Vue API、应用面（Surface）、Mount Adapter、Persistence、纯 UI 边界与数据契约、图元与几何类型、主题变量。
 - [PRESET_VIEWS_GUIDE.md](PRESET_VIEWS_GUIDE.md)：官方视图模板库统一指南。16 个模板包 + 聚合包 + 三维渲染后端的安装矩阵、接入契约、每模板 Props/Emits/视图状态全量 API。
 - [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)：开发者指南。架构边界、目录地图、开发约定（reducer / renderer / 主题变量）、命令与测试。
-- [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md)：完整开发记录（0.0.2 → 0.10.0 全部版本）。
+- [CHANGELOG.md](CHANGELOG.md)：按版本归并的对外变更记录（0.0.2 → 0.10.0）。
 - [ENVIRONMENT_GUIDE.md](ENVIRONMENT_GUIDE.md)：环境与依赖说明。
 
 ### 宿主文档
