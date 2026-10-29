@@ -140,12 +140,84 @@ export function rotateAtScreenPoint(camera: Camera2D, opts: { deltaAngle: number
   };
 }
 
-export function cameraToCssTransform(camera: Camera2D): string {
+/**
+ * **SVG 介质**的相机变换串（无单位）。
+ *
+ * 品牌类型：只能用于 SVG 的 `transform` **属性**。与 {@link CssTransform} 不可互换
+ * —— 两者底层都是 `string`，但目标介质不同，混用在 CSS 位会被浏览器**静默丢弃**。
+ */
+export type SvgTransform = string & { readonly __media: 'svg' };
+
+/**
+ * **CSS 介质**的相机变换串（平移带 `px`、旋转带 `deg`）。
+ *
+ * 品牌类型：只能用于元素的 `style.transform`。
+ */
+export type CssTransform = string & { readonly __media: 'css' };
+
+/**
+ * 现成的 CSS 样式对象（`transform` + `transformOrigin`）。
+ *
+ * **推荐宿主直接用这个**：`:style="cssStyle"`。它是**对象**而非裸串，
+ * 因此把 {@link SvgTransform}（字符串）塞进 `style.transform` 时，类型层面拦不住 ——
+ * 但把裸串直接当 `:style` 用会因缺 `transformOrigin` 而在视觉上露馅（旋转中心错）。
+ * 唯一可靠的双保险是"永不从插槽给出裸 CSS 串" + CI 闸门（见任务书 D2）。
+ */
+export type CameraCssStyle = {
+  readonly transform: CssTransform;
+  readonly transformOrigin: '0 0';
+};
+
+/**
+ * 构造 **SVG** 语法的相机变换串（无单位），用于 SVG 的 `transform` 属性。
+ *
+ * 变换顺序对齐相机模型 `screenPx = panPx + R(rotation) · (world * scale)`。
+ * `rotation` 为 0 时省略 `rotate()`。
+ *
+ * @param camera 相机状态（`pan` 为屏幕像素）。
+ * @returns 带 `SvgTransform` 品牌的串。
+ * @example
+ * cameraToSvgTransform({ scale: 0.2, pan: { x: 80, y: 370.68 } })
+ * // '<g :transform="…">：translate(80 370.68) scale(0.2)'
+ */
+export function cameraToSvgTransform(camera: Camera2D): SvgTransform {
+  const rotation = cameraRotation(camera);
+  const parts = [`translate(${camera.pan.x} ${camera.pan.y})`];
+  if (rotation !== 0) parts.push(`rotate(${(rotation * 180) / Math.PI})`);
+  parts.push(`scale(${camera.scale})`);
+  return parts.join(' ') as SvgTransform;
+}
+
+/**
+ * 构造 **CSS** 合法的相机变换串（带单位），用于元素的 `style.transform`。
+ *
+ * @param camera 相机状态。
+ * @returns 带 `CssTransform` 品牌的串。
+ * @example
+ * cameraToCssTransform({ scale: 0.5, pan: { x: 80, y: 370.68 } })
+ * // 'translate(80px, 370.68px) scale(0.5)'
+ */
+export function cameraToCssTransform(camera: Camera2D): CssTransform {
   const rotation = cameraRotation(camera);
   const parts = [`translate(${camera.pan.x}px, ${camera.pan.y}px)`];
   if (rotation !== 0) parts.push(`rotate(${(rotation * 180) / Math.PI}deg)`);
   parts.push(`scale(${camera.scale})`);
-  return parts.join(' ');
+  return parts.join(' ') as CssTransform;
+}
+
+/**
+ * 构造可直接绑定到 `:style` 的相机样式对象（含 `transformOrigin`）。
+ *
+ * **这是宿主施加 CSS 相机变换的推荐入口**：返回对象，配合 `:style` 使用；
+ * 不需要宿主自己记住"要带 px""要设 transformOrigin"。
+ *
+ * @param camera 相机状态。
+ * @returns 现成样式对象。
+ * @example
+ * <div :style="cameraToCssStyle(camera)">…</div>
+ */
+export function cameraToCssStyle(camera: Camera2D): CameraCssStyle {
+  return { transform: cameraToCssTransform(camera), transformOrigin: '0 0' };
 }
 
 export type SerializedCamera2D = { scale: number; pan: { x: number; y: number }; rotation?: number };
