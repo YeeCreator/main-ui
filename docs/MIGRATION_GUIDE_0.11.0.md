@@ -1,4 +1,4 @@
-# MIGRATION GUIDE 0.11.0
+# MIGRATION_GUIDE_0.11.0
 
 > 从 `main-ui@0.10.0` / `@main-ui/core@0.9.0` 升级到 `main-ui@0.11.0` / `@main-ui/core@0.10.0`。
 > 本次集中修复**视口契约的介质歧义**，并把通用相机手势收回模板。

@@ -24,6 +24,7 @@ import { createPolylineLayer } from '../primitives/polyline';
 import { createSpriteLayer } from '../primitives/sprite';
 import { createTextLayer } from '../primitives/text';
 import { batchToPolygonItems, batchToPolylineItems, batchToSpriteItems, batchToTextItems } from '../primitives/snapshot';
+import { nextTextResolution, textResolutionFor } from './text-resolution';
 import type { Camera2D, Vec2, ViewBox } from './camera';
 import type {
   BackendCapabilities,
@@ -69,6 +70,13 @@ export class PixiViewportBackend implements ViewportBackend {
   private resolutionOverride: number | undefined;
   private grid: GridSpec | null = null;
   private mounted = false;
+
+  /** 当前文字层容器（跨档重建时替换）。 */
+  private textLayer: Container | null = null;
+  /** 当前文字纹理档位（相对字号的超采样倍数）。 */
+  private textResolution = 1;
+  /** 缓存文字项：跨档时用它重建，无需回访快照。 */
+  private cachedTexts: TextItem[] = [];
 
   constructor(options: PixiBackendOptions = {}) {
     this.textureResolver = options.textureResolver;
@@ -140,7 +148,15 @@ export class PixiViewportBackend implements ViewportBackend {
     if (polygons.length) scene.addChild(createPolygonLayer(polygons));
     if (polylines.length) scene.addChild(createPolylineLayer(polylines));
     if (sprites.length) scene.addChild(createSpriteLayer(sprites, this.textureResolver));
-    if (texts.length) scene.addChild(createTextLayer(texts));
+    if (texts.length) {
+      this.cachedTexts = texts;
+      // 首帧按当前相机定档；后续由 setCamera 的跨档检查驱动重建。
+      this.textResolution = textResolutionFor(this.getCamera().scale, this.effectiveDpr());
+      this.rebuildTextLayer();
+    } else {
+      this.cachedTexts = [];
+      this.textLayer = null;
+    }
 
     // 二维后端忽略 `z` / `extrude` / `dimensions`：图元解析层只搬运字段，
     // 五个图元渲染器不读它们，故带 z 与不带 z 的画面逐像素一致。
@@ -152,6 +168,42 @@ export class PixiViewportBackend implements ViewportBackend {
 
   setCamera(camera: Camera2D): void {
     this.viewport?.setCamera(camera);
+    // 相机缩放跨档时才重建文字纹理：档位内继续用 GPU 放大（见 text-resolution）。
+    this.syncTextResolution();
+  }
+
+  /** 实际生效的设备像素比。 */
+  private effectiveDpr(): number {
+    return this.resolutionOverride ?? defaultDpr();
+  }
+
+  /**
+   * 重新创建文字层（换档时调用）。
+   *
+   * 直接重建而不是遍历改 `resolution`：Pixi 的 `Text.resolution` 变更会在
+   * 下一次渲染时才重生成纹理，改完不知道何时生效；重建是确定的。
+   */
+  private rebuildTextLayer(): void {
+    const scene = this.sceneLayer;
+    if (!scene) return;
+    if (this.textLayer) {
+      this.textLayer.destroy({ children: true });
+      this.textLayer = null;
+    }
+    if (this.cachedTexts.length === 0) return;
+    const layer = createTextLayer(this.cachedTexts, { resolution: this.textResolution });
+    scene.addChild(layer);
+    this.textLayer = layer;
+    scene.sortChildren();
+  }
+
+  /** 相机变化后检查是否跨档。 */
+  private syncTextResolution(): void {
+    if (this.cachedTexts.length === 0) return;
+    const next = nextTextResolution(this.textResolution, this.getCamera().scale, this.effectiveDpr());
+    if (next === this.textResolution) return;
+    this.textResolution = next;
+    this.rebuildTextLayer();
   }
 
   onCameraChange(listener: (camera: Camera2D) => void): () => void {
@@ -217,6 +269,10 @@ export class PixiViewportBackend implements ViewportBackend {
     if (!scene) return;
     const removed = scene.removeChildren();
     for (const child of removed) child.destroy({ children: true });
+    // 文字层也在被移除的子树里：必须同时清掉引用，
+    // 否则留下指向已销毁对象的悬空引用，后续跨档重建会二次销毁。
+    this.textLayer = null;
+    this.cachedTexts = [];
   }
 }
 

@@ -40,6 +40,13 @@ import {
 } from '@main-ui/core/rendering';
 import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
 import { readWheel, wheelPanDelta, zoomFactorOf } from '@main-ui/core/input';
+import {
+  prepareContentLayer,
+  visibleWorldRect,
+  type ContentLayerItem,
+  type ProjectedContentItem,
+  type WorldRect,
+} from '@main-ui/core/rendering';
 import type { EntitySnapshot, GridSpec, TextureResolver } from '@main-ui/core/primitives';
 import {
   DEFAULT_WORLD_VIEWBOX,
@@ -95,6 +102,24 @@ export const WorldView = defineComponent({
     /** 是否启用双指旋转手势（“单指按住 + 另一指拖动”）。默认 false（相机模型已支持 rotation）。 */
     rotateOnGesture: { type: Boolean, default: false },
     /**
+     * 内容层（**文字面**）：在 GPU 几何面之上叠加浏览器绘制的内容。
+     *
+     * 白板必需的能力（原生文本编辑、异构内容、任意倍率锐利的公式）
+     * GPU 做不到，只能靠 DOM。两层**共用同一台相机** —— 这不是「两套变换并存」
+     * （那条禁令针对的是两个相机）。
+     *
+     * 层序固定：内容层恒在几何面之上，「几何遮挡内容」不可实现。
+     * 需要交错时按带（band）拆分，不得靠 z 序。
+     */
+    contentItems: { type: Array as PropType<readonly ContentLayerItem[]>, default: () => [] },
+    /**
+     * 内容层是否启用**视口裁剪**。默认 `true`。
+     *
+     * **不建议关闭**：不裁剪时宿主会为所有项建 DOM 节点，节点数一多即成为瓶颈
+     * （白板的常见卡死形态）。仅当宿主自行裁剪时才关闭。
+     */
+    cullContent: { type: Boolean, default: true },
+    /**
      * 轻点容差（CSS 像素）：松手时位移不超过该值才算 `world-click`。
      *
      * - 缺省（`null`）= **自动**：`panOnDrag=true` 取 4px；`panOnDrag=false` 取「不参与判别」
@@ -125,9 +150,10 @@ export const WorldView = defineComponent({
     'cell-pointerdown', 'cell-click', 'cell-contextmenu',
     'backend-change',
   ],
-  setup(props, { emit }) {
+  setup(props, { emit, slots }) {
     const containerRef = ref<HTMLElement | null>(null);
     const overlayRef = ref<HTMLElement | null>(null);
+    const contentRendererRef = ref<HTMLElement | null>(null);
     const pendingCamera = ref<WorldCameraState | null>(null);
     let backend: ViewportBackend | null = null;
     let activeBackendKey: string | null = null;
@@ -239,8 +265,50 @@ export const WorldView = defineComponent({
     const emitCamera = (camera: Camera2D): void => {
       const payload: WorldCameraState = { scale: camera.scale, pan: { x: camera.pan.x, y: camera.pan.y } };
       if (typeof camera.rotation === 'number' && camera.rotation !== 0) payload.rotation = camera.rotation;
+      // 相机一变，内容层（DOM 面）必须跟着重算 —— 两面共用这一台相机。
+      cameraForContent.value = camera;
       emit('camera-change', payload);
     };
+
+    // ---------- 内容层（文字面 / DOM） ----------
+    /**
+     * 内容层使用的相机快照。
+     *
+     * 与几何面**同一台相机**：几何面把相机交给后端，内容层用它做投影。
+     * 两者若不同源，就会重现「相机在变、画面不动」那类故障
+     * （本次已在 view-canvas / view-sandbox 各修过一次）。
+     */
+    const cameraForContent = ref<Camera2D>({ scale: 1, pan: { x: 0, y: 0 } });
+
+    /** 容器尺寸（内容层投影需要）。 */
+    const contentSize = ref<{ width: number; height: number }>({ width: 0, height: 0 });
+
+    /** 可见世界范围（供宿主自行裁剪时使用；不裁剪时也可用于诊断）。 */
+    const visibleWorld = computed<WorldRect | null>(() => {
+      const size = contentSize.value;
+      if (size.width <= 0 || size.height <= 0) return null;
+      return visibleWorldRect(cameraForContent.value, size);
+    });
+
+    /** 投影后的内容层项（已裁剪）。 */
+    const projectedContent = computed<ProjectedContentItem[]>(() => {
+      const items = props.contentItems;
+      if (!items || items.length === 0) return [];
+      const size = contentSize.value;
+      if (size.width <= 0 || size.height <= 0) return [];
+      if (!props.cullContent) {
+        // 宿主自行裁剪：仍然投影，只是不剔除
+        return prepareContentLayer(cameraForContent.value, { width: Number.MAX_SAFE_INTEGER, height: Number.MAX_SAFE_INTEGER }, items);
+      }
+      return prepareContentLayer(cameraForContent.value, size, items);
+    });
+
+    /** 内容层插槽回传的上下文（宿主据此渲染自己的内容）。 */
+    const contentLayerContext = computed(() => ({
+      camera: cameraForContent.value,
+      size: { ...contentSize.value },
+      visibleWorldRect: visibleWorld.value,
+    }));
 
     // ---------- InteractionLayer ----------
     const toLocal = (event: PointerEvent | WheelEvent): Vec2 | null => {
@@ -565,8 +633,39 @@ export const WorldView = defineComponent({
     }
 
     // ---------- 挂载 ----------
+    let contentResizeObserver: ResizeObserver | null = null;
+
+    /**
+     * 同步内容层尺寸。
+     *
+     * 内容层用**容器**尺寸做投影与裁剪，必须与实际渲染面积一致；
+     * 否则裁剪边界会偏移，表现为「视野内的公式不显示」。
+     */
+    const syncContentSize = (): void => {
+      const el = contentRendererRef.value;
+      if (!el) return;
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      if (width === contentSize.value.width && height === contentSize.value.height) return;
+      contentSize.value = { width, height };
+    };
+
     onMounted(async () => {
       if (!containerRef.value) return;
+      syncContentSize();
+      // 相机初值：把当前后端相机喂给内容层，避免首帧内容层停在恒等变换。
+      const initial = backend?.getCamera();
+      if (initial) cameraForContent.value = initial;
+      const el = contentRendererRef.value;
+      if (el && typeof ResizeObserver !== 'undefined') {
+        contentResizeObserver = new ResizeObserver(() => {
+          syncContentSize();
+          // 尺寸变化后后端会重算相机，重新取一次
+          const next = backend?.getCamera();
+          if (next) cameraForContent.value = next;
+        });
+        contentResizeObserver.observe(el);
+      }
       await syncBackend(true);
     });
 
@@ -594,6 +693,8 @@ export const WorldView = defineComponent({
 
     onBeforeUnmount(() => {
       destroyed = true;
+      contentResizeObserver?.disconnect();
+      contentResizeObserver = null;
       teardownBackend();
     });
 
@@ -613,6 +714,19 @@ export const WorldView = defineComponent({
       WebkitTapHighlightColor: 'transparent',
     } as CSSProperties;
 
+    /**
+     * 内容层样式。
+     *
+     * `pointerEvents: 'none'` 是**硬约束**：内容层只显示、不命中。
+     * 否则会出现「两套命中」（覆盖层 + DOM 子元素），表现为点击穿透与双重触发。
+     * 需要内容可交互时，宿主在插槽内自行对**具体子元素**开启 `pointerEvents: 'auto'`。
+     */
+    const contentLayerStyle: CSSProperties = {
+      position: 'absolute', inset: '0',
+      pointerEvents: 'none',
+      overflow: 'hidden',
+    } as CSSProperties;
+
     return () => {
       if (props.loading) {
         return h('div', { class: 'main-ui-view-world', style: { ...rootStyle, display: 'grid', placeItems: 'center' } }, 'Loading…');
@@ -620,6 +734,42 @@ export const WorldView = defineComponent({
       if (props.error) {
         return h('div', { class: 'main-ui-view-world', style: { ...rootStyle, display: 'grid', placeItems: 'center', color: 'var(--mui-color-danger)' } }, props.error);
       }
+
+      /**
+       * 内容层（文字面）。
+       *
+       * 三条纪律：
+       * 1. **不接收指针**（`pointerEvents: 'none'`）—— 命中统一走交互覆盖层，
+       *    否则会出现「两套命中」，表现为点击穿透/双重触发。
+       * 2. **不施加 CSS 相机变换** —— 每一项已由 `projectContentLayer` 算成
+       *    屏幕坐标；对整个层再变换一次等于把相机应用两遍。
+       * 3. **层序在几何面之上** —— 「几何遮挡内容」不可实现，这是契约明写的局限。
+       *
+       * 有 `content-layer` 插槽时把投影结果交给宿主自绘；否则用默认渲染
+       * （绝对定位 + translate），宿主可直接用 `kind` 决定内容。
+       */
+      const contentLayer = h('div', {
+        ref: contentRendererRef,
+        class: 'main-ui-view-world__content-layer',
+        style: contentLayerStyle,
+        'data-content-count': String(projectedContent.value.length),
+      }, slots['content-layer']
+        ? slots['content-layer']({ ...contentLayerContext.value, items: projectedContent.value })
+        : projectedContent.value.map((item) => h('div', {
+          key: item.id,
+          class: 'main-ui-view-world__content-item',
+          'data-content-kind': item.kind,
+          'data-content-id': item.id,
+          style: {
+            position: 'absolute',
+            left: '0',
+            top: '0',
+            transform: `translate(${item.screen.x + item.offset.x}px, ${item.screen.y + item.offset.y}px)`,
+            width: item.screenSize.width > 0 ? `${item.screenSize.width}px` : undefined,
+            height: item.screenSize.height > 0 ? `${item.screenSize.height}px` : undefined,
+          },
+        }, String(item.data?.text ?? item.kind))));
+
       return h('div', { class: 'main-ui-view-world', style: rootStyle, 'data-world-dimension': String(props.dimension) }, [
         h('div', { ref: containerRef, class: 'main-ui-view-world__canvas', style: layerStyle }),
         h('div', {
@@ -633,6 +783,7 @@ export const WorldView = defineComponent({
           onWheel: onWheel,
           onContextmenu: onContextMenu,
         }),
+        contentLayer,
       ]);
     };
   },
