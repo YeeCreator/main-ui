@@ -33,5 +33,7 @@ export * from './reducer';
 export * from './registry';
 export * from './runtime';
 export * from './theme/types';
+export * from './theme/mode';
+export * from './settings/appearance';
 export * from './types';
 export * from './workspace/types';
