@@ -13,7 +13,7 @@ export type LandingEntry = {
 /**
  * LandingView —— app 主菜单/启动器 surface（MUI 拥有的 GUI 原语，v0.6 起）。
  *
- * 面向 app 型宿主（如 对局型宿主）：以大块按钮呈现顶层入口，取代 IDE 式工作区活动栏。
+ * 面向 app 型宿主（如以主菜单/启动器为首页的应用）：以大块按钮呈现顶层入口，取代 IDE 式工作区活动栏。
  * 纯呈现零业务：条目经 Props 进，选择经 `select` emit 出（意图由宿主裁决，如路由到
  * 游戏列表 / 设计器 / 设置 / 退出）。颜色消费 --mui-* 令牌；可选 `theme` prop 供脱离
  * WorkbenchShell 独立渲染时同步 data-mui-theme（宿主传已解析的 resolvedMode）。

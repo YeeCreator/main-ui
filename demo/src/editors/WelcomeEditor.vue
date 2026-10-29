@@ -23,7 +23,7 @@ defineProps<{ context: EditorRenderContext }>();
       </div>
       <div class="demo-card">
         <strong>Host Profiles</strong>
-        <p>Neutral fixtures for 多资料管理型宿主, 画布型宿主 and 对局宿主 adaptation.</p>
+        <p>Neutral fixtures for several host shapes: information, canvas and session.</p>
       </div>
     </div>
   </div>

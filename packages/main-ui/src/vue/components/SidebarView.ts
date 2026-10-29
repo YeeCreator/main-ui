@@ -4,7 +4,7 @@ import { defineComponent, h, type CSSProperties, type PropType } from 'vue';
  * SidebarView —— 侧栏轻组件（MUI 拥有的 GUI 原语，v0.6 起）。
  *
  * 纯壳零业务：提供标题栏 + 内容区 + 可选页脚的侧栏布局，内容由宿主经插槽注入。
- * 面向 app 型宿主的左/右侧信息面板（如 对局型宿主 对局信息 / 变更记录侧栏）。
+ * 面向 app 型宿主的左/右侧信息面板（如条目详情 / 变更日志侧栏）。
  * 颜色消费 --mui-* 令牌；可选 `theme` prop 供独立渲染同步。
  */
 export const SidebarView = defineComponent({

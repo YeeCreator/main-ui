@@ -4,7 +4,7 @@ import { defineComponent, h, type CSSProperties, type PropType } from 'vue';
  * ToolbarView —— 工具栏轻组件（MUI 拥有的 GUI 原语，v0.6 起）。
  *
  * 纯壳零业务：左 / 中 / 右三区插槽的水平工具条，按钮与内容由宿主注入。
- * 面向 app 型宿主的舞台顶栏（如 对局型宿主 对局工具栏：撤销 / 重置 / 视口复位）。
+ * 面向 app 型宿主的舞台顶栏（如撤销 / 重置 / 视口复位）。
  * 颜色消费 --mui-* 令牌；可选 `theme` prop 供独立渲染同步。
  */
 export const ToolbarView = defineComponent({

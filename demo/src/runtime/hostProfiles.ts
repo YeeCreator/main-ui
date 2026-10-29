@@ -170,7 +170,7 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
     id: 'matches-workspace',
     title: 'Matches',
     description: 'Game library and session fixture',
-    icon: '对局宿主',
+    icon: 'MA',
     allowedEditorKinds: ['profile-panel', 'game-gallery', 'game-session', 'viewport-foundation', 'settings'],
     recommendedEditorKinds: ['game-gallery', 'game-session', 'viewport-foundation', 'profile-panel', 'settings'],
     defaultOpenRequests: [
@@ -200,10 +200,10 @@ export const hostProfileValidationCases = [
   },
   {
     workspaceId: 'canvas-workspace',
-    validates: '强指针 view-world 画布、工具面板、Inspector 与设置 overlay，不把数学引擎写入 main-ui。',
+    validates: '强指针 view-world 画布、工具面板、Inspector 与设置 overlay，不把计算引擎写入 main-ui。',
   },
   {
     workspaceId: 'matches-workspace',
-    validates: '条目广场、参数化 game-session、多实例与 view-world 棋盘底座，不把游戏规则写入 main-ui。',
+    validates: '条目广场、参数化 game-session、多实例与 view-world 视口底座，不把领域规则写入 main-ui。',
   },
 ] as const;

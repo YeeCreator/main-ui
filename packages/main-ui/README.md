@@ -15,7 +15,7 @@
 | `docs/DEVELOPER_GUIDE.md` | 开发者指南（架构边界、目录地图、开发约定） |
 | `docs/HOST_INTEGRATION_GUIDE.md` | 宿主接入指南（接入顺序、模板接入、附录 A 对接后端） |
 | `docs/HOST_ADAPTER_GUIDE.md` | 外部 renderer/adapter 契约 |
-| `docs/DEVELOPMENT_LOG.md` | 完整开发记录（0.0.2 → 0.4.0） |
+| `docs/CHANGELOG.md` | 按版本归并的变更记录 |
 | `docs/MIGRATION_GUIDE_*.md` | 各版本迁移指南 |
 
 官方视图模板包（`@main-ui/view-*`）的文档随各包 README 分发（`node_modules/@main-ui/view-*/README.md`）。

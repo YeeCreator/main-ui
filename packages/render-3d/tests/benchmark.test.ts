@@ -27,7 +27,7 @@ describe('render-3d 绘制计划基准：万级实例', () => {
     expect(result.prototypeCount).toBe(8);
     expect(result.violations).toEqual([]);
 
-    // 记录实测值（供人工回填记录；非断言）
+    // 记录实测值（供人工核对；非断言）
     console.log(
       `[bench] 10k 实体 · 8 原型 · plan=${result.planMs.toFixed(2)}ms · 每实体 ${(result.planMs / 10).toFixed(4)}µs`,
     );

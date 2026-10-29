@@ -10,14 +10,14 @@ export type GalleryItem = {
   image?: string;
   /** 图标 token（见 IconToken）或任意字符（无 image 时占位）。 */
   icon?: string;
-  /** 角标（如 对局型宿主 / Standalone / Parity）。 */
+  /** 角标（如 Standalone / Parity 等状态标记）。 */
   badges?: string[];
 };
 
 /**
  * GalleryView —— 卡片网格/瀑布流 surface（MUI 拥有的 GUI 原语，v0.6 起）。
  *
- * 面向 app 型宿主的「实例列表」（如 对局型宿主 游戏列表）：CSS columns 瀑布流 + 卡片。
+ * 面向 app 型宿主的「实例列表」：CSS columns 瀑布流 + 卡片。
  * 纯呈现零业务：条目经 Props 进，选择经 `select`(id) emit 出（意图由宿主裁决）。
  * 颜色消费 --mui-* 令牌；可选 `theme` prop 供脱离 WorkbenchShell 独立渲染时同步 data-mui-theme。
  */

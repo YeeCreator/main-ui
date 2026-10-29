@@ -156,7 +156,7 @@
 .main-ui-shell__body { grid-column: 3; }
 
 /* opt-in app 壳：隐藏活动栏时收拢为两列（Sidebar 无内容时自动返回 null，auto 列折叠为 0），
-   供 app 型宿主（如 对局型宿主）以主菜单/landing 取代 IDE 式工作区轨。默认壳不受影响。 */
+   供 app 型宿主以主菜单/landing 取代 IDE 式工作区轨。默认壳不受影响。 */
 .main-ui-shell--no-activity-bar { grid-template-columns: auto minmax(0, 1fr); }
 .main-ui-shell--no-activity-bar .main-ui-sidebar { grid-column: 1; }
 .main-ui-shell--no-activity-bar .main-ui-shell__body { grid-column: 2; }
