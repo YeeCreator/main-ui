@@ -1,6 +1,6 @@
 {
   "name": "@main-ui/preset-views",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": false,
   "description": "main-ui 官方视图模板聚合包：一次性引入数据模板（tree / inspector / table / form / node / console）、画布模板（world / sandbox / flow / host-engine），仅重导出。",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@main-ui/core": "^0.10.0",
+    "@main-ui/core": "^0.11.0",
     "@main-ui/view-world": "^0.8.0",
     "@main-ui/view-canvas": "^0.7.0",
     "@main-ui/view-console": "^0.4.0",
@@ -49,7 +49,7 @@
     "@main-ui/view-timeline": "^0.1.0",
     "@main-ui/view-storyboard": "^0.1.0",
     "@vue-flow/core": "^1.48.0",
-    "main-ui": "^0.11.0",
+    "main-ui": "^0.12.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
