@@ -142,3 +142,117 @@ export const createEmbeddedViewHost = (
 
   return host;
 };
+
+// ============================================================
+// 引用关系的三种语义
+// ============================================================
+
+/**
+ * 一个引用节点指向另一个内容时的**三种语义**。
+ *
+ * 「白板里放白板」实际含三种不同关系，混为一谈会导致渲染爆炸
+ * （design-main-ui §二十一 4）：
+ *
+ * | 语义 | 是否展开内容 | 深度约束 | 典型场景 |
+ * | --- | --- | --- | --- |
+ * | `embed` | **展开**（显示活内容） | **上限 3 层** | 白板上直接放可编辑表格 |
+ * | `link` | 不展开，点击打开 | 无限 | 表格单元格引用另一块白板 |
+ * | `drill` | 不展开，进入替换当前视图 | 无限 | 双击节点下钻 |
+ *
+ * **判据**：**"能不能在小尺寸里看"**。单元格、小节点放不下活内容 ⇒ 只能 `link` / `drill`。
+ */
+export type RefRelation = 'embed' | 'link' | 'drill';
+
+/** 内联展开（`embed`）的默认深度上限。 */
+export const DEFAULT_MAX_EMBED_DEPTH = 3;
+
+/**
+ * 各语义是否展开内容。
+ *
+ * 只有 `embed` 展开 —— 这是「无限嵌套」能成立的关键：
+ * `link` / `drill` 不打开就不加载，故深度不受限。
+ *
+ * @param relation 引用语义。
+ * @returns 是否内联展开。
+ * @example
+ * refExpandsInline('embed')  // true
+ * refExpandsInline('link')   // false
+ * refExpandsInline('drill')  // false
+ */
+export function refExpandsInline(relation: RefRelation): boolean {
+  return relation === 'embed';
+}
+
+/** 引用链校验结果（区分「超深」与「成环」两种降级原因）。 */
+export type RefChainCheckResult =
+  | { status: 'ok'; depth: number }
+  | { status: 'exceeded'; depth: number; maxDepth: number }
+  | { status: 'cycle'; at: string };
+
+/**
+ * 校验一条**内联嵌入**引用链（只沿 `embed` 边递归）。
+ *
+ * 与 {@link checkNestingDepth} 的差异：本函数**同时报告成环**，
+ * 因为存储层允许成环（双链天然成环，design-main-ui §二十一 5），
+ * 成环必须在**展开层**被发现并降级，而不是死循环。
+ *
+ * 只有 `embed` 参与递归 —— `link` / `drill` 不展开内容，不计入深度。
+ *
+ * @param rootRefIds 顶层内联嵌入的 refId 列表。
+ * @param resolveEmbeds refId → 其**内联嵌入**的下级 refId 列表（不含 link / drill）。
+ * @param maxDepth 最大内联深度（默认 {@link DEFAULT_MAX_EMBED_DEPTH}）。
+ * @returns 校验结果。
+ * @example
+ * // A embeds B，B embeds A → 成环
+ * const resolve = (id) => (id === 'A' ? ['B'] : id === 'B' ? ['A'] : [])
+ * checkEmbedChain(['A'], resolve)  // { status: 'cycle', at: 'A' }
+ */
+export function checkEmbedChain(
+  rootRefIds: readonly string[],
+  resolveEmbeds: (refId: string) => readonly string[],
+  maxDepth = DEFAULT_MAX_EMBED_DEPTH,
+): RefChainCheckResult {
+  let maxFound = 0;
+  let cycleAt: string | null = null;
+
+  /**
+   * 沿内联嵌入边递归。
+   *
+   * **深度口径**：根引用在深度 0，其子级为 1 —— 即 `maxFound` 是
+   * 「根之下展开了几层」，与 {@link checkNestingDepth} 一致。
+   *
+   * **只对有子级的引用递归**：空子级也递归会把深度多算一层，
+   * 使 `a→b→c` 被误判为超限。
+   *
+   * **成环优先**：`path` 记录当前路径上的 refId；重复即环。
+   * 菱形引用（同层重复到达）不算环 —— 兄弟路径各自独立，`path` 按分支复制。
+   *
+   * `currentDepth >= maxDepth` 时停止递归（安全上限），避免病态展开。
+   */
+  const visit = (refIds: readonly string[], currentDepth: number, path: ReadonlySet<string>): void => {
+    if (currentDepth > maxFound) maxFound = currentDepth;
+    if (currentDepth >= maxDepth) return;
+
+    for (const refId of refIds) {
+      if (path.has(refId)) {
+        cycleAt = refId;
+        return;
+      }
+      const children = resolveEmbeds(refId);
+      if (children.length === 0) continue;
+      const nextPath = new Set(path);
+      nextPath.add(refId);
+      visit(children, currentDepth + 1, nextPath);
+      if (cycleAt !== null) return;
+    }
+  };
+
+  visit(rootRefIds, 0, new Set());
+
+  if (cycleAt !== null) return { status: 'cycle', at: cycleAt };
+
+  if (maxFound >= maxDepth) {
+    return { status: 'exceeded', depth: maxFound, maxDepth };
+  }
+  return { status: 'ok', depth: maxFound };
+}

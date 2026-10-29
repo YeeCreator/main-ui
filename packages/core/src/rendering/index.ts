@@ -16,6 +16,8 @@
  */
 export * from './camera';
 export * from './camera-bridge';
+export * from './content-layer';
+export * from './text-resolution';
 export * from './backend';
 export * from './backend-registry';
 export * from './constraints';
