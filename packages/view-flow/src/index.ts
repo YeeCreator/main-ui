@@ -1,5 +1,10 @@
 export * from './types';
 export {
+  normalizeFlowViewport,
+  flowViewportToCamera,
+  cameraToFlowViewport,
+} from './viewport';
+export {
   addNode, removeNodes, moveNode, updateNodeContent,
   addEdge, removeEdges, pruneDanglingEdges,
   dedupeNodes, dedupeEdges,

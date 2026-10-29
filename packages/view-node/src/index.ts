@@ -1,5 +1,5 @@
 export * from './types';
-export { clampNumber, normalizeViewport, dedupeById, pruneDanglingEdges } from './node';
+export { clampNumber, normalizeViewport, dedupeById, pruneDanglingEdges, nodeViewportToCamera, cameraToNodeViewport } from './node';
 export { NodeCanvas, ensureFlowStyles } from './NodeCanvas';
 export { NodeView } from './NodeView';
 export {

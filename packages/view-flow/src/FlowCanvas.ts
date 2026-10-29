@@ -18,6 +18,7 @@ import type {
   FlowViewport,
 } from './types';
 import { DEFAULT_FLOW_VIEWPORT } from './types';
+import { normalizeFlowViewport } from './viewport';
 
 /**
  * FlowCanvas —— L1 可嵌入流程图画布组件（不实现四成员契约，不可挂 Slot）。
@@ -114,14 +115,7 @@ export const FlowCanvas = defineComponent({
     });
 
     expose({
-      getViewport: (): FlowViewport => {
-        const vp = getViewport();
-        return {
-          x: Number.isFinite(vp?.x) ? vp.x : DEFAULT_FLOW_VIEWPORT.x,
-          y: Number.isFinite(vp?.y) ? vp.y : DEFAULT_FLOW_VIEWPORT.y,
-          zoom: Number.isFinite(vp?.zoom) ? vp.zoom : DEFAULT_FLOW_VIEWPORT.zoom,
-        };
-      },
+      getViewport: (): FlowViewport => normalizeFlowViewport(getViewport()),
       setViewport: (vp: FlowViewport) => { if (mounted.value) void setViewport(vp); },
       getSelectedNodeIds: () => [...selectedNodeIds.value],
       getSelectedEdgeIds: () => [...selectedEdgeIds.value],
