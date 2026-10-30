@@ -2,9 +2,9 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.4.0`（仓库为 pnpm workspace monorepo，主包位于 `packages/main-ui/`，包名仍为 `main-ui`，开发分支 `dev-v0.5`）。本版本已通过类型检查（12 包）、单元测试（106 项）、构建、demo 构建与 e2e（5 项），并生成 `.tgz` 供下游采用本地版本化方式安装。npm registry 发布尚未启用。
+当前工程版本为 `main-ui 0.12.0` / `@main-ui/core 0.11.0`（仓库为 pnpm workspace monorepo，主包位于 `packages/main-ui/`，包名仍为 `main-ui`，开发分支 `dev-v0.5`）。共有 20 个包；单元测试 810 项全绿，构建与类型检查零错误。
 
-下游升级时使用 `pnpm add ../main-ui/main-ui-0.4.0.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时可保留 workspace 内链接。
+下游升级时使用 `pnpm add ../main-ui/main-ui-0.12.0.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时可保留 workspace 内链接。各版本升级说明见 `MIGRATION_GUIDE_*.md`。
 
 ## 架构边界
 
@@ -199,6 +199,14 @@ View/panel descriptor 只声明 `rendererKey`/`providerKey`，不把 Vue 或业�
 3. 颜色只消费 `--mui-*` 变量；密度消费 `--mui-row-height*` / `--mui-density-*`。
 4. 保持每包统一结构：`types.ts` + 主组件 + `register.ts`（`createXxxEditorDescriptor` / `createXxxEditorRenderer` / `registerXxxEditor`）。
 5. 修改契约后同步更新：包内 README、`docs/PRESET_VIEWS_GUIDE.md`、`docs/API_MANUAL.md`、demo adapter 接入。
+
+### 视口类模板的额外约束（`view-world` / `view-canvas` / `view-sandbox`）
+
+6. **一个相机**。所有输出面必须读同一份 `Camera2D`。出现过三次同类故障：相机在变、画面不动（`view-canvas` 插槽介质错、`view-sandbox` 相机只写不读、`view-world` 未给内容层喂相机）。
+7. **内容层不接收指针**。要显示可编辑内容，交给宿主在插槽内对**具体子元素**开启 `pointerEvents`，不要在层上开。
+8. **裁剪必须生效**。`cullContent` 默认开；关掉等于为所有项建 DOM 节点，节点数一多即卡死。
+9. **内核必须被消费**。内核提供编辑 API 时，视图层必须同时有调用点与回归测试。只有内核 + 测试而无视图调用，判为未完成（本项目已发生两次）。
+10. **渲染库只进 `render-*` 与持有它的模板**。`core/rendering` 的渲染器无关文件数不得减少（当前 13 个中 11 个无关）。
 
 ## Mount Adapter 开发规则
 

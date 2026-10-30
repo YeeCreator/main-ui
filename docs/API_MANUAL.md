@@ -2,7 +2,11 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.10.0`（`@main-ui/core 0.9.0`，官方视图模板库 0.10.0）。API 以本地 `.tgz` 版本包交付；本版本新增焦点服务、局部微件契约、实例绑定查询、五区布局模板、宿主透传元数据、可选的 `onResize` 生命周期成员、官方模板 `@main-ui/view-asset`，以及多个模板增强；既有注册方式继续有效，持久化文档版本升至 **v4**（向后自动迁移）。
+本文档对应 `main-ui 0.12.0`（`@main-ui/core 0.11.0`，官方视图模板库 0.12.0）。API 以本地 `.tgz` 版本包交付。
+
+本版新增：**视口双输出面**（`view-world` 的 `contentItems` + `content-layer` 插槽）、**内容层纯函数**（`projectContentLayer` / `cullContentLayer` / `prepareContentLayer` / `visibleWorldRect`）、**文字纹理档位**（`textResolutionFor` / `nextTextResolution`）、**引用三语义**（`RefRelation` / `refExpandsInline` / `checkEmbedChain`）、**白板编辑能力**（`view-sandbox` 拖拽/缩放/旋转/连线/内联编辑/撤销重做）与**轻内容元素**（`text` / `formula` / `link`）。
+
+上一版（0.11.0）新增：相机变换串分介质（`SvgTransform` / `CssTransform` 品牌类型、`cameraToSvgTransform` / `cameraToCssStyle`）、滚轮三维读数（`readWheel` / `zoomFactorOf`）、通用相机手势（`panOnMiddleDrag` / `panOnSpaceDrag` / `panOnShiftWheel`）、主题模式（`resolveThemeMode` / `useThemeMode` / `createSetThemeModeAction`）、设置页内置外观区块。
 
 ## 入口
 
@@ -475,6 +479,81 @@ registerTreeViewEditor(
 ```
 
 红线：模板包不持有业务数据、不发起网络请求、颜色一律消费 `--mui-*` 变量；只消费 main-ui 公开面（注册契约、主题变量、视图状态契约）。宿主适配层职责（取数 → 转契约 → props 注入 → 意图裁决）见 `HOST_INTEGRATION_GUIDE.md` 与各包 README。
+
+## 视口双输出面（v0.12）
+
+GPU 视口缩放是对**已光栅化**内容整体放大，不重绘 —— 文字与公式因此放大即糊（光栅化固有性质，非参数问题）。修法是加一层浏览器绘制的内容面，两面**共用同一台相机**。
+
+### `@main-ui/core/rendering` · content-layer
+
+| 导出 | 说明 |
+| --- | --- |
+| `ContentLayerItem` | 内容项：`id` / `kind` / `anchor`（世界坐标 + 对齐）/ `size` / `data`（透传） |
+| `visibleWorldRect(camera, size)` | 屏幕四角反算可见世界矩形（旋转取包围盒） |
+| `projectContentLayer(camera, items)` | world→screen 投影，含锚点对齐 `offset` |
+| `cullContentLayer(camera, size, items)` | 按世界坐标裁剪（**必须调用**） |
+| `prepareContentLayer(camera, size, items)` | 裁剪 + 投影一步完成 |
+| `ProjectedContentItem` / `WorldRect` / `ContentAnchor` | 相关类型 |
+
+`view-world` 的 `contentItems` prop 消费上述契约，`content-layer` 插槽回传 `{ camera, size, visibleWorldRect, items }`。
+
+**三条硬约束**：内容层不接收指针（命中统一走交互覆盖层，否则两套命中）；内容项不再施加相机变换（已算成屏幕坐标）；内容层恒在几何面之上（要交错需按带拆分）。
+
+### `@main-ui/core/rendering` · text-resolution
+
+| 导出 | 说明 |
+| --- | --- |
+| `TEXT_RESOLUTION_LADDER` | 档位阶梯 `[1, 2, 4, 8, 16]` |
+| `TEXT_RESOLUTION_UP_FACTOR` / `TEXT_RESOLUTION_DOWN_FACTOR` | 升降档阈值（不等，构成滞回带） |
+| `textResolutionTarget(scale, dpr)` | 目标倍数 |
+| `textResolutionFor(scale, dpr)` | 无滞回档位（首帧用） |
+| `nextTextResolution(current, scale, dpr)` | 带滞回的档位迁移 |
+
+## 引用三语义（v0.12）
+
+`@main-ui/core` 导出：
+
+| 导出 | 说明 |
+| --- | --- |
+| `RefRelation` | `'embed' \| 'link' \| 'drill'` |
+| `refExpandsInline(relation)` | 只有 `embed` 展开内容 |
+| `checkEmbedChain(rootRefIds, resolveEmbeds, maxDepth?)` | 只沿 `embed` 边递归，**同时报告超深与成环** |
+| `DEFAULT_MAX_EMBED_DEPTH` | 默认内联上限 `3` |
+
+**存储是图、展开是树**：引用允许成环（双链必然成环），展开层负责检测并降级。
+
+## 白板模板（`@main-ui/view-sandbox`，v0.12）
+
+### 元素类型
+
+| 档 | 类型 | 说明 |
+| --- | --- | --- |
+| 原生轻内容 | `shape` / `text` / `formula` / `link` | 模板直接渲染，**无需注册视图** |
+| 资源 | `image` | 资源由宿主 provider 注入 |
+| 嵌入视图 | `embed-view` | 引用已注册 `viewType`，走 `EmbeddedViewHost` |
+
+### 内核（`SandboxKernelInstance`）
+
+| 成员 | 说明 |
+| --- | --- |
+| `moveElement` / `resizeElement` / `rotateElement` | 几何变换 |
+| `updateElementContent(id, patch)` | 只覆盖内容载荷，不动位置/尺寸（撤销粒度不同） |
+| `addConnection` / `removeConnections` | 连线 |
+| `canUndo` / `undo` / `redo` / `clearHistory` | 撤销重做（**只存文档，不存相机与选中态**） |
+| `checkNesting` | 本层嵌入数量保护 |
+| `toJSON` / `fromJSON` | 序列化（`fromJSON` 会清空历史） |
+
+### 插槽与事件
+
+| 名称 | 说明 |
+| --- | --- |
+| `embed-view` 插槽 | 回传 `{ elementId, viewType, payload, width, height }`，宿主据此渲染真实子视图；不提供时降级占位 |
+| `element-edit-intent` | 进入内联编辑（供宿主接管为富文本/公式编辑器） |
+| `open-ref-intent` | 请求打开另一内容，携带 `{ elementId, refId, relation }`。**跳转由宿主执行**（MUI 不懂文件系统） |
+
+### 交互
+
+拖拽移动 / 角柄缩放 / 圆柄旋转 / 拖端口连线 / 双击内联编辑（`Ctrl/Cmd+Enter` 提交、`Esc` 取消）/ `Ctrl/Cmd+Z` 撤销、`Ctrl/Cmd+Shift+Z` 或 `Ctrl/Cmd+Y` 重做 / `Delete` 删除 / `Shift` 多选。
 
 ## Persistence
 
