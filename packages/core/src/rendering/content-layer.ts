@@ -180,6 +180,12 @@ export function projectContentLayer(
  * 判定用世界坐标矩形相交，而非屏幕坐标 —— 相机一变，世界坐标不变，
  * 故判定结果稳定、可缓存。
  *
+ * **未提供 `size` 的项一律保留**：没有尺寸就只能把它当成一个点，
+ * 而点的判定会把「锚点刚出界、内容仍大半在视口内」的项整条裁掉
+ * （文字与公式的锚点在左上角时尤其容易触发，表现为缩放后某些文字莫名消失）。
+ * 尺寸未知时无法判断真实范围，保守保留是唯一正确选择；
+ * 需要裁剪收益的宿主应尽量提供 `size`。
+ *
  * @param camera 当前相机。
  * @param size 容器尺寸。
  * @param items 内容层项。
@@ -195,8 +201,9 @@ export function cullContentLayer(
 ): ContentLayerItem[] {
   const view = visibleWorldRect(camera, size);
   return items.filter((item) => {
-    const w = item.size?.width ?? 0;
-    const h = item.size?.height ?? 0;
+    if (!item.size) return true; // 尺寸未知 → 无法判定，保留
+    const w = item.size.width;
+    const h = item.size.height;
     const anchorX = item.anchor.anchorX ?? 0.5;
     const anchorY = item.anchor.anchorY ?? 0.5;
     // 锚点不在左上角时，实际盒范围要左移/上移相应比例

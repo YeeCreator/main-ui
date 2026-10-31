@@ -125,6 +125,22 @@ describe('cullContentLayer', () => {
     const items: ContentLayerItem[] = [{ id: 'p', kind: 'dot', anchor: { world: { x: 10, y: 10 } } }];
     expect(cullContentLayer(identity, size, items)).toHaveLength(1);
   });
+
+  test('缺 size 且锚点在视口外，仍保留（尺寸未知不可判）', () => {
+    // 真实故障复现：锚点在左上角的文字/公式，缩放后锚点刚出界，
+    // 但内容本身大半仍在视口内。若按「零尺寸点」判定就会整条消失。
+    const items: ContentLayerItem[] = [
+      { id: 'gone', kind: 'text', anchor: { world: { x: -50, y: -50 }, anchorX: 0, anchorY: 0 } },
+    ];
+    expect(cullContentLayer(identity, size, items)).toHaveLength(1);
+  });
+
+  test('有 size 且整体在视口外，才裁剪', () => {
+    const items: ContentLayerItem[] = [
+      { id: 'out', kind: 'text', anchor: { world: { x: -5000, y: -5000 }, anchorX: 0, anchorY: 0 }, size: { width: 100, height: 40 } },
+    ];
+    expect(cullContentLayer(identity, size, items)).toHaveLength(0);
+  });
 });
 
 describe('prepareContentLayer（裁剪 + 投影一步完成）', () => {

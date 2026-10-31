@@ -38,6 +38,9 @@ importers:
       '@main-ui/view-form':
         specifier: workspace:*
         version: link:../packages/view-form
+      '@main-ui/view-formula':
+        specifier: workspace:*
+        version: link:../packages/view-formula
       '@main-ui/view-inspector':
         specifier: workspace:*
         version: link:../packages/view-inspector

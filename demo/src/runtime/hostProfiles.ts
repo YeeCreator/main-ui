@@ -72,6 +72,10 @@ export const hostProfileEditors: EditorDescriptor[] = [
     capability: { ...defaultEditorCapability, allowFloatingWindow: true },
     createDefaultPayload: () => ({ foundation: 'view-world', variant: 'generic' }),
   }),
+  createEditor('dual-output-demo', 'Dual output', 'dual-output-demo-editor', {
+    description: 'Side-by-side comparison: GPU text vs DOM content layer.',
+    capability: { ...defaultEditorCapability, allowFloatingWindow: true, allowMultipleInstances: true },
+  }),
   createEditor('profile-panel', 'Panel', 'profile-panel-editor', { description: 'Host profile side panel.' }),
   createEditor('external-mount-demo', 'Adapter', 'external-mount-demo-adapter', {
     description: 'External mount adapter smoke test.',
@@ -146,8 +150,8 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
     title: 'Canvas',
     description: 'Canvas-heavy host fixture',
     icon: 'MA',
-    allowedEditorKinds: ['profile-panel', 'canvas-placeholder', 'viewport-foundation', 'inspector-demo', 'settings'],
-    recommendedEditorKinds: ['viewport-foundation', 'canvas-placeholder', 'profile-panel', 'inspector-demo', 'settings'],
+    allowedEditorKinds: ['profile-panel', 'canvas-placeholder', 'viewport-foundation', 'dual-output-demo', 'inspector-demo', 'settings'],
+    recommendedEditorKinds: ['dual-output-demo', 'viewport-foundation', 'canvas-placeholder', 'profile-panel', 'inspector-demo', 'settings'],
     defaultOpenRequests: [
       {
         editorKind: 'profile-panel',
@@ -160,6 +164,13 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
         title: 'Formula canvas',
         targetGroupId: 'canvas-workspace-group-center',
         payload: { foundation: 'view-world', variant: 'math-canvas' },
+      },
+      {
+        // 与 `viewport-foundation` 同组：同一标签组内的第二个页签，
+        // 打开后默认停在这个对比页，原视口页签仍可切回。
+        editorKind: 'dual-output-demo',
+        title: 'Dual output demo',
+        targetGroupId: 'canvas-workspace-group-center',
       },
       { editorKind: 'inspector-demo', title: 'Formula inspector', targetGroupId: 'canvas-workspace-group-right' },
     ],

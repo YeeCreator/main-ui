@@ -1,5 +1,9 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type PropType } from 'vue'
 import katex from 'katex'
+// KaTeX 的排版布局全靠这张样式表：不引入时 `\frac`、`^{}`、`_{}` 会退化成
+// 平铺文本（分数不变分式、上下标不抬降、根号没有横线），看起来像「公式没生效」。
+// 必须在包内引入，不能推给宿主 —— 宿主改用 KaTeX 的唯一目的就是排版正确。
+import 'katex/dist/katex.min.css'
 import { attachVariableAnchors, resolveAnchorFromEvent } from './anchor'
 import type { FormulaAnchorIntent, FormulaVarAnchor } from './types'
 
