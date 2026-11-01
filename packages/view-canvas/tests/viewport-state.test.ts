@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { classifyWheel, wheelPanDelta } from '@main-ui/core/input';
 import {
-  cameraTransformOf,
   constrainScale,
   fitCamera,
   panCamera,
@@ -46,10 +45,6 @@ describe('view-canvas viewport-state', () => {
 
   test('panCamera translates in screen pixels', () => {
     expect(panCamera({ scale: 1, pan: { x: 0, y: 0 } }, { x: 7, y: -3 }).pan).toEqual({ x: 7, y: -3 });
-  });
-
-  test('cameraTransformOf renders translate+scale', () => {
-    expect(cameraTransformOf({ scale: 2, pan: { x: 5, y: 6 } })).toBe('translate(5 6) scale(2)');
   });
 });
 

@@ -1,0 +1,48 @@
+{
+  "name": "@main-ui/view-minimap",
+  "version": "0.1.0",
+  "private": false,
+  "description": "main-ui 官方视图模板：缩略导航（世界按比例缩进小方框 + 视口矩形 + 点击跳转）。游戏与画布共用同一套坐标数学，简化画法由 kind 分派。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YeeCreator/main-ui.git",
+    "directory": "packages/view-minimap"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/index.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@main-ui/core": "^0.11.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@main-ui/core": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.0"
+  }
+}

@@ -27,4 +27,3 @@ export {
   panCamera,
   zoomByFactor,
 } from './viewport-state';
-export { cameraTransformOf } from './viewport-state';

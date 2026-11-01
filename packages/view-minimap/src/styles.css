@@ -1,0 +1,58 @@
+/**
+ * Minimap 的基础样式。
+ *
+ * 颜色一律消费 `--mui-color-*` 变量（主题真源），不写死色值 ——
+ * 缩略图若固定浅色底，在深色主题下会变成一块发亮的孤岛。
+ */
+
+.main-ui-minimap {
+  display: block;
+  border: 1px solid var(--mui-color-border, #d8dbe2);
+  border-radius: 4px;
+  background: var(--mui-color-panel, #fafbfc);
+  /* 缩略图是「概览」而非「可读内容」，禁止文字选中 */
+  user-select: none;
+  touch-action: none;
+}
+
+.main-ui-minimap.is-interactive {
+  cursor: pointer;
+}
+
+.main-ui-minimap__item {
+  fill: var(--mui-color-text-muted, #8b93a1);
+  stroke: none;
+}
+
+/* 折线只描边不填充 */
+.main-ui-minimap__item--path {
+  fill: none;
+  stroke: var(--mui-color-text-muted, #8b93a1);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+.main-ui-minimap__item--point {
+  /* 点用圆，不用矩形：视觉上更接近「实体」语义 */
+  fill: var(--mui-color-text-muted, #8b93a1);
+}
+
+.main-ui-minimap__item.is-highlighted {
+  fill: var(--mui-color-accent, #4a90d9);
+}
+
+.main-ui-minimap__item--path.is-highlighted {
+  fill: none;
+  stroke: var(--mui-color-accent, #4a90d9);
+  stroke-width: 1.5;
+}
+
+.main-ui-minimap__viewport {
+  fill: var(--mui-color-accent, #4a90d9);
+  fill-opacity: 0.08;
+  stroke: var(--mui-color-accent, #4a90d9);
+  stroke-width: 1.5;
+  /* 虚线：让视口框与内容图元在视觉上区分开 */
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}

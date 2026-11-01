@@ -6,6 +6,9 @@
  *
  * - camera：相机数学纯函数（screenToWorld / worldToScreen / fit / pan / zoom / serialize）
  * - camera-bridge：二维相机 ↔ 三维轨道相机的统一表示与换算（坐标约定翻转单点）
+ * - content-layer：视口内容层（DOM 侧）的投影与裁剪纯函数
+ * - text-resolution：GPU 文字纹理的缩放档位
+ * - minimap：缩略导航的坐标纯函数（世界 ↔ 缩略图、点击跳转）
  * - backend：`ViewportBackend` 后端接口（渲染库无关，`render-*` 包实现）
  * - backend-registry：已装后端注册表（维度能力运行时探测的唯一真相源）
  * - constraints：相机约束（缩放范围 + 平移边界）
@@ -18,6 +21,7 @@ export * from './camera';
 export * from './camera-bridge';
 export * from './content-layer';
 export * from './text-resolution';
+export * from './minimap';
 export * from './backend';
 export * from './backend-registry';
 export * from './constraints';

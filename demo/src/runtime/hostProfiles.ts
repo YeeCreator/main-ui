@@ -76,6 +76,10 @@ export const hostProfileEditors: EditorDescriptor[] = [
     description: 'Side-by-side comparison: GPU text vs DOM content layer.',
     capability: { ...defaultEditorCapability, allowFloatingWindow: true, allowMultipleInstances: true },
   }),
+  createEditor('minimap-demo', 'Minimap', 'minimap-demo-editor', {
+    description: 'Point-style vs rect-style minimap sharing one coordinate transform.',
+    capability: { ...defaultEditorCapability, allowFloatingWindow: true, allowMultipleInstances: true },
+  }),
   createEditor('profile-panel', 'Panel', 'profile-panel-editor', { description: 'Host profile side panel.' }),
   createEditor('external-mount-demo', 'Adapter', 'external-mount-demo-adapter', {
     description: 'External mount adapter smoke test.',
@@ -150,8 +154,8 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
     title: 'Canvas',
     description: 'Canvas-heavy host fixture',
     icon: 'MA',
-    allowedEditorKinds: ['profile-panel', 'canvas-placeholder', 'viewport-foundation', 'dual-output-demo', 'inspector-demo', 'settings'],
-    recommendedEditorKinds: ['dual-output-demo', 'viewport-foundation', 'canvas-placeholder', 'profile-panel', 'inspector-demo', 'settings'],
+    allowedEditorKinds: ['profile-panel', 'canvas-placeholder', 'viewport-foundation', 'dual-output-demo', 'minimap-demo', 'inspector-demo', 'settings'],
+    recommendedEditorKinds: ['dual-output-demo', 'minimap-demo', 'viewport-foundation', 'canvas-placeholder', 'profile-panel', 'inspector-demo', 'settings'],
     defaultOpenRequests: [
       {
         editorKind: 'profile-panel',
@@ -170,6 +174,11 @@ export const hostProfileWorkspaces: WorkspaceDescriptor[] = [
         // 打开后默认停在这个对比页，原视口页签仍可切回。
         editorKind: 'dual-output-demo',
         title: 'Dual output demo',
+        targetGroupId: 'canvas-workspace-group-center',
+      },
+      {
+        editorKind: 'minimap-demo',
+        title: 'Minimap demo',
         targetGroupId: 'canvas-workspace-group-center',
       },
       { editorKind: 'inspector-demo', title: 'Formula inspector', targetGroupId: 'canvas-workspace-group-right' },

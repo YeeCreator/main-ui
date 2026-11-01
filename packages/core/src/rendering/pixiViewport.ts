@@ -65,6 +65,17 @@ export class PixiViewport {
 
   // 交互状态
   private interacting = false;
+  /**
+   * 是否已销毁。
+   *
+   * 构造末尾排了一个 rAF 兜底尺寸（布局尚未稳定时补一次 resize）。
+   * 若组件在首帧之前就被卸载（切标签页、条件渲染），该回调仍会触发，
+   * 而此时 `app.renderer` 已随 `app.destroy()` 置空 —— 不拦就是一个
+   * `Cannot read properties of null (reading 'resize')` 硬崩。
+   */
+  private destroyed = false;
+  /** 构造末尾那次 rAF 的句柄（销毁时取消）。 */
+  private initialFrameId: number | null = null;
   private pointerState = { pointerId: -1, lastX: 0, lastY: 0, active: false };
 
   private bound = {
@@ -116,7 +127,9 @@ export class PixiViewport {
     // 立即读取挂载后的真实尺寸；布局尚未稳定时用 rAF 再兜底一次。
     this.syncSize();
     this.fitToBounds();
-    requestAnimationFrame(() => {
+    this.initialFrameId = requestAnimationFrame(() => {
+      this.initialFrameId = null;
+      if (this.destroyed) return;
       this.syncSize();
       this.fitToBounds();
     });
@@ -124,6 +137,7 @@ export class PixiViewport {
 
   /** 读取容器真实尺寸并同步到 renderer（尺寸变化时才 resize）。 */
   private syncSize(): void {
+    if (this.destroyed) return;
     const w = Math.max(1, Math.round(this.container.clientWidth));
     const h = Math.max(1, Math.round(this.container.clientHeight));
     if (w === this.size.width && h === this.size.height) return;
@@ -217,10 +231,18 @@ export class PixiViewport {
   }
 
   resize(width: number, height: number): void {
+    if (this.destroyed) return;
     this.app.renderer.resize(Math.max(1, width), Math.max(1, height));
   }
 
   destroy(): void {
+    // 幂等：重复 destroy 不应二次销毁 Pixi 应用（会抛错）。
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.initialFrameId !== null) {
+      cancelAnimationFrame(this.initialFrameId);
+      this.initialFrameId = null;
+    }
     this.unbindEvents();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;

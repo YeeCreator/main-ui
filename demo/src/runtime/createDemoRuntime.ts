@@ -11,6 +11,7 @@ import TableDemoEditor from '../editors/TableDemoEditor.vue';
 import WelcomeEditor from '../editors/WelcomeEditor.vue';
 import ViewportFoundationEditor from '../editors/ViewportFoundationEditor.vue';
 import DualOutputDemoEditor from '../editors/DualOutputDemoEditor.vue';
+import MinimapDemoEditor from '../editors/MinimapDemoEditor.vue';
 import { hostProfileEditors, hostProfileWorkspaces } from './hostProfiles';
 import { registerDemoPresetViewEditors } from '../adapter/registerPresetViewEditors';
 
@@ -39,6 +40,7 @@ export const createDemoRuntime = () => {
   runtime.vue.registerEditorRenderer('game-session-editor', GameSessionEditor);
   runtime.vue.registerEditorRenderer('viewport-foundation-editor', ViewportFoundationEditor);
   runtime.vue.registerEditorRenderer('dual-output-demo-editor', DualOutputDemoEditor);
+  runtime.vue.registerEditorRenderer('minimap-demo-editor', MinimapDemoEditor);
   registerDemoPresetViewEditors(runtime);
   runtime.vue.registerEditorMountAdapter('external-mount-demo-adapter', {
     mount(container, context) {

@@ -21,9 +21,9 @@ export type ViewportContainerSize = {
  * 默认插槽回传的渲染上下文。
  *
  * **两种介质各有专名**：`svgTransform` 用于 SVG 的 `transform` **属性**，
- * `cssTransform` 用于元素的 `style.transform`。二者不可互换 —— 旧版只给一个
- * 裸名 `cameraTransform`（SVG 语法、无单位），宿主放进 CSS 位时浏览器
- * **静默丢弃整条声明**，表现为「相机在变、画面不动」。
+ * `cssTransform` 用于元素的 `style.transform`。二者不可互换 —— 历史上曾只给一个
+ * 裸名（SVG 语法、无单位），宿主放进 CSS 位时浏览器**静默丢弃整条声明**，
+ * 表现为「相机在变、画面不动」。该裸名已移除，不再保留别名。
  */
 export type ViewportCanvasSlotContext = {
   /** 容器宽度（CSS 像素）。 */
@@ -34,11 +34,6 @@ export type ViewportCanvasSlotContext = {
   svgTransform: SvgTransform;
   /** CSS 介质：可直接用于 `:style="{ transform: cssTransform, transformOrigin: '0 0' }"`。 */
   cssTransform: CssTransform;
-  /**
-   * @deprecated **歧义源头**。这是 SVG 语法（无单位）的串，放在 CSS 位会被静默丢弃。
-   *   改用 {@link svgTransform} 或 {@link cssTransform}。兼容期 1 个 minor 后移除。
-   */
-  cameraTransform: SvgTransform;
   /** 当前缩放系数。 */
   scale: number;
   /** 当前相机（纯值快照）。 */

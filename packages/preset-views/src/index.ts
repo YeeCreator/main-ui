@@ -25,3 +25,4 @@ export * as hostEngine from '@main-ui/view-host-engine';
 export * as runControl from '@main-ui/view-run-control';
 export * as timeline from '@main-ui/view-timeline';
 export * as storyboard from '@main-ui/view-storyboard';
+export * as minimap from '@main-ui/view-minimap';

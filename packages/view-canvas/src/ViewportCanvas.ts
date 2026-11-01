@@ -355,8 +355,6 @@ export const ViewportCanvas = defineComponent({
             height: containerSize.height,
             svgTransform: svgTransform.value,
             cssTransform: cssTransform.value,
-            // @deprecated 兼容期别名：与 svgTransform 同值（SVG 语法）。
-            cameraTransform: svgTransform.value,
             scale: camera.value.scale,
             camera: snapshotCamera(),
           })

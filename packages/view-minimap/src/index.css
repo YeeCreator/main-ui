@@ -1,0 +1,2 @@
+/* 样式入口：构建产出 dist/index.css，由 `./styles.css` 子路径导出给宿主。 */
+@import './styles.css';

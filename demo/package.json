@@ -14,6 +14,7 @@
     "@main-ui/view-form": "workspace:*",
     "@main-ui/view-formula": "workspace:*",
     "@main-ui/view-inspector": "workspace:*",
+    "@main-ui/view-minimap": "workspace:*",
     "@main-ui/view-node": "workspace:*",
     "@main-ui/view-table": "workspace:*",
     "@main-ui/view-tree": "workspace:*",
