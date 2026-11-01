@@ -2,6 +2,17 @@
 
 按版本归并的对外变更记录。每版本只列**使用者可见**的契约变化。
 
+## 0.13.0（`@main-ui/core` 0.12.0，`view-canvas` 0.10.0，`view-formula` 0.2.0，`preset-views` 0.13.0）
+
+1. **缩略导航（小地图）**：新增 `@main-ui/view-minimap` 的 `Minimap` 组件与 `core/rendering` 的坐标数学（`minimapTransform` / `panToMinimapPoint` / `minimapViewportRect` / `contentWorldBounds` / `visibleWorldRectOfCamera`）。游戏小地图与画布导航**共用同一套坐标数学**，画法按 `kind` 分派（`point` / `rect` / `path`）——「点」在几何上就是零宽高矩形，故不建两套实现。
+2. **组件不重绘场景**：只画简化图元，不复用 GPU 后端、不复制 DOM 节点。把文字与节点缩小重画一遍会带来双份显存与双份 DOM，是白板类应用最常见的性能事故形态。
+3. **`view-canvas` 移除旧名**：删除插槽字段 `cameraTransform` 与函数 `cameraTransformOf`（0.11.0 起标 deprecated）。该名字歧义在于「同一字段装两套语法」——SVG 属性串放进 `style.transform` 会被浏览器静默丢弃整条声明。改用 `svgTransform` / `cssTransform`。
+4. **修 `cullContentLayer` 误裁**：缺 `size` 的项此前按「零尺寸点」判定，锚点刚出视口、内容仍大半可见时整条被裁掉（表现为缩放后部分文字莫名消失）。现改为**尺寸未知即保守保留**；需要裁剪收益的宿主应提供 `size`。
+5. **修 `view-formula` 缺 KaTeX 样式表**：包内只引 JS 时不引 CSS，则 `\frac` / `^{}` / `_{}` 全部退化为平铺文本，看起来像「公式功能没生效」。现由包内引入，并把 `sideEffects` 从 `false` 改为 `["*.css"]`（否则打包器会 tree-shake 掉它）。
+6. **修 PixiJS 销毁后回调崩溃**：容器在首帧前卸载时，`pixiViewport` 排入的 `requestAnimationFrame` 仍会执行并触发 `resize`，此时 `app.renderer` 已为 `null`。`destroy()` 现为幂等。
+
+> 迁移细节见 `MIGRATION_GUIDE_0.13.0.md`。
+
 ## 0.12.0（`@main-ui/core` 0.11.0）
 
 1. **视口双输出面**：`view-world` 新增 `contentItems` prop 与 `content-layer` 插槽，在 GPU 几何面之上叠加浏览器绘制的内容层，两面共用**同一台相机**。解决「GPU 视口里文字与公式放大即糊」——那是光栅化的固有性质，不是参数问题。内容层不接收指针（命中仍走交互覆盖层），且恒在几何面之上。

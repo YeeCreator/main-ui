@@ -2,11 +2,17 @@
 
 ## 当前版本
 
-本文档对应 `main-ui 0.12.0`（`@main-ui/core 0.11.0`，官方视图模板库 0.12.0）。API 以本地 `.tgz` 版本包交付。
+本文档对应 `main-ui 0.13.0`（`@main-ui/core 0.12.0`，官方视图模板库 0.13.0）。API 以本地 `.tgz` 版本包交付。
 
-本版新增：**视口双输出面**（`view-world` 的 `contentItems` + `content-layer` 插槽）、**内容层纯函数**（`projectContentLayer` / `cullContentLayer` / `prepareContentLayer` / `visibleWorldRect`）、**文字纹理档位**（`textResolutionFor` / `nextTextResolution`）、**引用三语义**（`RefRelation` / `refExpandsInline` / `checkEmbedChain`）、**白板编辑能力**（`view-sandbox` 拖拽/缩放/旋转/连线/内联编辑/撤销重做）与**轻内容元素**（`text` / `formula` / `link`）。
+本版新增：**缩略导航**（`@main-ui/view-minimap` 的 `Minimap` 组件；`core/rendering` 的 `minimapTransform` / `panToMinimapPoint` / `minimapViewportRect` / `contentWorldBounds` / `visibleWorldRectOfCamera`）。游戏小地图与画布导航**共用同一套坐标数学**，画法按 `kind` 分派。
 
-上一版（0.11.0）新增：相机变换串分介质（`SvgTransform` / `CssTransform` 品牌类型、`cameraToSvgTransform` / `cameraToCssStyle`）、滚轮三维读数（`readWheel` / `zoomFactorOf`）、通用相机手势（`panOnMiddleDrag` / `panOnSpaceDrag` / `panOnShiftWheel`）、主题模式（`resolveThemeMode` / `useThemeMode` / `createSetThemeModeAction`）、设置页内置外观区块。
+本版移除：`view-canvas` 的 `cameraTransform` 插槽字段与 `cameraTransformOf` 函数（0.11.0 起标 deprecated，跨介质赋值静默失效的歧义源头；下游已全部改用 `svgTransform` / `cssTransform`）。
+
+本版修复：`pixiViewport` 在组件于首帧前卸载时，rAF 兜底回调触发 `resize` 导致空引用崩溃；`destroy()` 现为幂等。
+
+老版（0.12.0）新增：**视口双输出面**（`view-world` 的 `contentItems` + `content-layer` 插槽）、**内容层纯函数**（`projectContentLayer` / `cullContentLayer` / `prepareContentLayer` / `visibleWorldRect`）、**文字纹理档位**（`textResolutionFor` / `nextTextResolution`）、**引用三语义**（`RefRelation` / `refExpandsInline` / `checkEmbedChain`）、**白板编辑能力**（`view-sandbox` 拖拽/缩放/旋转/连线/内联编辑/撤销重做）与**轻内容元素**（`text` / `formula` / `link`）。
+
+再前一版（0.11.0）新增：相机变换串分介质（`SvgTransform` / `CssTransform` 品牌类型、`cameraToSvgTransform` / `cameraToCssStyle`）、滚轮三维读数（`readWheel` / `zoomFactorOf`）、通用相机手势（`panOnMiddleDrag` / `panOnSpaceDrag` / `panOnShiftWheel`）、主题模式（`resolveThemeMode` / `useThemeMode` / `createSetThemeModeAction`）、设置页内置外观区块。
 
 ## 入口
 
@@ -554,6 +560,60 @@ GPU 视口缩放是对**已光栅化**内容整体放大，不重绘 —— 文�
 ### 交互
 
 拖拽移动 / 角柄缩放 / 圆柄旋转 / 拖端口连线 / 双击内联编辑（`Ctrl/Cmd+Enter` 提交、`Esc` 取消）/ `Ctrl/Cmd+Z` 撤销、`Ctrl/Cmd+Shift+Z` 或 `Ctrl/Cmd+Y` 重做 / `Delete` 删除 / `Shift` 多选。
+
+## 缩略导航 / 小地图（v0.13）
+
+「游戏小地图（质点法）」与「画布导航（缩放法）」除**简化画法**外每一步都相同：
+算世界范围、世界↔缩略图映射、画视口矩形、点击跳转。而「点」在几何上就是
+零宽高的矩形，故**共用一套坐标数学**，画法按 `kind` 分派 —— 不建两套实现
+（那会得到两个世界↔小图换算，是同一件事两处实现的典型失败形态）。
+
+**组件不重绘场景**：不复用 GPU 后端、不复制 DOM 节点，只画简化图元。
+把文字与节点缩小重画一遍会带来双份显存与双份 DOM，是白板类应用最常见的
+性能事故形态。
+
+### `@main-ui/core/rendering` · minimap
+
+| 导出 | 说明 |
+| --- | --- |
+| `contentWorldBounds(rects)` | 多项合并为外接矩形；空输入返回 `null`；退化时给最小 1 单位尺寸 |
+| `minimapTransform(world, size, padding?)` | 世界↔缩略图映射，含 `worldToMinimap` / `minimapToWorld` / `worldRectToMinimap` / `minimapRectToWorld` |
+| `minimapViewportRect(transform, viewport)` | 视口框绘制矩形（含最小可见尺寸，中心不变） |
+| `panToMinimapPoint(transform, click, viewportSize, scale)` | 点击跳转的目标 `pan` |
+| `visibleWorldRectOfCamera(camera, size)` | 由相机反算可见世界矩形 |
+| `MINIMAP_VIEWPORT_MIN_SIZE` | 视口框最小绘制尺寸（`6`） |
+| `MinimapTransform` / `MinimapSize` | 相关类型 |
+
+**等比适配**：取两方向比例的**较小**值，宁可留白也不拉伸；内容在世界范围与
+视口矩形的**并集**内居中。
+
+**`pan` 符号方向极易写反**，故 `panToMinimapPoint` 由 core 统一提供，
+宿主不要自己推公式。
+
+### `@main-ui/view-minimap`
+
+```ts
+import { Minimap } from '@main-ui/view-minimap';
+import '@main-ui/view-minimap/styles.css'; // 样式需宿主显式引入
+```
+
+| Prop | 说明 |
+| --- | --- |
+| `items` | `MinimapItem[]`：`{ id, world, kind?, points?, group?, highlighted? }` |
+| `viewport` | 当前视口矩形（世界坐标）。与 `camera` 二选一，**前者优先** |
+| `camera` / `viewportSize` | 不给 `viewport` 时由相机反算可见范围 |
+| `width` / `height` / `padding` | 缩略图尺寸与内留白（默认 180 / 120 / 6） |
+| `panOnClick` | 点击是否抛 `navigate`（默认 `true`） |
+| `renderContent` | 自定义内容绘制，回传 `{ transform, items, viewport }` |
+
+| 事件 / 插槽 | 说明 |
+| --- | --- |
+| `navigate` | 载荷 `{ pan, world }`。**相机归宿主所有**，组件只算目标值不改状态 |
+| `overlay` 插槽 | 自定义叠加层（比例尺、图例），回传 `{ transform }` |
+
+**三种画法**：`point`（画圆，半径固定为像素值，缩放缩略图尺寸时点不变大）、
+`rect`（按比例画框）、`path`（折线）。缺省按 `world` 是否零宽高自动判为
+`point`。
 
 ## Persistence
 

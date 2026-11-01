@@ -22,24 +22,25 @@
 | --- | --- | --- | --- |
 | `@main-ui/view-tree` | 0.4.0 | 自研虚拟滚动 | 目录/项目/场景树：过滤、展开折叠、**多选** |
 | `@main-ui/view-inspector` | 0.5.0 | schema 表单（`@main-ui/core` 基座） | 属性检视：**`readonly` 字段**、分组 schema |
-| `@main-ui/view-world` | 0.8.0 | `@main-ui/core/rendering`（pixi）+ 可插拔后端 | 世界视口：二维/三维两档共用同一模板；相机状态进 `getViewState` |
-| `@main-ui/view-canvas` | 0.8.0 | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互；取代已废弃的 `viewport-2d-kit/vue` |
+| `@main-ui/view-world` | 0.10.0 | `@main-ui/core/rendering`（pixi）+ 可插拔后端 | 世界视口：二维/三维两档共用同一模板；相机状态进 `getViewState` |
+| `@main-ui/view-canvas` | 0.10.0 | `@main-ui/core/rendering`（DOM/SVG） | DOM/SVG 画布视口：宿主自绘内容 + 相机/交互；取代已废弃的 `viewport-2d-kit/vue` |
 | `@main-ui/view-table` | 0.4.0 | 自研虚拟滚动 | 表格浏览/编辑：**多选 + 列宽拉伸** |
 | `@main-ui/view-asset` | 0.1.0 | 自研网格虚拟滚动 | **资产网格 / 列表**：缩略图由宿主注入（零网络）、搜索过滤、布局切换 |
 | `@main-ui/view-form` | 0.5.0 | schema 表单（`@main-ui/core` 基座） | 配置面板：含数组字段与条件显隐；提交/预设存取以意图抛出 |
-| `@main-ui/view-node` | 0.4.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
+| `@main-ui/view-node` | 0.5.0 | `@vue-flow/core`（peer `^1.48`） | 节点图/连线：视口与选中进 `getViewState` |
 | `@main-ui/view-console` | 0.5.0 | 自研虚拟滚动 | 日志/控制台：**换行开关 + 导出意图 + `autoScroll` prop** |
-| `@main-ui/view-flow` | 0.5.0 | `@vue-flow/core`（peer `^1.48`）+ FSM 纯库 | 流程/状态机文档：类型化端口、数据流/控制流双边（三件套：内核 + `FlowCanvas` 组件 + 薄壳） |
-| `@main-ui/view-sandbox` | 0.6.0 | 自研 `SandboxKernel`（无头纯 TS） | 自由沙盘画布（旗舰复合）：异构元素 + 嵌入任意 View + 嵌套保护 |
+| `@main-ui/view-flow` | 0.6.0 | `@vue-flow/core`（peer `^1.48`）+ FSM 纯库 | 流程/状态机文档：类型化端口、数据流/控制流双边（三件套：内核 + `FlowCanvas` 组件 + 薄壳） |
+| `@main-ui/view-sandbox` | 0.8.0 | 自研 `SandboxKernel`（无头纯 TS） | 自由沙盘画布（旗舰复合）：异构元素 + 嵌入任意 View + 嵌套保护 |
 | `@main-ui/view-host-engine` | 0.6.0 | 无（纯 DOM 挂载点） | 外部引擎转播窗口：布局归我方、渲染归外部引擎 |
-| `@main-ui/view-formula` | 0.1.0 | `katex`（peer） | 公式排版 + 变量级锚点（源自数学工坊收编） |
+| `@main-ui/view-formula` | 0.2.0 | `katex`（peer） | 公式排版 + 变量级锚点（由宿主侧自研实现收编而来） |
+| `@main-ui/view-minimap` | 0.1.0 | 自研 SVG（零渲染引擎） | **缩略导航**：游戏小地图与画布导航共用一套坐标数学，画法按 `kind` 分派 |
 | `@main-ui/view-run-control` | 0.1.0 | 自研 | 运行控制：播放/暂停/步进/速度 |
 | `@main-ui/view-timeline` | 0.1.0 | 自研 | 时间轴：刻度 + 游标 + 区间选中 |
 | `@main-ui/view-storyboard` | 0.1.0 | 自研 | 分镜/序列板：卡片序列 + 拖拽排序意图 |
 | `@main-ui/render-3d` | 0.1.0 | `three`（peer，`WebGPURenderer` + TSL） | **渲染后端（非模板）**：无 editorKind，只实现 `ViewportBackend`，被 `view-world` 解析 |
-| `@main-ui/preset-views` | 0.10.0 | — | 聚合包：命名空间重导出（无逻辑） |
+| `@main-ui/preset-views` | 0.13.0 | — | 聚合包：命名空间重导出（无逻辑） |
 
-配套基座：`@main-ui/core`（0.9.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含**数组字段**与**条件显隐**）+ 虚拟滚动基座 + 嵌入 View 托管 + 渲染基础设施（`core/rendering`）+ 图元系统（`core/primitives`），供各模板共用，宿主亦可单独消费。
+配套基座：`@main-ui/core`（0.12.0）为框架无关模板基座：表单基座（`FormFieldSchema` / `FormValues` / 校验纯函数，含**数组字段**与**条件显隐**）+ 虚拟滚动基座 + 嵌入 View 托管 + 渲染基础设施（`core/rendering`）+ 图元系统（`core/primitives`），供各模板共用，宿主亦可单独消费。
 
 ### 2.2 安装矩阵
 
@@ -53,7 +54,8 @@ pnpm add @main-ui/view-tree @main-ui/view-table main-ui vue
 pnpm add @main-ui/view-tree @main-ui/view-inspector @main-ui/view-world @main-ui/view-canvas @main-ui/view-table \
          @main-ui/view-form @main-ui/view-node @main-ui/view-console \
          @main-ui/view-flow @main-ui/view-sandbox @main-ui/view-host-engine \
-         @main-ui/view-formula @main-ui/view-run-control @main-ui/view-timeline @main-ui/view-storyboard main-ui vue
+         @main-ui/view-formula @main-ui/view-minimap @main-ui/view-run-control \
+         @main-ui/view-timeline @main-ui/view-storyboard main-ui vue
 
 # 聚合包（仅重导出，仍建议显式安装模板包本体）
 pnpm add @main-ui/preset-views
@@ -73,6 +75,7 @@ pnpm add @main-ui/render-3d three troika-three-text
 | `view-flow` | `@vue-flow/core@^1.48` + `@main-ui/core`（peer） |
 | `view-sandbox` | `@main-ui/core`（peer，消费 EmbeddedViewHost/嵌套保护） |
 | `view-formula` | `katex`（peer） |
+| `view-minimap` | 无（纯 SVG，零渲染引擎）；样式需显式 `import '@main-ui/view-minimap/styles.css'` |
 | `view-host-engine` | 无（宿主自备外部引擎） |
 | `render-3d` | `three`（`^0.186`）+ `troika-three-text`（均在包内 peer，由宿主显式安装） |
 
@@ -106,6 +109,10 @@ pnpm add @main-ui/render-3d three troika-three-text
 | 元素不多但要**文字/公式永远锐利** | **`view-canvas`** | 浏览器按屏幕密度绘制，放大不糊 |
 | **可编辑**的异构内容（文本/表格/公式/媒体）+ 自由摆放 | **`view-sandbox`** | 白板形态；元素可原地编辑 |
 | 节点图 / 流程图（要自动布局、端口、环检测） | `view-node` / `view-flow` | 图内核已自带这些语义 |
+| 世界比视口大，需要**快速定位**（小地图 / 导航图 / 鹰眼） | **`view-minimap`** | 与上面任一视口配套，不是替代；共用同一套坐标数学，画法按 `kind` 分派 |
+
+> 最后一行**不是并列选项** —— 缩略导航是上面任一视口的**伴生件**。它读「世界范围 + 当前视口」，
+> 画简化图元，点击把目标 `pan` 交回宿主。游戏与画布都用它，只有画法参数不同。
 
 ### 3.3 三条容易搞错的判据
 
@@ -793,6 +800,45 @@ Emits：`select(AssetSelectPayload)`（含 `id` / `additive` / `payload` 原样�
 **缩略图三态由宿主声明**（`thumbnailState`）：`loading` 骨架条 · `ready`（缺省）正常 · `error` 错误占位。**视图不重试** —— 重试策略属适配层职责，塞进视图会让每个宿主各写一套且互相不可见。省略 `thumbnailUrl` 且非错误态时呈现「标题首字」占位，**不算错误**。
 
 **列数由断点表决定**（`resolveGridColumns`，1200/960/720/480 → 6/5/4/3/2 列），不用 CSS `auto-fill`：虚拟滚动必须知道「第 N 项在第几行」，而自动填充的结果 JS 拿不到。
+
+### 4.17 `@main-ui/view-minimap`（缩略导航 / 小地图，v0.1）
+
+```ts
+import { Minimap } from '@main-ui/view-minimap'
+import '@main-ui/view-minimap/styles.css'   // 样式需宿主显式引入
+```
+
+**游戏小地图与画布导航是同一件事。** 二者的每一步都相同 —— 算世界范围、世界↔缩略图映射、画视口矩形、点击跳转 —— 只有**简化画法**不同。而「点」在几何上就是零宽高的矩形，故共用一套坐标数学，画法按 `kind` 分派。
+
+| `kind` | 画法 | 典型来源 |
+| --- | --- | --- |
+| `point` | 圆点，半径固定为**像素值** | 游戏单位（`world` 的 `width`/`height` 为 0 时自动判为此类） |
+| `rect` | 矩形 | 画布单元、节点框 |
+| `path` | 折线（`points` 世界坐标序列） | 路线、连线、仿真轨迹 |
+
+Props：
+
+| Prop | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `items` | `MinimapItem[]` | 必填 | `{ id, world, kind?, points?, group?, highlighted? }` |
+| `viewport` | `WorldRect \| null` | `null` | 当前视口（世界坐标）。与 `camera` 二选一，**前者优先** |
+| `camera` | `Camera2D \| null` | `null` | 只有相机时用它反算可见范围 |
+| `viewportSize` | `{ width, height }` | — | 配合 `camera` 使用 |
+| `width` / `height` | `number` | `180` / `120` | 缩略图尺寸（px） |
+| `padding` | `number` | `6` | 内留白（px） |
+| `panOnClick` | `boolean` | `true` | 点击是否抛 `navigate` |
+| `renderContent` | `Function` | — | 自定义内容绘制，回传 `{ transform, items, viewport }` |
+
+Emits / 插槽：`navigate({ pan, world })`（**相机归宿主所有**，组件只算目标值不改状态）· `overlay` 插槽（比例尺、图例等叠加层）。
+
+**三条硬约束**：
+
+1. **不重绘场景** —— 只画简化图元。不复用 GPU 后端、不复制 DOM 节点、不重算内容层投影。把文字与节点缩小重画一遍会带来双份显存与双份 DOM，是白板类应用最常见的性能事故形态（成熟图形编辑器的缩略图画的也是简化矩形）。
+2. **`pan` 一律用 `panToMinimapPoint` 算** —— `pan` 的语义是「世界原点在屏幕上的偏移」，不是「视口中心的世界坐标」，符号方向极易写反。
+3. **等比适配取两方向比例的较小值** —— 宁可留白也不拉伸，否则圆点会变椭圆、正方形会变长方。
+
+`core/rendering` 同时导出这些纯函数（游戏侧若已有自己的 Canvas 实现，可只取数学、不取组件）：
+`contentWorldBounds` / `minimapTransform` / `minimapViewportRect` / `panToMinimapPoint` / `visibleWorldRectOfCamera` / `MINIMAP_VIEWPORT_MIN_SIZE`。
 
 ## 6. 宿主适配层职责（模板不承担）
 

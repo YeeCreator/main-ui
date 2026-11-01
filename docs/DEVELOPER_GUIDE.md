@@ -2,9 +2,9 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.12.0` / `@main-ui/core 0.11.0`（仓库为 pnpm workspace monorepo，主包位于 `packages/main-ui/`，包名仍为 `main-ui`，开发分支 `dev-v0.5`）。共有 20 个包；单元测试 810 项全绿，构建与类型检查零错误。
+当前工程版本为 `main-ui 0.13.0` / `@main-ui/core 0.12.0`（仓库为 pnpm workspace monorepo，主包位于 `packages/main-ui/`，包名仍为 `main-ui`，开发分支 `dev-v0.5`）。共有 21 个包；单元测试 835 项全绿，构建与类型检查零错误。
 
-下游升级时使用 `pnpm add ../main-ui/main-ui-0.12.0.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时可保留 workspace 内链接。各版本升级说明见 `MIGRATION_GUIDE_*.md`。
+下游升级时使用 `pnpm add ../main-ui/main-ui-0.13.0.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时可保留 workspace 内链接。各版本升级说明见 `MIGRATION_GUIDE_*.md`。
 
 ## 架构边界
 
@@ -28,8 +28,8 @@
 | `@main-ui/view-form` | `packages/view-form` | 模板：配置面板/表单 |
 | `@main-ui/view-node` | `packages/view-node` | 模板：节点图（`@vue-flow/core` 薄封装） |
 | `@main-ui/view-console` | `packages/view-console` | 模板：日志/控制台追加列表 |
+| `@main-ui/view-minimap` | `packages/view-minimap` | 模板：缩略导航（小地图/导航图），纯 SVG |
 | `@main-ui/preset-views` | `packages/preset-views` | 聚合包（仅命名空间重导出） |
-| `@main-ui/view-world` | `packages/view-world` | 视图模板：2D 世界可视化（PixiJS，经 `@main-ui/core/rendering`） |
 | `@main-ui/core/rendering` | `packages/core/src/rendering` | 渲染基础设施：相机数学、约束、交互（吸收自原 viewport-2d-kit） |
 | `main-ui-demo` | `demo` | 演示与验收工程（端口 4183） |
 
@@ -207,6 +207,14 @@ View/panel descriptor 只声明 `rendererKey`/`providerKey`，不把 Vue 或业�
 8. **裁剪必须生效**。`cullContent` 默认开；关掉等于为所有项建 DOM 节点，节点数一多即卡死。
 9. **内核必须被消费**。内核提供编辑 API 时，视图层必须同时有调用点与回归测试。只有内核 + 测试而无视图调用，判为未完成（本项目已发生两次）。
 10. **渲染库只进 `render-*` 与持有它的模板**。`core/rendering` 的渲染器无关文件数不得减少（当前 13 个中 11 个无关）。
+
+### 缩略导航（`view-minimap`）的额外约束
+
+11. **不重绘场景**。缩略图只画简化图元；不复用 GPU 后端、不复制 DOM 节点、不重算内容层投影。想「把整个场景缩小再画一遍」会带来双份显存与双份 DOM —— 这是白板类应用最常见的性能事故形态。
+12. **画法按 `kind` 分派，不建两套实现**。「游戏小地图（质点法）」与「画布导航（缩放法）」除简化画法外每一步相同，而「点」在几何上就是零宽高矩形。拆成两套会得到两个世界↔小图换算，随后各自演进。
+13. **`pan` 只经 `panToMinimapPoint` 计算**。它的语义是「世界原点在屏幕上的偏移」，不是「视口中心的世界坐标」；自己推公式必写反符号。
+14. **相机归宿主**。缩略图只抛目标 `pan`，不改状态 —— 相机可能同时被主视口、多个缩略图、URL 恢复与撤销栈持有。
+15. **等比适配取两方向比例的较小值**。拉伸会让圆点变椭圆；宁可留白。
 
 ## Mount Adapter 开发规则
 
