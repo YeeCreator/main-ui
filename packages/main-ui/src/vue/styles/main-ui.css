@@ -232,13 +232,46 @@
 .main-ui-surface-shell__body { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; }
 .main-ui-surface-shell__body > * { min-height: 0; }
 
-.main-ui-sidebar { display: flex; min-width: 34px; max-width: 320px; border-right: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
+/* 侧栏。宽度由 JS 下发（SIDEBAR_MIN/MAX 见 Sidebar.ts），此处**不再设 max-width** ——
+   曾经的 max-width: 320px 会把宿主传入的更大宽度静默截断（如专精型视角要 460px）。 */
+.main-ui-sidebar { position: relative; display: flex; min-width: 34px; border-right: 1px solid var(--main-ui-border); background: var(--main-ui-panel-muted); }
 .main-ui-sidebar.is-collapsed { width: 34px; }
 .main-ui-sidebar__rail { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }
 .main-ui-sidebar__rail button, .main-ui-sidebar__collapse { width: 28px; min-height: 28px; border: 0; background: transparent; color: inherit; cursor: pointer; }
 .main-ui-sidebar__rail button.is-active, .main-ui-sidebar__rail button:hover { background: var(--main-ui-accent); color: white; }
 .main-ui-sidebar__collapse { align-self: flex-start; margin: 6px 3px; }
-.main-ui-sidebar__resize { writing-mode: vertical-lr; direction: rtl; width: 100%; max-width: 8px; margin: auto 0; }
+/* 侧栏宽度分隔条（sash）—— 骑在侧栏与主区的分界线上，向两侧各溢出 3px 以便命中。
+   命中区 6px（VS Code 同档），视觉上只有悬停/拖动时的那 2px 高亮线，不抢内容。
+   旧实现是栏内一根 8px 的 <input type=range>，看起来像"控件"而不是"栏边界"。 */
+.main-ui-sidebar-sash {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  z-index: 5;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+.main-ui-sidebar-sash__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.main-ui-sidebar-sash:hover .main-ui-sidebar-sash__handle,
+.main-ui-sidebar-sash:focus-visible .main-ui-sidebar-sash__handle {
+  background: var(--main-ui-accent);
+}
+/* 抵消全局 `.main-ui-shell :focus-visible` 的 outline：
+   分隔条只有 6px 宽，outline + 自身高亮线会叠成三条平行细线，比没有提示更乱。
+   焦点提示由上面那条 2px 高亮线承担（WAI-ARIA 要求"可见焦点"，不是"必须有轮廓框"）。 */
+.main-ui-sidebar-sash:focus-visible { outline: none; }
 .main-ui-contribution-surface { min-width: 0; min-height: 0; display: flex; flex-direction: column; flex: 1; overflow: auto; background: var(--main-ui-panel); }
 .main-ui-contribution-surface__header { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-bottom: 1px solid var(--main-ui-border); }
 .main-ui-contribution-surface__header small, .main-ui-contribution-empty span { color: var(--main-ui-text-muted); }

@@ -70,3 +70,28 @@ export const resolveSidebarActiveViewId = (
   if (suggestedId !== null && views.some((view) => view.id === suggestedId)) return suggestedId;
   return views.find((view) => view.defaultVisible)?.id ?? views[0].id;
 };
+
+/**
+ * 侧栏宽度的可调范围（px）。
+ *
+ * 下界由内容决定：窄于此面板内容被压成一条，读不出任何信息。
+ * 上界是为了保住主区 —— 侧栏再怎么"专精"，也不该宽到把画布挤没。
+ */
+export const SIDEBAR_WIDTH_MIN = 240;
+export const SIDEBAR_WIDTH_MAX = 560;
+
+/**
+ * 把任意来源的宽度收敛进可调范围。
+ *
+ * **为什么要在代码里收敛，而不只靠 CSS**：CSS 的 `max-width` 会静默截断 ——
+ * 宿主传 460、声明写 460、`aria-valuenow` 也报 460，而实际渲染只有 320，
+ * 排查时看到的状态全是"对"的，只有量像素才发现被截。故收敛必须发生在
+ * **值进入状态的那一刻**，让所有读取方看到同一个数。
+ *
+ * 只对 `NaN` 单独兜底（它无法比较大小，会一路传染成 `NaN` 样式从而让布局消失）；
+ * `±Infinity` 交给夹取规则自然处理 —— 正无穷夹到上界、负无穷夹到下界。
+ */
+export const clampSidebarWidth = (value: number): number => {
+  if (Number.isNaN(value)) return SIDEBAR_WIDTH_MIN;
+  return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(value)));
+};

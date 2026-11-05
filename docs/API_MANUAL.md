@@ -683,7 +683,7 @@ const items = snapshotToItems(snapshot);   // → {texts, sprites, polygons, pol
 | --- | --- |
 | `activeViewId` | 宿主的**建议**面板（通常是「当前视角默认看哪块」） |
 | `scopeKey` | 作用域键（一般传 workspace id）。变化时清空用户手动选择，使建议重新生效 |
-| `preferredWidth` | 建议宽度；用户拖动过滑块后以用户宽度为准 |
+| `preferredWidth` | 建议宽度（px）；用户拖动过分隔条后以用户宽度为准 |
 
 分权规则由纯函数 `resolveSidebarActiveViewId` 决定，顺序不可调换：
 
@@ -693,6 +693,25 @@ const items = snapshotToItems(snapshot);   // → {texts, sprites, polygons, pol
 
 `Sidebar` 与 `WorkbenchShell` 分别暴露 `activeViewId` / `sidebarViewId`、
 `scopeKey` / `sidebarScopeKey`、`preferredWidth` / `sidebarWidth` 三对同名 prop。
+
+### 侧栏宽度：边界分隔条 + 代码层收敛
+
+宽度由**骑在侧栏与主区分界线上的分隔条（sash）**调整，不是栏内的滑块：
+
+- 命中区 6px（向两侧各溢出 3px），视觉上只有悬停/聚焦时出现的 2px 高亮线，
+  避免 6px 的分隔条被读成「栏里的一个控件」；
+- 光标 `col-resize`，拖动期间锁 `body` 光标与选区（否则越过主区会顺带选中内容）；
+- 可聚焦（`role="separator"` + `tabindex="0"`）：方向键 ±16px、`Shift` ±48px、`Home`/`End` 直达上下界；
+- 双击恢复宿主的建议宽度；
+- 侧栏收起态不渲染分隔条 —— 此时没有可调的边界。
+
+宽度范围由 `SIDEBAR_WIDTH_MIN`（240）与 `SIDEBAR_WIDTH_MAX`（560）定义，
+`clampSidebarWidth` 在**值进入状态时**收敛，并由 `Sidebar` 与 `WorkbenchShell` 共用。
+
+> **不要在 CSS 里再加 `max-width` 兜底**。历史上侧栏样式写过 `max-width: 320px`，
+> 后果是宿主传 460 时：声明是 460、`aria-valuenow` 报 460、实际渲染 320 ——
+> 排查时看到的状态全是「对」的，只有量像素才发现被截。
+> 收敛只应有一处，且在代码里。
 
 ### 活动栏分区：`WorkspaceDescriptor.pinToBottom`
 

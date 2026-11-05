@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import type { ViewContribution } from '../../src/core';
-import { activeViewOf, resolveActiveViewId, resolveControlledViewId, resolveSidebarActiveViewId } from '../../src/core';
+import {
+  SIDEBAR_WIDTH_MAX,
+  SIDEBAR_WIDTH_MIN,
+  activeViewOf,
+  clampSidebarWidth,
+  resolveActiveViewId,
+  resolveControlledViewId,
+  resolveSidebarActiveViewId,
+} from '../../src/core';
 
 const view = (id: string, extra: Partial<ViewContribution> = {}): ViewContribution => ({
   id,
@@ -95,5 +103,35 @@ describe('resolveSidebarActiveViewId', () => {
   test('用户选择与建议都失效 → 首个', () => {
     const views = [view('a'), view('b')];
     expect(resolveSidebarActiveViewId(views, { userActive: 'gone', suggestedId: 'also-gone' })).toBe('a');
+  });
+});
+
+/**
+ * 侧栏宽度收敛。
+ *
+ * 曾经的缺陷：CSS 的 `max-width: 320px` 静默截断宿主传入的更大宽度 ——
+ * 宿主声明 460、`aria-valuenow` 也报 460，实际却只渲染 320，状态全部"看起来对"。
+ * 故收敛必须在值进入状态时完成，并让所有读取方看到同一个数。
+ */
+describe('clampSidebarWidth', () => {
+  test('范围内原样返回', () => {
+    expect(clampSidebarWidth(320)).toBe(320);
+  });
+
+  test('小于下界 → 抬到下界', () => {
+    expect(clampSidebarWidth(10)).toBe(SIDEBAR_WIDTH_MIN);
+  });
+
+  test('大于上界 → 压到上界（正是被 CSS 静默截断的那一档）', () => {
+    expect(clampSidebarWidth(9999)).toBe(SIDEBAR_WIDTH_MAX);
+  });
+
+  test('小数四舍五入，避免亚像素在缩放/读数间来回抖', () => {
+    expect(clampSidebarWidth(321.6)).toBe(322);
+  });
+
+  test('NaN / Infinity 退回可用值而不是把布局算崩', () => {
+    expect(clampSidebarWidth(Number.NaN)).toBe(SIDEBAR_WIDTH_MIN);
+    expect(clampSidebarWidth(Number.POSITIVE_INFINITY)).toBe(SIDEBAR_WIDTH_MAX);
   });
 });
