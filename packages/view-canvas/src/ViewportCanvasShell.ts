@@ -57,6 +57,29 @@ const TOOLBAR_STYLE: CSSProperties = {
 const TOOLBAR_CENTER_STYLE: CSSProperties = { minWidth: 0, overflow: 'hidden' };
 const BODY_STYLE: CSSProperties = { minWidth: 0, minHeight: 0, position: 'relative' };
 
+/**
+ * 某一侧面板是否应占位渲染。
+ *
+ * ## 判据只有两个输入
+ *
+ * 1. `hasSlot` —— **调用方是否真的提供了该侧插槽内容**；
+ * 2. `collapseEmpty` —— 空插槽时是否收起。
+ *
+ * ## ⚠️ 这条契约有个高发的破法，务必知晓
+ *
+ * `hasSlot` 必须是**最上游**是否给了内容。中间转发层（宿主在 `Shell` 之上再包一层壳）若
+ * 无条件写 `<template #left><slot name="left" /></template>`，转发生成的插槽函数**恒存在**，
+ * 于是这里的判断恒为真、`collapseEmpty` 彻底失效，表现为**两侧各留一个只剩内距与边框的空壳**
+ * （实测 21px：0 宽内容 + 10px×2 内距 + 1px 边框）。
+ *
+ * 转发层的正确写法是 `<template v-if="$slots.left" #left>` —— 判据落在「上游给没给」。
+ *
+ * 本函数只负责「给了判据之后怎么裁决」，无法识破转发层的假阳性；
+ * 故它被抽出来单独测，使至少这一层的行为是钉死的。
+ */
+export const shouldRenderSidePanel = (hasSlot: boolean, collapseEmpty: boolean): boolean =>
+  hasSlot || !collapseEmpty;
+
 export const ViewportCanvasShell = defineComponent({
   name: 'ViewportCanvasShell',
   props: {
@@ -68,12 +91,15 @@ export const ViewportCanvasShell = defineComponent({
   setup(props, { slots }) {
     const hasLeft = computed(() => Boolean(slots.left));
     const hasRight = computed(() => Boolean(slots.right));
+    /** 两侧面板是否占位（抽成纯函数以便测试，判据见 `shouldRenderSidePanel`）。 */
+    const showLeft = computed(() => shouldRenderSidePanel(hasLeft.value, props.collapseEmptySidePanels));
+    const showRight = computed(() => shouldRenderSidePanel(hasRight.value, props.collapseEmptySidePanels));
 
     const rootStyle = computed<CSSProperties>(() => {
       const columns: string[] = [];
-      if (hasLeft.value || !props.collapseEmptySidePanels) columns.push(toCssSize(props.leftPanelWidth, '210px'));
+      if (showLeft.value) columns.push(toCssSize(props.leftPanelWidth, '210px'));
       columns.push('minmax(0, 1fr)');
-      if (hasRight.value || !props.collapseEmptySidePanels) columns.push(toCssSize(props.rightPanelWidth, '320px'));
+      if (showRight.value) columns.push(toCssSize(props.rightPanelWidth, '320px'));
       return { ...ROOT_STYLE, display: 'grid', gridTemplateColumns: columns.join(' ') };
     });
 
@@ -93,7 +119,7 @@ export const ViewportCanvasShell = defineComponent({
     return () => {
       const children: VNode[] = [];
 
-      if (hasLeft.value || !props.collapseEmptySidePanels) {
+      if (showLeft.value) {
         children.push(
           h('aside', { style: { ...PANEL_STYLE, borderRight: '1px solid var(--mui-color-border, var(--main-ui-border, #d7dbe3))' } }, renderSlot('left')),
         );
@@ -110,7 +136,7 @@ export const ViewportCanvasShell = defineComponent({
         ]),
       );
 
-      if (hasRight.value || !props.collapseEmptySidePanels) {
+      if (showRight.value) {
         children.push(
           h('aside', { style: { ...PANEL_STYLE, borderLeft: '1px solid var(--mui-color-border, var(--main-ui-border, #d7dbe3))' } }, renderSlot('right')),
         );
