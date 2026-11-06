@@ -56,3 +56,21 @@
   stroke-dasharray: 4 3;
   pointer-events: none;
 }
+
+/**
+ * 圆形外框的描边。
+ *
+ * 裁切（`clipPath`）只影响绘制范围，不会画出轮廓 —— 圆形缩略图若不加这圈，
+ * 边界会「无中生有地消失」，使用者看不出世界的实际轮廓在哪里结束。
+ */
+.main-ui-minimap__outline {
+  fill: none;
+  stroke: var(--mui-color-border, #d8dbe2);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+/* 圆形外框时，容器本身也应是圆的（边框与裁切一致） */
+.main-ui-minimap.is-circle {
+  border-radius: 50%;
+}

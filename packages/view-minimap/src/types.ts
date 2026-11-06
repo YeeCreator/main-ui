@@ -19,6 +19,17 @@ import type { Vec2, WorldRect } from '@main-ui/core/rendering';
 /** 缩略图内一项内容的简化画法。 */
 export type MinimapItemKind = 'point' | 'rect' | 'path';
 
+/**
+ * 缩略图的**外框形状**。
+ *
+ * 为什么不总是方形：缩略图是「世界的缩小映射」，它的外框应当与世界本身的
+ * 轮廓一致。世界是矩形范围时方形正确；世界是圆形时，方形外框会在四角
+ * 凭空造出「那里也有内容」的错觉 —— 使用者据此导航过去，发现是空的。
+ *
+ * 形状只影响**可视裁切与边框**，不影响坐标映射（映射恒按世界范围等比适配）。
+ */
+export type MinimapShape = 'rect' | 'circle';
+
 /** 缩略图内的一项内容（世界坐标）。 */
 export type MinimapItem = {
   /** 稳定标识（用于渲染 key）。 */

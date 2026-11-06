@@ -15,7 +15,15 @@ import {
   type Vec2,
   type WorldRect,
 } from '@main-ui/core/rendering';
-import type { MinimapItem, MinimapItemKind, MinimapViewportFrame } from './types';
+import type { MinimapItem, MinimapItemKind, MinimapShape, MinimapViewportFrame } from './types';
+
+/**
+ * 实例级序号：`clipPath` 的 id 必须在整页唯一。
+ *
+ * 同一页可能同时存在多个缩略图（对比布局、多窗格），写死 id 会让它们
+ * 共用第一个实例的裁切区域。
+ */
+let clipSeq = 0;
 
 /**
  * Minimap —— 缩略导航视图（游戏小地图 / 画布缩略图共用）。
@@ -59,6 +67,13 @@ export const Minimap = defineComponent({
     padding: { type: Number, default: 6 },
     /** 点击是否抛出 `navigate`。 */
     panOnClick: { type: Boolean, default: true },
+    /**
+     * 外框形状：`rect`（缺省，方形）或 `circle`（圆形）。
+     *
+     * 世界是圆盘时用 `circle`：内容按 `clipPath` 裁成圆，四角不再显示
+     * 「实际不存在的区域」。坐标映射不受影响（恒按世界范围等比适配）。
+     */
+    shape: { type: String as PropType<MinimapShape>, default: 'rect' },
     /** 自定义内容绘制（用于需要更精细画法的宿主）。 */
     renderContent: { type: Function as unknown as PropType<MinimapContentSlot | null>, default: null },
   },
@@ -67,6 +82,8 @@ export const Minimap = defineComponent({
     navigate: (_payload: { pan: Vec2; world: Vec2 }) => true,
   },
   setup(props, { emit, slots }) {
+    // 每个实例一个唯一 clip 序号（见文件头 `clipSeq` 注释）
+    const instanceClipSeq = ++clipSeq;
     const size = computed<MinimapSize>(() => ({ width: props.width, height: props.height }));
 
     /** 参与「内容范围」的矩形：内容包围盒 ∪ 视口矩形。 */
@@ -195,6 +212,24 @@ export const Minimap = defineComponent({
     return () => {
       const t = transform.value;
       const children: VNode[] = [];
+      const isCircle = props.shape === 'circle';
+      const clipId = `main-ui-minimap-clip-${instanceClipSeq}`;
+
+      if (isCircle) {
+        // 圆形外框：内容按世界轮廓裁切，四角不再显示「实际不存在的区域」
+        children.push(h('defs', null, [
+          h('clipPath', { id: clipId }, [
+            h('circle', {
+              cx: props.width / 2,
+              cy: props.height / 2,
+              r: Math.min(props.width, props.height) / 2,
+            }),
+          ]),
+        ]));
+      }
+
+      // 内容与视口框都要被裁（视口框同样不该越出圆外）
+      const contentChildren: VNode[] = [];
 
       if (t) {
         if (props.renderContent) {
@@ -203,14 +238,14 @@ export const Minimap = defineComponent({
             items: props.items,
             viewport: viewportFrame.value,
           });
-          children.push(...(Array.isArray(custom) ? custom : [custom]));
+          contentChildren.push(...(Array.isArray(custom) ? custom : [custom]));
         } else {
-          children.push(...props.items.map((item) => renderItem(item, t)));
+          contentChildren.push(...props.items.map((item) => renderItem(item, t)));
         }
 
         const vf = viewportFrame.value;
         if (vf) {
-          children.push(h('rect', {
+          contentChildren.push(h('rect', {
             class: 'main-ui-minimap__viewport',
             x: vf.frame.x,
             y: vf.frame.y,
@@ -220,6 +255,22 @@ export const Minimap = defineComponent({
         }
       }
 
+      children.push(h(
+        'g',
+        isCircle ? { 'clip-path': `url(#${clipId})` } : {},
+        contentChildren,
+      ));
+
+      if (isCircle) {
+        // 圆形描边：裁切只影响绘制，边界仍需要一圈可见的轮廓
+        children.push(h('circle', {
+          class: 'main-ui-minimap__outline',
+          cx: props.width / 2,
+          cy: props.height / 2,
+          r: Math.min(props.width, props.height) / 2 - 0.5,
+        }));
+      }
+
       // 宿主自定义叠加层（例如比例尺、图例）。与内容层分开，避免互相覆盖。
       if (slots.overlay && t) {
         const overlay = slots.overlay({ transform: t });
@@ -227,7 +278,11 @@ export const Minimap = defineComponent({
       }
 
       return h('svg', {
-        class: ['main-ui-minimap', props.panOnClick ? 'is-interactive' : ''],
+        class: [
+          'main-ui-minimap',
+          props.panOnClick ? 'is-interactive' : '',
+          props.shape === 'circle' ? 'is-circle' : '',
+        ],
         width: props.width,
         height: props.height,
         viewBox: `0 0 ${props.width} ${props.height}`,
