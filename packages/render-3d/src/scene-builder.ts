@@ -37,7 +37,7 @@ import {
 } from './geometry-factory';
 import { createWideLine, createWideSegments, wideLinesAvailable } from './wide-lines';
 import { createSpriteText, syncTextBillboard } from './text-sprite';
-import { LAYER_Z } from './units';
+import { LAYER_ORDER, LAYER_Z } from './units';
 
 /** 构建结果：根对象 + 显式销毁 + 线宽分辨率同步。 */
 export interface BuiltScene {
@@ -104,12 +104,16 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
       const useWide = grid.lineWidth > 1 && wideLinesAvailable();
       if (useWide) {
         const segments = createWideSegments(positions, grid.lineWidth, grid.lineColor);
-        const material = segments.material as unknown as { resolution?: { set(x: number, y: number): void } };
+        const material = segments.material as unknown as { resolution?: { set(x: number, y: number): void }; depthWrite?: boolean };
         if (material.resolution) wideLines.push(material);
+        material.depthWrite = false;
+        segments.renderOrder = LAYER_ORDER.gridLine;
         root.add(segments);
         disposables.push(segments.geometry, segments.material as unknown as { dispose(): void });
       } else {
         const fallback = buildFallbackLine(positions, grid.lineColor);
+        (fallback.material as { depthWrite?: boolean }).depthWrite = false;
+        fallback.renderOrder = LAYER_ORDER.gridLine;
         root.add(fallback);
         disposables.push(fallback.geometry, fallback.material as unknown as { dispose(): void });
       }
@@ -152,6 +156,9 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
         });
         mesh.instanceMatrix.needsUpdate = true;
         mesh.name = `grid-fill:${color}`;
+        // 分层渲染：填充面是最底层（见 `LAYER_ORDER` 的说明）
+        material.depthWrite = false;
+        mesh.renderOrder = LAYER_ORDER.gridFill;
         root.add(mesh);
         disposables.push(material);
       }
@@ -173,6 +180,8 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
       transparent: (item.fillAlpha ?? 1) < 1,
       opacity: item.fillAlpha ?? 1,
       // 无光照：MeshBasicMaterial 即 unlit，符合二维档预设第 2 条。
+      // 分层渲染：不写深度，整个盘面作为一个平面整体压在网格之上
+      depthWrite: false,
     });
     const mesh = new Mesh(geometry, material);
     mesh.position.y = item.z;
@@ -190,6 +199,7 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
      * 下方无图元，故不影响观感。
      */
     mesh.rotation.x = Math.PI / 2;
+    mesh.renderOrder = LAYER_ORDER.polygon;
     root.add(mesh);
     disposables.push(geometry, material);
   }
@@ -212,13 +222,17 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
         worldUnits: false,
         opacity: item.fillAlpha ?? 1,
       });
-      const material = line.material as unknown as { resolution?: { set(x: number, y: number): void } };
+      const material = line.material as unknown as { resolution?: { set(x: number, y: number): void }; depthWrite?: boolean };
       if (material.resolution) wideLines.push(material);
+      material.depthWrite = false;
+      line.renderOrder = LAYER_ORDER.polyline;
       root.add(line);
       disposables.push(line.geometry, line.material as unknown as { dispose(): void });
     } else {
       // 1px 或不支持粗线：降级到原生线段（保证可见，不保证线宽可变）
       const fallback = buildFallbackLine(positions, item.stroke ?? '#333333');
+      (fallback.material as { depthWrite?: boolean }).depthWrite = false;
+      fallback.renderOrder = LAYER_ORDER.polyline;
       root.add(fallback);
       disposables.push(fallback.geometry, fallback.material as unknown as { dispose(): void });
     }
@@ -231,6 +245,9 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
   for (const group of plan.instanced.values()) {
     const instanced = buildInstanced(group, matrix, position, scale);
     if (!instanced) continue;
+    // 分层渲染：不写深度，同层内实体之间不产生暧昧的深浅交错
+    instanced.material.depthWrite = false;
+    instanced.mesh.renderOrder = LAYER_ORDER.sprite;
     root.add(instanced.mesh);
     disposables.push(instanced.material);
   }
@@ -267,6 +284,11 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
 
     // `'full'` 与 `'axis'` 都需要每帧对齐相机，登记下来由 syncBillboards 处理
     if (label.billboard !== 'none') billboards.push(label.object);
+
+    // 分层渲染：文字恒在最上层
+    const labelMaterial = (label.object as unknown as { material?: { depthWrite?: boolean } }).material;
+    if (labelMaterial) labelMaterial.depthWrite = false;
+    label.object.renderOrder = LAYER_ORDER.text;
 
     root.add(label.object);
     disposables.push({ dispose: label.dispose });

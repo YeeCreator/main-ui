@@ -8,7 +8,7 @@
  */
 
 import type { Camera2D, OrbitCamera, Vec2 } from '@main-ui/core/rendering';
-import { camera2DToOrbit, orbitToCamera2D } from '@main-ui/core/rendering';
+import { camera2DToOrbit, orbitBasis, orbitToCamera2D } from '@main-ui/core/rendering';
 import type { OrthoPreset } from './units';
 import { ORTHO_PRESET } from './units';
 
@@ -25,6 +25,13 @@ export interface OrthoCameraPlan {
   /** 相机位置与注视点（三维世界坐标）。 */
   position: { x: number; y: number; z: number };
   target: { x: number; y: number; z: number };
+  /**
+   * 相机的上方向（可选）。
+   *
+   * 给了它就用它（trackball / roll 档必须如此），否则由 `cameraUpForPolar` 推导。
+   * 这两条路不能混：roll 后的姿态用极角无法表达。
+   */
+  up?: { x: number; y: number; z: number };
   /** 是否启用光照（二维档 = false，场景内不建灯）。 */
   lighting: boolean;
 }
@@ -38,6 +45,8 @@ export interface PerspectiveCameraPlan {
   far: number;
   position: { x: number; y: number; z: number };
   target: { x: number; y: number; z: number };
+  /** 相机上方向（可选；见 `OrthoCameraPlan.up`）。 */
+  up?: { x: number; y: number; z: number };
   lighting: boolean;
 }
 
@@ -104,11 +113,33 @@ export function planCamera(options: {
     y: orbit.distance * cosPolar,
     z: orbit.distance * sinPolar * Math.cos(orbit.azimuth),
   };
-  const position = {
-    x: orbit.target.x + offset.x,
-    y: orbit.target.y + offset.y,
-    z: orbit.target.z + offset.z,
-  };
+
+  /**
+   * 位置与上方向的来源取决于姿态是否带四元数。
+   *
+   * - **带 `orientation`**（trackball / roll）：位置沿 `−forward · distance` 走，
+   *   上方向取四元数的 `up`。**不能**再用 azimuth/polar 推位置 —— 二者是派生值，
+   *   在 roll 情形下无法反推出正确的位置。
+   * - **不带**：沿用欧拉角公式（既有行为，逐字节不变）。
+   */
+  const hasOrientation = Boolean(orbit.orientation);
+  let position: { x: number; y: number; z: number };
+  let orbitUp: { x: number; y: number; z: number } | undefined;
+  if (hasOrientation) {
+    const basis = orbitBasis(orbit);
+    position = {
+      x: orbit.target.x - basis.forward.x * orbit.distance,
+      y: orbit.target.y - basis.forward.y * orbit.distance,
+      z: orbit.target.z - basis.forward.z * orbit.distance,
+    };
+    orbitUp = basis.up;
+  } else {
+    position = {
+      x: orbit.target.x + offset.x,
+      y: orbit.target.y + offset.y,
+      z: orbit.target.z + offset.z,
+    };
+  }
   const target = { ...orbit.target };
 
   // 近/远裁剪面按 viewHeight 与 distance 量级推导，保证不裁掉地面内容。
@@ -125,6 +156,7 @@ export function planCamera(options: {
       far,
       position,
       target,
+      up: orbitUp,
       lighting: preset.lighting,
     };
   }
@@ -150,6 +182,7 @@ export function planCamera(options: {
     far,
     position,
     target,
+    up: orbitUp,
     lighting: preset.lighting,
   };
 }

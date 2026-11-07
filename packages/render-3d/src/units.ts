@@ -52,6 +52,48 @@ export const LAYER_Z = {
   text: COPLANAR_EPSILON * 3,
 } as const;
 
+/**
+ * 图元的绘制顺序（显式分层）。
+ *
+ * ## 为什么光靠 `LAYER_Z` 的微小抬升不够
+ *
+ * 二维画面是「按调用顺序叠画」，天然有确定的前后关系。三维靠**深度缓冲**判定
+ * 前后，而平面图元之间只差 `COPLANAR_EPSILON = 0.02` 世界单位。
+ *
+ * 二维俯视时这点差距足够（深度值差异远大于精度）；但相机一倾斜，
+ * 深度缓冲的有效精度沿视线方向被压缩，0.02 的差距可能落到同一个深度量化格 ——
+ * 于是**同一层内部出现随机的深浅交错**，视觉上就是「毛刺 / 麻点」。
+ * 2026-11-08 使用者报告的「切到真 3D 时图层突然重叠产生毛刺感」即此。
+ *
+ * ## 解法：分层渲染，层内不写深度
+ *
+ * 三层同时做，缺一不可：
+ *
+ * 1. **`renderOrder`**：给每层一个递增序数，让绘制顺序**完全由层决定**，
+ *    不依赖深度缓冲的浮点精度。
+ * 2. **`depthWrite = false`**：同层内的图元（如一批实例化实体）不互相写深度，
+ *    避免它们之间的微小 z 差异产生斑驳。层的先后已由 `renderOrder` 保证。
+ * 3. **保留 `depthTest = true`**：这样真正有前后的实体（若将来有 3D 立体几何）
+ *    之间仍能正确遮挡。
+ *
+ * 副作用：同层内的实体不再互相遮挡。对本库的图元（面、线、点、文字）
+ * 这正是想要的效果 —— 它们本来就该按「层」整体压在前一层之上。
+ */
+export const LAYER_ORDER = {
+  /** 网格填充面（最底）。 */
+  gridFill: 0,
+  /** 网格线。 */
+  gridLine: 1,
+  /** 多边形（盘面）。 */
+  polygon: 2,
+  /** 折线。 */
+  polyline: 3,
+  /** 精灵（实例化点状实体）。 */
+  sprite: 4,
+  /** 文字（最上）。 */
+  text: 5,
+} as const;
+
 /** 数值色（0xRRGGBB）→ CSS 十六进制串（three 的 `Color` 接受该形式）。 */
 export function colorToCss(color: number | undefined, fallback = 0x888888): string {
   const value = typeof color === 'number' && Number.isFinite(color) ? color : fallback;

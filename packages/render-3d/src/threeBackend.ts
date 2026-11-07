@@ -27,9 +27,12 @@ import {
   cameraUpForPolar,
   clampPolar,
   orbitPan,
+  orbitResetRoll,
+  orbitRoll,
   orbitRotate,
   orbitToCamera2D,
   orbitZoom,
+  orbitZoomAtPoint,
 } from '@main-ui/core/rendering';
 import type {
   BackendCapabilities,
@@ -363,6 +366,37 @@ export class ThreeViewportBackend implements ViewportBackend {
     this.notifyCamera();
   }
 
+  /** 以世界锚点缩放（锚点屏幕位置不动）。 */
+  orbitZoomAt(factor: number, anchorWorld: Vec2): void {
+    this.orbitState = orbitZoomAtPoint(this.orbitState, factor, anchorWorld);
+    this.applyCameraToThree();
+    this.notifyCamera();
+  }
+
+  /** 绕视线轴自转（roll）。 */
+  orbitRollBy(angle: number): void {
+    this.orbitState = orbitRoll(this.orbitState, angle);
+    this.applyCameraToThree();
+    this.notifyCamera();
+  }
+
+  /** 清掉累积 roll（保持视线方向）。 */
+  orbitResetRoll(): void {
+    this.orbitState = orbitResetRoll(this.orbitState);
+    this.applyCameraToThree();
+    this.notifyCamera();
+  }
+
+  /** 切换旋转模型。 */
+  orbitSetRotationModel(model: 'turntable' | 'trackball'): void {
+    if (this.orbitState.rotationModel === model) return;
+    this.orbitState = { ...this.orbitState, rotationModel: model };
+    // 切回 turntable 时清掉四元数姿态，否则它仍压着角度、切换看起来无效
+    if (model === 'turntable') delete this.orbitState.orientation;
+    this.applyCameraToThree();
+    this.notifyCamera();
+  }
+
   orbitRotateBy(deltaAzimuth: number, deltaPolar = 0): void {
     this.orbitState = orbitRotate(this.orbitState, deltaAzimuth, deltaPolar);
     this.applyCameraToThree();
@@ -387,8 +421,12 @@ export class ThreeViewportBackend implements ViewportBackend {
     getOrbit: () => this.getOrbit(),
     setOrbit: (orbit) => this.setOrbit(orbit),
     rotateBy: (deltaAzimuth, deltaPolar = 0) => this.orbitRotateBy(deltaAzimuth, deltaPolar),
+    rollBy: (angle) => this.orbitRollBy(angle),
+    resetRoll: () => this.orbitResetRoll(),
     panBy: (deltaWorld) => this.orbitPanBy(deltaWorld),
     zoomBy: (factor) => this.orbitZoomBy(factor),
+    zoomAt: (factor, anchorWorld) => this.orbitZoomAt(factor, anchorWorld),
+    setRotationModel: (model) => this.orbitSetRotationModel(model),
   };
 
   private rebuildScene(): void {
@@ -422,8 +460,14 @@ export class ThreeViewportBackend implements ViewportBackend {
       this.orthoCamera.near = plan.near;
       this.orthoCamera.far = plan.far;
       this.orthoCamera.position.set(plan.position.x, plan.position.y, plan.position.z);
-      // 正俯视时 up=(0,1,0) 与视线平行，lookAt 会退化（NaN）；按极角切换 up。
-      const up = cameraUpForPolar(this.orbitState.polar);
+      /**
+       * 上方向：**plan 给了就用 plan 的**。
+       *
+       * trackball / roll 档下的姿态含自转，极角无法表达 —— 若仍按
+       * `cameraUpForPolar(polar)` 推导，滚过的画面会被强行摆正（视觉上「转不上去」）。
+       * 只有在无 orientation 的 turntable 档才走极角推导（那也是避免正俯视退化的路径）。
+       */
+      const up = plan.up ?? cameraUpForPolar(this.orbitState.polar);
       this.orthoCamera.up.set(up.x, up.y, up.z);
       this.orthoCamera.lookAt(new Vector3(plan.target.x, plan.target.y, plan.target.z));
       this.orthoCamera.updateProjectionMatrix();
@@ -433,7 +477,7 @@ export class ThreeViewportBackend implements ViewportBackend {
       this.perspCamera.near = plan.near;
       this.perspCamera.far = plan.far;
       this.perspCamera.position.set(plan.position.x, plan.position.y, plan.position.z);
-      const up = cameraUpForPolar(this.orbitState.polar);
+      const up = plan.up ?? cameraUpForPolar(this.orbitState.polar);
       this.perspCamera.up.set(up.x, up.y, up.z);
       this.perspCamera.lookAt(new Vector3(plan.target.x, plan.target.y, plan.target.z));
       this.perspCamera.updateProjectionMatrix();
