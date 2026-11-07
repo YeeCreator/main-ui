@@ -23,6 +23,7 @@ import type { MainUiViewLifecycle } from 'main-ui/core';
 import {
   PixiViewportBackend,
   classifyWheelIntent,
+  cameraRotation,
   createPointerGestureTracker,
   defaultBackendRegistry,
   defaultDpr,
@@ -494,22 +495,42 @@ export const WorldView = defineComponent({
         const anchor = { x: event.clientX, y: event.clientY };
 
         if (altMode === 'rotate') {
-          // 水平位移 → 绕竖轴旋转；以指针位置为锚点（旋转中心随指）
-          const delta = rotateDeltaFromDrag(event.clientX - lastRotateX);
+          // 有轨道能力（三维档）：绕目标点转，含俯仰 —— 这才是真三维旋转
+          const orbitApi = backend.orbit;
+          const deltaAzimuth = rotateDeltaFromDrag(event.clientX - lastRotateX);
+          const deltaPolar = rotateDeltaFromDrag(dy, 0.006);
           lastRotateX = event.clientX;
-          if (delta !== 0) {
-            backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: delta, anchorScreen: anchor }));
+          if (orbitApi) {
+            if (deltaAzimuth !== 0 || deltaPolar !== 0) orbitApi.rotateBy(deltaAzimuth, deltaPolar);
+          } else if (deltaAzimuth !== 0) {
+            // 无轨道能力（二维档）：退回画面旋转
+            backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: deltaAzimuth, anchorScreen: anchor }));
           }
           return;
         }
         if (altMode === 'pan') {
-          if (dx !== 0 || dy !== 0) backend.setCamera(panBy(backend.getCamera(), { x: dx, y: dy }));
+          const orbitApi = backend.orbit;
+          if (orbitApi) {
+            // 轨道档：把屏幕位移换算成地面位移（按 scale 反比），改 target 而非 pan
+            const cam = backend.getCamera();
+            const s = cam.scale > 0 ? cam.scale : 1;
+            const rot = cameraRotation(cam);
+            const cos = Math.cos(rot);
+            const sin = Math.sin(rot);
+            const wx = (dx * cos + dy * sin) / s;
+            const wy = (-dx * sin + dy * cos) / s;
+            if (wx !== 0 || wy !== 0) orbitApi.panBy({ x: wx, y: wy });
+          } else if (dx !== 0 || dy !== 0) {
+            backend.setCamera(panBy(backend.getCamera(), { x: dx, y: dy }));
+          }
           return;
         }
         if (altMode === 'zoom') {
-          // 垂直位移 → 指数缩放；以指针为锚点，缩放时指下内容不动
           const factor = zoomFactorFromDrag(dy);
-          if (factor !== 1) {
+          const orbitApi = backend.orbit;
+          if (orbitApi) {
+            if (factor !== 1) orbitApi.zoomBy(factor);
+          } else if (factor !== 1) {
             backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor, anchorScreen: anchor }));
           }
           return;
@@ -701,6 +722,15 @@ export const WorldView = defineComponent({
       next.onCameraChange(emitCamera);
       next.applySnapshot({ snapshot: props.snapshot, grid: props.grid });
 
+      // 后端挂载时用的容器尺寸可能与真实尺寸不符（三维档尤其如此：
+      // 它没有 Pixi 那种自动跟随容器的机制）。必须显式对齐一次再 fit，
+      // 否则视锥按错的尺寸算，画面会被裁切或放大。
+      const host = contentRendererRef.value;
+      if (host && host.clientWidth > 0 && host.clientHeight > 0) {
+        next.resize(host.clientWidth, host.clientHeight);
+        next.fitToBounds(resolvedViewBox.value);
+      }
+
       const restore = previousCamera ?? (pendingCamera.value ? toCamera2D(pendingCamera.value) : null);
       if (restore) next.setCamera(restore);
       pendingCamera.value = null;
@@ -752,16 +782,25 @@ export const WorldView = defineComponent({
     let contentResizeObserver: ResizeObserver | null = null;
 
     /**
-     * 同步内容层尺寸。
+     * 同步容器尺寸给**内容层**与**后端**。
      *
-     * 内容层用**容器**尺寸做投影与裁剪，必须与实际渲染面积一致；
-     * 否则裁剪边界会偏移，表现为「视野内的公式不显示」。
+     * 内容层用容器尺寸做投影与裁剪，必须与实际渲染面积一致；否则裁剪边界会偏移，
+     * 表现为「视野内的内容不显示」。
+     *
+     * **后端也必须收到 `resize`**：二维档（Pixi）自带 `resizeTo` 会自动跟随容器，
+     * 掩盖了这个缺口；三维档没有该机制 —— 不显式通知，它的 `size` 永远停在
+     * 挂载时的初始值，视锥随之算错，表现为「三维画面只显示左上角且放大约 2 倍」
+     * （初始 1×1 或旧尺寸被 dpr 放大后与真实容器不匹配）。
      */
     const syncContentSize = (): void => {
       const el = contentRendererRef.value;
       if (!el) return;
       const width = el.clientWidth;
       const height = el.clientHeight;
+      if (width > 0 && height > 0) {
+        // 后端尺寸：每次尺寸变化都要通知，三维档靠它算视锥
+        backend?.resize(width, height);
+      }
       if (width === contentSize.value.width && height === contentSize.value.height) return;
       contentSize.value = { width, height };
     };

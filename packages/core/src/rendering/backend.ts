@@ -15,6 +15,7 @@
 
 import type { EntitySnapshot, GridSpec } from '../primitives/types';
 import type { Camera2D, Vec2, ViewBox } from './camera';
+import type { OrbitCamera } from './camera-bridge';
 
 /** 后端支持的视图维度。 */
 export type BackendDimension = 2 | 3;
@@ -140,6 +141,44 @@ export interface ViewportBackend {
   setViewBox(viewBox: ViewBox): void;
   /** 读取当前世界范围。 */
   getViewBox(): ViewBox;
+
+  /**
+   * 轨道相机读写（**可选**，仅三维档实现）。
+   *
+   * 为什么不把轨道塞进 `getCamera/setCamera`：`Camera2D` 是**所有后端共用的
+   * 统一表示**，它的 `scale/pan/rotation/polar` 已足够表达「看哪里、看多大、
+   * 以什么姿态看」。轨道参数（`distance` / `target.y`）是三维后端**内部**的
+   * 实现细节，二维后端不该看见。
+   *
+   * 但模板层需要能问一句「你有轨道吗」，才能把三维档的旋转路由到
+   * `orbitRotateBy`（含俯仰），而不是二维的 `rotateAtScreenPoint`（只转画面）。
+   */
+  readonly orbit?: OrbitBackendApi;
+}
+
+/**
+ * 三维后端暴露的最小轨道接口（**可选能力**）。
+ *
+ * 模板层用法（`view-world`）：
+ *
+ * ```ts
+ * if (backend.orbit) backend.orbit.rotateBy(deltaAzimuth, deltaPolar);
+ * else backend.setCamera(rotateAtScreenPoint(backend.getCamera(), ...));
+ * ```
+ *
+ * 即：**有轨道走轨道，没轨道退回二维旋转** —— 同一套手势在两种后端下都成立。
+ */
+export interface OrbitBackendApi {
+  /** 读取轨道相机（可序列化纯值）。 */
+  getOrbit(): OrbitCamera;
+  /** 写入轨道相机。 */
+  setOrbit(orbit: OrbitCamera): void;
+  /** 绕目标点旋转（弧度增量；`deltaPolar` 缺省 0）。 */
+  rotateBy(deltaAzimuth: number, deltaPolar?: number): void;
+  /** 按世界平面位移平移目标点。 */
+  panBy(deltaWorld: Vec2): void;
+  /** 按倍率缩放（正交档改 `viewHeight`，透视档改 `distance`）。 */
+  zoomBy(factor: number): void;
 }
 
 /**

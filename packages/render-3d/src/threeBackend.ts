@@ -34,6 +34,7 @@ import {
 import type {
   BackendCapabilities,
   BackendCellHit,
+  OrbitBackendApi,
   ViewportApplySnapshotOptions,
   ViewportBackend,
   ViewportBackendMountOptions,
@@ -86,7 +87,7 @@ export class ThreeViewportBackend implements ViewportBackend {
   private built: BuiltScene | null = null;
   private orthoCamera: OrthographicCamera;
   private perspCamera: PerspectiveCamera;
-  private orbit: OrbitCamera;
+  private orbitState: OrbitCamera;
   private currentPlan: CameraPlan | null = null;
   private projection: 'orthographic' | 'perspective';
   private size = { width: 1, height: 1 };
@@ -105,7 +106,7 @@ export class ThreeViewportBackend implements ViewportBackend {
     this.projection = options.projection ?? 'orthographic';
     this.orthoCamera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
     this.perspCamera = new PerspectiveCamera(45, 1, 0.1, 1000);
-    this.orbit = camera2DToOrbit({ scale: 1, pan: { x: 400, y: 300 } }, this.size);
+    this.orbitState = camera2DToOrbit({ scale: 1, pan: { x: 400, y: 300 } }, this.size);
   }
 
   async mount(container: HTMLElement, options: ViewportBackendMountOptions): Promise<void> {
@@ -185,11 +186,11 @@ export class ThreeViewportBackend implements ViewportBackend {
 
   getCamera(): Camera2D {
     // 二维档统一表示：平面 scale + pan（首个后端实现的语义在三维侧同样成立）。
-    return orbitToCamera2D(this.orbit, this.size);
+    return orbitToCamera2D(this.orbitState, this.size);
   }
 
   setCamera(camera: Camera2D): void {
-    this.orbit = camera2DToOrbit(camera, this.size);
+    this.orbitState = camera2DToOrbit(camera, this.size);
     this.applyCameraToThree();
     this.notifyCamera();
   }
@@ -210,7 +211,7 @@ export class ThreeViewportBackend implements ViewportBackend {
       screen: point,
       plan: this.currentPlan as OrthoCameraPlan,
       viewportPx: this.size,
-      screenRotation: -this.orbit.azimuth,
+      screenRotation: -this.orbitState.azimuth,
     });
   }
 
@@ -220,7 +221,7 @@ export class ThreeViewportBackend implements ViewportBackend {
       world: point,
       plan: this.currentPlan as OrthoCameraPlan,
       viewportPx: this.size,
-      screenRotation: -this.orbit.azimuth,
+      screenRotation: -this.orbitState.azimuth,
     });
   }
 
@@ -274,14 +275,27 @@ export class ThreeViewportBackend implements ViewportBackend {
     // 与 fitCameraToViewBox 一致：padding 从两边扣除
     const usableW = Math.max(1, W - pad * 2);
     const usableH = Math.max(1, H - pad * 2);
-    const scale = Math.min(usableW / boxW, usableH / boxH);
-    const viewHeight = H / scale;
+
+    /**
+     * 视锥高度按「两方向都装得下」来定，且**不引入屏幕比例因子**。
+     *
+     * 正交相机的视锥由 `viewHeight` + `aspect` 共同决定：
+     * `halfHeight = viewHeight/2`、`halfWidth = halfHeight * aspect`。
+     * 宽度方向的约束因此反推为 `viewHeight >= boxW / aspect`。
+     * 取两者较大值即可同时容纳世界宽与高 —— **再乘任何屏幕比例都会破坏等比**，
+     * 表现为圆形世界被拉成椭圆。
+     *
+     * ⚠️ 原实现用 `scale = min(usableW/boxW, usableH/boxH)` 再 `viewHeight = H/scale`，
+     * 那个 `H/` 把屏幕高度混进了世界单位，竖长容器下会多算约 1/aspect 倍。
+     */
+    const aspect = W / H;
+    const viewHeight = Math.max(boxH, boxW / aspect) * (usableH > 0 && usableH < H ? H / usableH : 1);
 
     const center = {
       x: this.viewBox.x + this.viewBox.width / 2,
       y: this.viewBox.y + this.viewBox.height / 2,
     };
-    this.orbit = {
+    this.orbitState = {
       target: { x: center.x, y: 0, z: center.y },
       azimuth: 0,
       polar: ORTHO_PRESET.polar,
@@ -303,30 +317,30 @@ export class ThreeViewportBackend implements ViewportBackend {
 
   /** 轨道相机读写（三维档专属；模板不依赖）。 */
   getOrbit(): OrbitCamera {
-    return structuredClone(this.orbit);
+    return structuredClone(this.orbitState);
   }
 
   setOrbit(orbit: OrbitCamera): void {
-    this.orbit = { ...orbit, polar: clampPolar(orbit.polar) };
+    this.orbitState = { ...orbit, polar: clampPolar(orbit.polar) };
     this.applyCameraToThree();
     this.notifyCamera();
   }
 
   /** 轨道增量算子（供交互层调用）。 */
   orbitPanBy(deltaWorld: Vec2): void {
-    this.orbit = orbitPan(this.orbit, deltaWorld);
+    this.orbitState = orbitPan(this.orbitState, deltaWorld);
     this.applyCameraToThree();
     this.notifyCamera();
   }
 
   orbitZoomBy(factor: number): void {
-    this.orbit = orbitZoom(this.orbit, factor);
+    this.orbitState = orbitZoom(this.orbitState, factor);
     this.applyCameraToThree();
     this.notifyCamera();
   }
 
   orbitRotateBy(deltaAzimuth: number, deltaPolar = 0): void {
-    this.orbit = orbitRotate(this.orbit, deltaAzimuth, deltaPolar);
+    this.orbitState = orbitRotate(this.orbitState, deltaAzimuth, deltaPolar);
     this.applyCameraToThree();
     this.notifyCamera();
   }
@@ -337,6 +351,21 @@ export class ThreeViewportBackend implements ViewportBackend {
   }
 
   private lastPlan: ScenePlan | null = null;
+
+  /**
+   * 轨道能力（`ViewportBackend.orbit`，可选）。
+   *
+   * 模板层据此判断「该把三维档的旋转路由到轨道算子（含俯仰），
+   * 还是退回二维的画面旋转」。用 getter 返回一个绑定了 `this` 的稳定对象，
+   * 避免每次 `backend.orbit` 都新建一份。
+   */
+  readonly orbit: OrbitBackendApi = {
+    getOrbit: () => this.getOrbit(),
+    setOrbit: (orbit) => this.setOrbit(orbit),
+    rotateBy: (deltaAzimuth, deltaPolar = 0) => this.orbitRotateBy(deltaAzimuth, deltaPolar),
+    panBy: (deltaWorld) => this.orbitPanBy(deltaWorld),
+    zoomBy: (factor) => this.orbitZoomBy(factor),
+  };
 
   private rebuildScene(): void {
     if (!this.world) return;
@@ -354,7 +383,7 @@ export class ThreeViewportBackend implements ViewportBackend {
 
   private applyCameraToThree(): void {
     const plan = planCamera({
-      orbit: this.orbit,
+      orbit: this.orbitState,
       viewportPx: this.size,
       projection: this.projection,
       preset: ORTHO_PRESET,
@@ -370,7 +399,7 @@ export class ThreeViewportBackend implements ViewportBackend {
       this.orthoCamera.far = plan.far;
       this.orthoCamera.position.set(plan.position.x, plan.position.y, plan.position.z);
       // 正俯视时 up=(0,1,0) 与视线平行，lookAt 会退化（NaN）；按极角切换 up。
-      const up = cameraUpForPolar(this.orbit.polar);
+      const up = cameraUpForPolar(this.orbitState.polar);
       this.orthoCamera.up.set(up.x, up.y, up.z);
       this.orthoCamera.lookAt(new Vector3(plan.target.x, plan.target.y, plan.target.z));
       this.orthoCamera.updateProjectionMatrix();
@@ -380,7 +409,7 @@ export class ThreeViewportBackend implements ViewportBackend {
       this.perspCamera.near = plan.near;
       this.perspCamera.far = plan.far;
       this.perspCamera.position.set(plan.position.x, plan.position.y, plan.position.z);
-      const up = cameraUpForPolar(this.orbit.polar);
+      const up = cameraUpForPolar(this.orbitState.polar);
       this.perspCamera.up.set(up.x, up.y, up.z);
       this.perspCamera.lookAt(new Vector3(plan.target.x, plan.target.y, plan.target.z));
       this.perspCamera.updateProjectionMatrix();

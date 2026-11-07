@@ -68,7 +68,10 @@ export const DEFAULT_TOP_POLAR = 0.12;
  * 换算要点：
  * - `viewHeight = 视口高度 / scale`（正交视锥高度与缩放互为倒数）；
  * - 注视点 = 屏幕中心对应的世界点（经 `screenToWorld` 语义反算）；
- * - `rotation` 与 `azimuth` 同号（二维顺时针 = 绕 Y 轴负向，故取负）。
+ * - `rotation` 与 `azimuth` 同号（二维顺时针 = 绕 Y 轴负向，故取负）；
+ * - **`polar` 由此处传递**：相机给了就用它，否则退回俯视档。
+ *   不传递的话，每次 `setCamera()` 都会把三维倾斜视角重置回俯视，
+ *   于是「切成三维」在契约层无法保持。
  */
 export function camera2DToOrbit(camera: Camera2D, viewportPx: { width: number; height: number }): OrbitCamera {
   const scale = camera.scale > 0 ? camera.scale : 1;
@@ -85,11 +88,17 @@ export function camera2DToOrbit(camera: Camera2D, viewportPx: { width: number; h
   const centerWorld = { x: rx / scale, y: ry / scale };
 
   const viewHeight = Math.max(1, viewportPx.height) / scale;
+  // 相机自带极角就用它（三维档）；否则退回俯视档（二维档行为不变）
+  const polar = clampPolar(
+    typeof camera.polar === 'number' && Number.isFinite(camera.polar)
+      ? camera.polar
+      : DEFAULT_TOP_POLAR,
+  );
 
   return {
     target: planeToGround(centerWorld),
     azimuth: -rotation,
-    polar: DEFAULT_TOP_POLAR,
+    polar,
     distance: viewHeight * 2,
     viewHeight,
   };
@@ -119,6 +128,10 @@ export function orbitToCamera2D(orbit: OrbitCamera, viewportPx: { width: number;
 
   const camera: Camera2D = { scale, pan };
   if (rotation !== 0) camera.rotation = rotation;
+  // 极角同步回去：否则「倾斜看」一旦经过一次二维往返就被抹平成俯视。
+  // 只在非俯视档写入，使俯视档产出仍是纯粹的 `{ scale, pan }`（旧形状不变）。
+  const polar = clampPolar(orbit.polar);
+  if (Math.abs(polar - DEFAULT_TOP_POLAR) > 1e-6) camera.polar = polar;
   return camera;
 }
 

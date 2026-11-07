@@ -96,6 +96,15 @@ export function planCamera(options: {
     };
   }
 
+  /**
+   * 正交视锥必须**保持世界单位等比**：`halfWidth / halfHeight` 固定等于画面宽高比，
+   * 否则圆形世界会随容器比例被拉成椭圆。
+   *
+   * 这里 `halfHeight` 取 `viewHeight/2`，`halfWidth` 由它乘 `aspect` 得出 ——
+   * 即「视锥高度以世界单位给定，宽度按屏幕比例展开」，这是正交相机的标准做法。
+   * 保证等比的责任在**调用方**（`fitToBounds` 必须让 `viewHeight` 同时容纳
+   * 世界宽与高的需求，见那里的注释）。
+   */
   const halfHeight = orbit.viewHeight / 2;
   const halfWidth = halfHeight * aspect;
   return {

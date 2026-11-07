@@ -13,6 +13,16 @@ export type Vec2 = { x: number; y: number };
 
 /**
  * 2D 相机：把世界坐标（content/world space）通过视口展示为屏幕坐标（screen space）。
+ *
+ * ## 为什么一个「二维相机」会带 `polar`
+ *
+ * 因为它是**统一相机表示**，不是「只能表达二维的相机」。三维后端的轨道相机
+ * 与它是同一台相机的两种释义：`scale/pan` 决定「看哪里、看多大」，
+ * `rotation/polar` 决定「以什么姿态看」。
+ *
+ * 若不给 `polar`，`setCamera()` 每次都只能把极角重置回俯视档 ——
+ * 于是「切成三维倾斜视角」这件事**在契约层无处表达**，模板层无论怎么努力
+ * 都会被压回俯视。这正是「接了三维后端却永远看不到三维」的根因。
  */
 export type Camera2D = {
   /** 世界单位 -> 屏幕像素 的缩放系数 */
@@ -21,6 +31,14 @@ export type Camera2D = {
   pan: Vec2;
   /** 旋转角（弧度，屏幕 Y 轴向下，正 = 顺时针）。缺省 0（可选字段，向后兼容）。 */
   rotation?: number;
+  /**
+   * 极角（弧度，从 +Y 轴量起；0 = 正俯视，π/2 = 水平视线）。缺省 = 俯视档。
+   *
+   * **仅三维后端消费**，二维后端忽略（与 `snapshot.dimensions` 同一处理策略：
+   * 只增字段 + 旧实现不变）。缺省时等价于 `DEFAULT_TOP_POLAR`（接近正上方），
+   * 因此既有的 `{ scale, pan, rotation }` 相机行为完全不变。
+   */
+  polar?: number;
 };
 
 export type ViewBox = { x: number; y: number; width: number; height: number };
