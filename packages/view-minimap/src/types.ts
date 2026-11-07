@@ -30,6 +30,25 @@ export type MinimapItemKind = 'point' | 'rect' | 'path';
  */
 export type MinimapShape = 'rect' | 'circle';
 
+/**
+ * 坐标指示器（缩略图上的方位参考）。
+ *
+ * 为什么需要：缩略图只画出「有个框」，使用者无法判断**视角朝哪**。
+ * 三维档尤其如此 —— 相机一转，画面全变，而缩略图看起来没动，
+ * 于是「不知道转到哪里了」。加一条随相机方位角旋转的指北线即可解决。
+ */
+export type MinimapCompass = {
+  /**
+   * 相机方位角（弧度）。
+   *
+   * 指北线按它旋转：`0` 时北朝上，正值逆时针。
+   * 由宿主从相机读出来传入（MUI 不知道相机存在哪）。
+   */
+  azimuth: number;
+  /** 是否同时画出世界坐标轴（X 红 / Y 绿）。默认 `false`。 */
+  showAxes?: boolean;
+};
+
 /** 缩略图内的一项内容（世界坐标）。 */
 export type MinimapItem = {
   /** 稳定标识（用于渲染 key）。 */

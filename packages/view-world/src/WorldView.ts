@@ -495,13 +495,33 @@ export const WorldView = defineComponent({
         const anchor = { x: event.clientX, y: event.clientY };
 
         if (altMode === 'rotate') {
-          // 有轨道能力（三维档）：绕目标点转，含俯仰 —— 这才是真三维旋转
+          /**
+           * 轨道档旋转：**围绕视口中心对应的地面点**，不是围绕可能已偏离的旧 target。
+           *
+           * 为什么先对齐 target：`orbitRotate` 只改 az/投角、不动 target。
+           * 若 target 与「视口中心所见的地面点」不一致（例如上一轮近平移过、
+           * 或相机 fit 时留有偏移），旋转看起来就是「绕着画面外某点转」，
+           * 表现为画面大幅甩动而不是原地翻动。
+           *
+           * 做法：先把 target 挪到该点，再施加旋转。两步在同一帧完成，
+           * 中间态不会渲染，视觉上就是「绕中心转」。
+           */
           const orbitApi = backend.orbit;
           const deltaAzimuth = rotateDeltaFromDrag(event.clientX - lastRotateX);
           const deltaPolar = rotateDeltaFromDrag(dy, 0.006);
           lastRotateX = event.clientX;
           if (orbitApi) {
-            if (deltaAzimuth !== 0 || deltaPolar !== 0) orbitApi.rotateBy(deltaAzimuth, deltaPolar);
+            if (deltaAzimuth !== 0 || deltaPolar !== 0) {
+              const size = backend.getHandle().getSize();
+              const centerWorld = backend.screenToWorld({ x: size.width / 2, y: size.height / 2 });
+              const orbit = orbitApi.getOrbit();
+              const dxT = centerWorld.x - orbit.target.x;
+              const dzT = centerWorld.y - orbit.target.z;
+              if (dxT !== 0 || dzT !== 0) {
+                orbitApi.setOrbit({ ...orbit, target: { ...orbit.target, x: centerWorld.x, z: centerWorld.y } });
+              }
+              orbitApi.rotateBy(deltaAzimuth, deltaPolar);
+            }
           } else if (deltaAzimuth !== 0) {
             // 无轨道能力（二维档）：退回画面旋转
             backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: deltaAzimuth, anchorScreen: anchor }));
@@ -511,14 +531,29 @@ export const WorldView = defineComponent({
         if (altMode === 'pan') {
           const orbitApi = backend.orbit;
           if (orbitApi) {
-            // 轨道档：把屏幕位移换算成地面位移（按 scale 反比），改 target 而非 pan
-            const cam = backend.getCamera();
-            const s = cam.scale > 0 ? cam.scale : 1;
-            const rot = cameraRotation(cam);
-            const cos = Math.cos(rot);
-            const sin = Math.sin(rot);
-            const wx = (dx * cos + dy * sin) / s;
-            const wy = (-dx * sin + dy * cos) / s;
+            /**
+             * 轨道档平移：把「屏幕位移」换算成「地面位移」，直接问后端。
+             *
+             * **不要手推 `dx/scale`** —— 那套公式只对俯视成立。相机一倾斜，
+             * 屏幕纵向位移对应的地面距离要再除以 `cos(polar)`。
+             * 手推过一次就是这个漏项导致「平移比手指移动的少」。
+             *
+             * 换成「起止两点的世界坐标之差」，则天然包含极角、方位角、
+             * 缩放的全部影响，且与 `screenToWorld` 永不失配。
+             *
+             * **符号必须是 `fromWorld - toWorld`，并且不再取反。**
+             * 鼠标向右下拖时 `toWorld` 更大，差值本身已为负；把负值直接交给
+             * `panBy`，target 向负方向移动 ⇒ 画面内容朝拖拽方向走（跟手）。
+             * 若再取一次反（早期实现），画面会朝拖拽的**反方向**跑 ——
+             * 2026-11-07 实机表现为「拖右下、盘面往左上逃」。
+             */
+            const size = backend.getHandle().getSize();
+            const mid = { x: drag.lastX, y: drag.lastY };
+            const fromWorld = backend.screenToWorld({ x: mid.x - dx, y: mid.y - dy });
+            const toWorld = backend.screenToWorld(mid);
+            void size;
+            const wx = fromWorld.x - toWorld.x;
+            const wy = fromWorld.y - toWorld.y;
             if (wx !== 0 || wy !== 0) orbitApi.panBy({ x: wx, y: wy });
           } else if (dx !== 0 || dy !== 0) {
             backend.setCamera(panBy(backend.getCamera(), { x: dx, y: dy }));

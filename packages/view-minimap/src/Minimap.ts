@@ -15,7 +15,7 @@ import {
   type Vec2,
   type WorldRect,
 } from '@main-ui/core/rendering';
-import type { MinimapItem, MinimapItemKind, MinimapShape, MinimapViewportFrame } from './types';
+import type { MinimapCompass, MinimapItem, MinimapItemKind, MinimapShape, MinimapViewportFrame } from './types';
 
 /**
  * 实例级序号：`clipPath` 的 id 必须在整页唯一。
@@ -83,6 +83,13 @@ export const Minimap = defineComponent({
      * 「实际不存在的区域」。坐标映射不受影响（恒按世界范围等比适配）。
      */
     shape: { type: String as PropType<MinimapShape>, default: 'rect' },
+    /**
+     * 方位指示（指北线 / 坐标轴）。缺省不画。
+     *
+     * 三维档强烈建议提供：相机一转画面全变，缩略图若没有任何方位参考，
+     * 使用者无法判断「现在朝哪」。
+     */
+    compass: { type: Object as PropType<MinimapCompass | null>, default: null },
     /** 自定义内容绘制（用于需要更精细画法的宿主）。 */
     renderContent: { type: Function as unknown as PropType<MinimapContentSlot | null>, default: null },
   },
@@ -290,6 +297,41 @@ export const Minimap = defineComponent({
           cy: props.height / 2,
           r: Math.min(props.width, props.height) / 2 - 0.5,
         }));
+      }
+
+      // 方位指示：不受裁切（圆外贴近边界的指针也要可见）
+      if (props.compass) {
+        const cx = props.width / 2;
+        const cy = props.height / 2;
+        const r = Math.min(props.width, props.height) / 2 - 4;
+        const az = props.compass.azimuth;
+        // 方位角 0 = 北朝上；正值逆时针。屏幕 Y 向下，故取负号。
+        const nx = cx + Math.sin(-az) * r;
+        const ny = cy - Math.cos(-az) * r;
+        children.push(h('line', {
+          class: 'main-ui-minimap__compass',
+          x1: cx,
+          y1: cy,
+          x2: nx,
+          y2: ny,
+        }));
+        children.push(h('circle', {
+          class: 'main-ui-minimap__compass-tip',
+          cx: nx,
+          cy: ny,
+          r: 3,
+        }));
+        if (props.compass.showAxes) {
+          // X 轴（红）/ Y 轴（绿）：世界坐标的两个正方向
+          children.push(h('line', {
+            class: 'main-ui-minimap__axis main-ui-minimap__axis--x',
+            x1: cx, y1: cy, x2: cx + r * 0.55, y2: cy,
+          }));
+          children.push(h('line', {
+            class: 'main-ui-minimap__axis main-ui-minimap__axis--y',
+            x1: cx, y1: cy, x2: cx, y2: cy + r * 0.55,
+          }));
+        }
       }
 
       // 宿主自定义叠加层（例如比例尺、图例）。与内容层分开，避免互相覆盖。
