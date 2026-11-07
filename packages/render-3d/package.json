@@ -29,7 +29,9 @@
     "dev": "tsup --watch",
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke:dev": "vite --config tests/e2e/vite.smoke.config.ts",
+    "smoke:build": "vite build --config tests/e2e/vite.smoke.config.ts"
   },
   "peerDependencies": {
     "@main-ui/core": "^0.12.0",

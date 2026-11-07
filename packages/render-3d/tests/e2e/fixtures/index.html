@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>render-3d 冒烟诊断</title>
+    <style>
+      body { margin: 0; font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: #1e1e22; color: #e6e6e6; }
+      #stage { position: fixed; inset: 0 0 260px 0; }
+      #panel { position: fixed; left: 0; right: 0; bottom: 0; height: 260px; overflow: auto;
+               background: #14141a; border-top: 1px solid #3a3a44; padding: 10px 14px;
+               font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .ok { color: #6fcf6f; }
+      .bad { color: #ff6b6b; }
+      .warn { color: #f0c040; }
+      #panel h3 { margin: 0 0 8px; font-size: 12px; color: #9aa0aa; font-weight: 600; letter-spacing: .5px; }
+      .row { display: grid; grid-template-columns: 220px 1fr; gap: 8px; padding: 1px 0; }
+      .k { color: #9aa0aa; }
+    </style>
+  </head>
+  <body>
+    <!--
+      诊断页（非产品页面）。
+
+      ## 为什么需要它
+
+      本包的既有 27 项测试都是**纯函数**测试：相机数学、图元规划、坐标换算。
+      它们能证明「算得对」，但**证明不了「真的画到屏幕上」** ——
+      后者需要真 GPU、真 canvas、真渲染循环。
+
+      2026-11-07 的事故正是这种落差的代价：所有单测全绿，而三维主画面一片空白。
+      故补这一页，把「后端装配 → 喂快照 → 上屏」这条链路做成可观测的。
+
+      ## 用法
+
+      由 Playwright 驱动（见 `tests/e2e/render-3d-smoke.spec.ts`），
+      也可 `pnpm --filter @main-ui/render-3d dev:smoke` 手动打开看。
+
+      页面把同时写入两处：
+      1. 底部的可读面板（人看）；
+      2. `window.__DIAG__`（测试读）。
+    -->
+    <div id="stage"></div>
+    <div id="panel"><h3>等待装配…</h3></div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
