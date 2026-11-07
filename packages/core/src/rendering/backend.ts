@@ -175,10 +175,42 @@ export interface OrbitBackendApi {
   setOrbit(orbit: OrbitCamera): void;
   /** 绕目标点旋转（弧度增量；`deltaPolar` 缺省 0）。 */
   rotateBy(deltaAzimuth: number, deltaPolar?: number): void;
-  /** 按世界平面位移平移目标点。 */
+  /**
+   * 绕**视线轴**自转（roll，弧度增量）。
+   *
+   * 这是 turntable 模式表达不出的自由度：`azimuth/polar` 只描述「往哪看」，
+   * 描述不了「脑袋歪多少」。触控板双指扭转接的就是这里。
+   */
+  rollBy?(angle: number): void;
+  /**
+   * 清掉累积的 roll，把地平线摆正（保持视线方向不变）。
+   *
+   * trackball 模式会累积 roll，需要这个复位入口；turntable 天然无 roll，调用无副作用。
+   */
+  resetRoll?(): void;
+  /**
+   * 按世界平面位移平移目标点。
+   *
+   * 模板层应优先用 `screenToWorld` 两点差自己算位移 —— 那天然包含
+   * 极角/方位角/缩放的全部影响，而本方法只管把算好的位移写进去。
+   */
   panBy(deltaWorld: Vec2): void;
-  /** 按倍率缩放（正交档改 `viewHeight`，透视档改 `distance`）。 */
+  /**
+   * 按倍率缩放（正交档改 `viewHeight`，透视档改 `distance`）。
+   *
+   * **以 target 为中心**。要把缩放中心改到光标处，用 `zoomAt`。
+   */
   zoomBy(factor: number): void;
+  /**
+   * **以指定世界点为锚**缩放（锚点屏幕位置保持不动）。
+   *
+   * 使用者 2026-11-08 的诉求「缩放中心改为光标映射的方向」。模板层把光标经
+   * `screenToWorld` 换成世界点传进来即可 —— 不要在外面自己反推 target 位移，
+   * 那是本方法内部该做的事（且它依赖 viewHeight 的语义，外面推容易漏项）。
+   */
+  zoomAt?(factor: number, anchorWorld: Vec2): void;
+  /** 切换旋转模型（`'turntable'` 地平线水平 / `'trackball'` 万向）。 */
+  setRotationModel?(model: 'turntable' | 'trackball'): void;
 }
 
 /**

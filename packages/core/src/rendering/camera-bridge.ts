@@ -17,6 +17,18 @@
 
 import type { Camera2D, Vec2 } from './camera';
 import { cameraRotation } from './camera';
+import type { Quat } from './camera-orientation';
+import {
+  length3,
+  normalize3,
+  quatFromAxisAngle,
+  quatFromForward,
+  quatMultiply,
+  quatNormalize,
+  quatToBasis,
+  trackballDeltaQuat,
+} from './camera-orientation';
+import type { Vec3Like } from './coordinate-system';
 
 /** 三维轨道相机（可序列化纯值）。 */
 export interface OrbitCamera {
@@ -26,7 +38,13 @@ export interface OrbitCamera {
   azimuth: number;
   /** 极角（弧度，从 +Y 轴量起；π/2 = 水平视线，0 = 俯视正上方）。 */
   polar: number;
-  /** 相机到 target 的距离。 */
+  /**
+   * 相机到 target 的距离。
+   *
+   * ⚠️ 与 `viewHeight` 的关系是**派生量**：两者总是一起同比缩放（见 `orbitZoom`），
+   * 因此不要假设 `distance` 可以独立表达「拉远但不变焦」——正交档下画面尺寸只由
+   * `viewHeight` 决定，`distance` 仅影响裁剪面与透视档的视觉距离。
+   */
   distance: number;
   /**
    * 正交档下可见高度（世界单位）。
@@ -35,6 +53,34 @@ export interface OrbitCamera {
    * 改 `distance` 不影响画面尺寸（但影响裁剪面）。
    */
   viewHeight: number;
+  /**
+   * 姿态四元数（可选）。**给了它就以它为准**，`azimuth/polar` 降为派生只读值。
+   *
+   * ## 为什么需要它
+   *
+   * `azimuth + polar` 只有两个自由度，**先天表达不了 roll**（绕视线轴的自转）。
+   * turntable 模式把 roll 隐含固定为 0，所以欧拉表示够用；一旦要支持
+   * trackball（虚拟轨迹球，转轴随拖拽方向变化、轨迹转弯时坐标系跟着转），
+   * 欧拉角就会在极点处万向锁，无法无歧义地记住姿态。
+   *
+   * 因此三维姿态的主存形式是四元数。缺省 `undefined` 时按 `azimuth/polar`
+   * 构造 —— 既有的二位参数用法完全不变。
+   */
+  orientation?: Quat;
+  /**
+   * 旋转模型。缺省 `'turntable'`。
+   *
+   * - `'turntable'`（缺省）：转盘。只改方位角与极角，**地平线永远水平**、
+   *   不累积 roll、有极点。Blender / Maya 的默认档，也是「不会迷失方向」的稳妥默认。
+   * - `'trackball'`：虚拟轨迹球。转轴垂直于拖拽方向、随轨迹转弯而变，
+   *   无极点、可累积 roll。使用者 2026-11-08 描述的「棱角球 / 中心对称 /
+   *   坐标系跟着转」就是这个档。
+   *
+   * **为什么缺省不是 trackball**：trackball 会累积 roll，转久了画面会歪，
+   * 需要额外的复位操作。它适合被显式选用（使用者知道自己要什么），
+   * 不适合作为无意识的默认值 —— 这也正是 Blender 把它放在偏好设置里的原因。
+   */
+  rotationModel?: 'trackball' | 'turntable';
 }
 
 /** 二维 ↔ 三维相机释义档位。 */
@@ -136,6 +182,194 @@ export function orbitToCamera2D(orbit: OrbitCamera, viewportPx: { width: number;
 }
 
 /**
+ * 由 `azimuth/polar` 推导相机在目标点周围的**视线方向**（从相机指向 target）。
+ *
+ * 相机位置 = `target + distance · (sin p · sin a, cos p, sin p · cos a)`，
+ * 故视线方向 = 该偏移的**反向**。
+ *
+ * @param azimuth 方位角（弧度）。
+ * @param polar 极角（弧度，从 +Y 轴量起；0 = 正俯视）。
+ * @returns 世界空间单位向量（从相机指向场景）。
+ */
+export function viewDirectionFromOrbit(azimuth: number, polar: number): Vec3Like {
+  const sinPolar = Math.sin(polar);
+  return normalize3({
+    x: -sinPolar * Math.sin(azimuth),
+    y: -Math.cos(polar),
+    z: -sinPolar * Math.cos(azimuth),
+  });
+}
+
+/**
+ * 由视线方向反算 `azimuth/polar`（`viewDirectionFromOrbit` 的逆）。
+ *
+ * 极角从 +Y 轴量起，故 `polar = acos(−forward.y)`；方位角由 `forward` 在 XZ 平面
+ * 的投影反解，与正向公式同源。
+ *
+ * @param forward 视线方向（从相机指向场景；内部会归一化）。
+ * @returns 方位角与极角（弧度）。
+ */
+export function orbitAnglesFromViewDirection(forward: Vec3Like): { azimuth: number; polar: number } {
+  const f = normalize3(forward);
+  // 正向公式里 y = −cos(polar)，故 polar = acos(−f.y)
+  const polar = Math.acos(Math.max(-1, Math.min(1, -f.y)));
+  // xz 投影反解方位角：x = −sin p·sin a，z = −sin p·cos a
+  const azimuth = Math.atan2(-f.x, -f.z);
+  return { azimuth, polar };
+}
+
+/**
+ * 取相机的姿态四元数（缺省由 `azimuth/polar` 构造）。
+ *
+ * 约定：四元数描述**相机在世界中的朝向**，相机看向自身 −Z（three 惯例）。
+ *
+ * @param orbit 轨道相机。
+ * @returns 单位四元数。
+ */
+export function orbitQuat(orbit: OrbitCamera): Quat {
+  if (orbit.orientation && length3({ x: orbit.orientation.x, y: orbit.orientation.y, z: orbit.orientation.z }) >= 0 && Number.isFinite(orbit.orientation.w)) {
+    return quatNormalize(orbit.orientation);
+  }
+  const forward = viewDirectionFromOrbit(orbit.azimuth, orbit.polar);
+  return quatFromForward(forward);
+}
+
+/**
+ * 取相机看向哪里（视线方向 + 上方向 + 右方向）。
+ *
+ * @param orbit 轨道相机。
+ * @returns 世界空间下的前 / 上 / 右三个单位向量。
+ */
+export function orbitBasis(orbit: OrbitCamera): { forward: Vec3Like; up: Vec3Like; right: Vec3Like } {
+  return quatToBasis(orbitQuat(orbit));
+}
+
+/**
+ * 用新的姿态四元数更新轨道相机，并把 `azimuth/polar` 同步为派生值。
+ *
+ * **`azimuth/polar` 不删除而是持续同步**：它们仍被二维平面换算
+ * （`orbitToCamera2D` 的 `rotation`、`cameraUpForPolar` 的档位判断）以及
+ * 小地图罗盘消费。让它们始终反映当前姿态，那些使用方无需改造。
+ *
+ * @param orbit 原相机。
+ * @param orientation 新姿态。
+ * @returns 新相机（不改原对象）。
+ */
+export function withOrientation(orbit: OrbitCamera, orientation: Quat): OrbitCamera {
+  const q = quatNormalize(orientation);
+  const { forward } = quatToBasis(q);
+  const { azimuth, polar } = orbitAnglesFromViewDirection(forward);
+  return { ...orbit, orientation: q, azimuth, polar };
+}
+
+/** 模拟球面上一点在视口内的二维坐标。 */
+export interface TrackballParams {
+  /** 每像素对应的旋转弧度。 */
+  radiansPerPixel?: number;
+}
+
+/**
+ * trackball 拖拽 → 新姿态。
+ *
+ * 屏幕右/上方向取自**当前姿态**，因此转轴随视角变化 ——
+ * 这是「轨迹转弯时整个坐标系跟着转」的来源。
+ *
+ * @param orbit 原相机。
+ * @param deltaX 水平位移（CSS 像素，向右为正）。
+ * @param deltaY 垂直位移（CSS 像素，向下为正）。
+ * @param params 可调参数。
+ * @returns 新相机。
+ */
+export function orbitTrackball(
+  orbit: OrbitCamera,
+  deltaX: number,
+  deltaY: number,
+  params: TrackballParams = {},
+): OrbitCamera {
+  const { right, up } = orbitBasis(orbit);
+  const delta = trackballDeltaQuat({
+    deltaX,
+    deltaY,
+    radiansPerPixel: params.radiansPerPixel,
+    viewRight: right,
+    viewUp: up,
+  });
+  // 增量左乘 = 在世界空间里转（而非相机局部空间），这样拖拽方向与视觉转动方向一致
+  return withOrientation(orbit, quatMultiply(delta, orbitQuat(orbit)));
+}
+
+/**
+ * 绕视线轴 roll（自转）→ 新姿态。
+ *
+ * @param orbit 原相机。
+ * @param angle 旋转角（弧度；正 = 顺时针）。
+ * @returns 新相机。
+ */
+export function orbitRoll(orbit: OrbitCamera, angle: number): OrbitCamera {
+  if (!Number.isFinite(angle) || angle === 0) return orbit;
+  const { forward } = orbitBasis(orbit);
+  const delta = quatFromAxisAngle(forward, -angle);
+  return withOrientation(orbit, quatMultiply(delta, orbitQuat(orbit)));
+}
+
+/**
+ * 把姿态重置为「地平线水平」（清掉累积的 roll）。
+ *
+ * 用途：turntable 模式天然不会累积 roll，但 trackball 会。提供一个显式复位入口，
+ * 对应 Blender 的 `View > Align View > Top` 一类操作。
+ *
+ * @param orbit 原相机。
+ * @returns 新相机（姿态由 `azimuth/polar` 重新构造，roll 归零）。
+ */
+export function orbitResetRoll(orbit: OrbitCamera): OrbitCamera {
+  const { azimuth, polar } = orbitAnglesFromViewDirection(orbitBasis(orbit).forward);
+  const clean: OrbitCamera = { ...orbit, azimuth, polar };
+  delete clean.orientation;
+  return withOrientation(clean, quatFromForward(viewDirectionFromOrbit(azimuth, polar)));
+}
+
+/**
+ * 把世界三轴投影成「屏幕平面上的二维向量」（供小地图的坐标轴 gizmo 用）。
+ *
+ * ## 为什么要单独算
+ *
+ * 小地图上的三色箭头要能让使用者**一眼看出当前姿态**：俯视时 Y 轴几乎消失、
+ * 侧视时 Y 轴最长。要做到这点，箭头必须真的反映「该轴在屏幕平面上的分量」，
+ * 而不是三条画死的固定方向线。
+ *
+ * 做法（正交投影，不做透视缩短）：把每个世界轴向量分别点乘相机的
+ * `right` 与 `up` 基向量，得到它在屏幕上的 `(x, y)` 分量。
+ * 屏幕坐标 `y` 向下，而相机 `up` 向上，故 `y` 取负。
+ *
+ * 结果向量长度 = 该轴对镜头的「可见程度」：正对镜头时为 0（退化成一个点）。
+ *
+ * @param orbit 轨道相机。
+ * @returns 三个世界轴在屏幕平面的投影（单位：与输入同尺度，1 = 满长）。
+ * @example
+ * ```ts
+ * // 正俯视：Y 轴朝镜头 ⇒ 长度≈0；X/Z 各占一半
+ * const axes = projectWorldAxes(orbit);
+ * ```
+ */
+export function projectWorldAxes(orbit: OrbitCamera): {
+  x: Vec2;
+  y: Vec2;
+  z: Vec2;
+} {
+  const { right, up } = orbitBasis(orbit);
+  const proj = (axis: Vec3Like): Vec2 => ({
+    x: axis.x * right.x + axis.y * right.y + axis.z * right.z,
+    // 屏幕 y 向下，相机 up 向上 ⇒ 取负
+    y: -(axis.x * up.x + axis.y * up.y + axis.z * up.z),
+  });
+  return {
+    x: proj({ x: 1, y: 0, z: 0 }),
+    y: proj({ x: 0, y: 1, z: 0 }),
+    z: proj({ x: 0, y: 0, z: 1 }),
+  };
+}
+
+/**
  * 按极角选择相机 up 向量（三维后端专用，但属"坐标约定"故放 core 单点）。
  *
  * 原因：正俯视时 `up = (0,1,0)` 与视线**平行**，`lookAt` 会退化（产生 NaN）。
@@ -163,7 +397,16 @@ export function orbitPan(orbit: OrbitCamera, deltaWorld: Vec2): OrbitCamera {
   };
 }
 
-/** 按增量缩放轨道相机（正交档改 viewHeight，透视档改 distance；两者同比）。 */
+/**
+ * 按增量缩放轨道相机（正交档改 viewHeight，透视档改 distance；两者同比）。
+ *
+ * 这是**以 target 为中心**的缩放。要把缩放中心改到光标处，用
+ * `orbitZoomAtPoint`。
+ *
+ * @param orbit 原相机。
+ * @param factor 缩放倍率（>1 放大）。
+ * @returns 新相机。
+ */
 export function orbitZoom(orbit: OrbitCamera, factor: number): OrbitCamera {
   const f = factor > 0 ? factor : 1;
   return {
@@ -173,11 +416,72 @@ export function orbitZoom(orbit: OrbitCamera, factor: number): OrbitCamera {
   };
 }
 
-/** 绕目标点旋转轨道相机（弧度增量）。 */
-export function orbitRotate(orbit: OrbitCamera, deltaAzimuth: number, deltaPolar = 0): OrbitCamera {
+/**
+ * **以指定世界点为锚**缩放：锚点在屏幕上的位置保持不动。
+ *
+ * 使用者 2026-11-08 提的「缩放中心改为光标映射的方向为中心点」。
+ *
+ * 原理：缩放后视锥变小/变大，若 target 不动，除 target 外所有点都会相对屏幕中心
+ * 位移。要让锚点屏幕位置不变，需按「锚点相对 target 的偏移 × (1 − 1/f)」反推 target。
+ *
+ * 数学（正交档，俯视时精确、倾斜时按地面投影近似）：
+ * ```
+ * 缩放前：anchorScreen = targetScreen + (anchorWorld − target) · scale
+ * 缩放后：要求 anchorScreen 不变，而 scale' = scale · f
+ *   ⇒ (anchorWorld − target) · scale = (anchorWorld − target') · scale · f
+ *   ⇒ target' = target + (anchorWorld − target) · (1 − 1/f)
+ * ```
+ *
+ * @param orbit 原相机。
+ * @param factor 缩放倍率（>1 放大）。
+ * @param anchorWorld 锚点的世界坐标（地面平面，`y` 忽略）。
+ * @returns 新相机。
+ */
+export function orbitZoomAtPoint(orbit: OrbitCamera, factor: number, anchorWorld: Vec2): OrbitCamera {
+  const f = factor > 0 ? factor : 1;
+  if (f === 1) return orbit;
+  const zoomed = orbitZoom(orbit, f);
+  // 锚点相对 target 的地面偏移
+  const dx = anchorWorld.x - orbit.target.x;
+  const dz = anchorWorld.y - orbit.target.z;
+  const k = 1 - 1 / f;
   return {
+    ...zoomed,
+    target: { x: orbit.target.x + dx * k, y: orbit.target.y, z: orbit.target.z + dz * k },
+  };
+}
+
+/**
+ * 绕目标点旋转轨道相机（弧度增量）。
+ *
+ * **按 `rotationModel` 分派（缺省 turntable）**：
+ * - `'turntable'`：只改方位角与极角，地平线永远水平。
+ * - `'trackball'`：按屏幕拖拽方向求转轴，可累积 roll、无极点。
+ *
+ * 注意 trackball 分支用的是**像素位移**，故参数语义与 turntable 分支不同 ——
+ * 因此本函数在 trackball 档下把弧度折算回像素，保持对外契约一致。
+ *
+ * @param orbit 原相机。
+ * @param deltaAzimuth 方位角增量（弧度）—— turntable 直接用它；trackball 折算为横向像素。
+ * @param deltaPolar 极角增量（弧度）—— turntable 用它；trackball 折算为纵向像素。
+ * @returns 新相机。
+ */
+export function orbitRotate(orbit: OrbitCamera, deltaAzimuth: number, deltaPolar = 0): OrbitCamera {
+  if (orbit.rotationModel === 'trackball') {
+    /**
+     * trackball 需要「像素位移」而非「角度」。这里按缺省灵敏度反折算，
+     * 使上游（模板层）不必知道自己接的是哪种模型 —— 它只需给出角度增量。
+     * 0.01 rad/px 是 `trackballDeltaQuat` 的缺省值，此处保持一致。
+     */
+    const pxPerRad = 100;
+    return orbitTrackball(orbit, deltaAzimuth * pxPerRad, -deltaPolar * pxPerRad);
+  }
+  const next: OrbitCamera = {
     ...orbit,
     azimuth: orbit.azimuth + deltaAzimuth,
     polar: clampPolar(orbit.polar + deltaPolar),
   };
+  // turntable 档显式清掉四元数，否则姿态仍被旧四元数占据、角度改动不生效
+  delete next.orientation;
+  return next;
 }
