@@ -46,7 +46,7 @@
  * 相机拉近时不至于立刻糊掉。
  */
 
-import { DataTexture, DoubleSide, LinearFilter, Mesh, MeshBasicMaterial, PlaneGeometry, RGBAFormat, SRGBColorSpace, type Object3D } from 'three/webgpu';
+import { DataTexture, DoubleSide, LinearFilter, LinearMipmapLinearFilter, Mesh, MeshBasicMaterial, PlaneGeometry, RGBAFormat, SRGBColorSpace, type Object3D } from 'three/webgpu';
 import type { TextBillboard } from '@main-ui/core/primitives';
 
 /** 贴片文字创建选项。 */
@@ -212,9 +212,20 @@ export function createSpriteText(options: SpriteTextOptions): SpriteTextObject {
     : new Uint8Array(raster.width * raster.height * 4);
   const texture = new DataTexture(pixels, raster.width, raster.height, RGBAFormat);
   texture.colorSpace = SRGBColorSpace;
-  texture.minFilter = LinearFilter;
+  /**
+   * 必须开 mipmap。
+   *
+   * `pxPerUnit = superSample × dpr` 是**生成侧**的固定密度（默认 ≈ 4 纹素/世界单位），
+   * 而文字在屏幕上的**显示侧**密度由 `viewHeight` 决定，可能远小于 1 像素/世界单位。
+   * 两者相差数倍时，只靠 `LinearFilter` 做降采样会发生严重走样 ——
+   * 字形被采样成不规则碎块（实机表现：`fontSize: 9` 的数字渲染成「四瓣白花」）。
+   *
+   * 2026-11-07 实测：`fontSize: 9` ⇒ 纹理 25×55，落在 5.5×12 CSS px 的贴片上，
+   * 纹理密度是显示密度的 4.5 倍；开 mipmap 后同一场景字形清晰可读。
+   */
+  texture.generateMipmaps = true;
+  texture.minFilter = LinearMipmapLinearFilter;
   texture.magFilter = LinearFilter;
-  texture.generateMipmaps = false;
   // `flipY = true`：canvas 像素自上而下，而 three 默认按「v=0 在底部」采样，
   // 故需在上传时翻转。实测（2026-10-27）：`false` 会让文字上下颠倒。
   texture.flipY = true;
@@ -321,19 +332,32 @@ export function orientFullBillboard(
   if (len < 1e-6) return;
   const zAxis = { x: dir.x / len, y: dir.y / len, z: dir.z / len };
 
-  // 右手系：x = up × z 时，得到的 x 会让局部 +Y 与相机 up **反向**
-  // （实测：文字上下颠倒）。改为 x = z × up，使 +Y 与 up 同向。
-  let xAxis = cross(zAxis, cameraUp);
+  /**
+   * 右手系构造：`x = up × z`、`y = z × x`，保证 `x × y = z`。
+   *
+   * ⚠️ **符号方向必须成对正确，否则整块贴片会转到侧对相机。**
+   *
+   * 只把 `x` 写成 `z × up`（旧实现）会得到**左手系**：`x × y = -z`，
+   * 行列式为 -1，不是旋转矩阵。`Quaternion.setFromRotationMatrix` 对这种矩阵
+   * 会吐出一个**模长 0.708 的伪四元数**（本机实测：`(0.03, 0.71, 0, 0.03)`，
+   * 归一化后是绕 Y 轴 175°）—— 贴片因此几乎完全侧视，投影成一条 12×40 px 的
+   * 细竖条；由于还剩几个像素，容易被误判成「文字纹理坏了」。
+   * 而纹理本身一直是对的（实测 725×396、30808 个不透明像素）。
+   *
+   * 判据（可自检）：装配后 `quaternion.length()` 必为 1。
+   */
+  const xAxisRaw = cross(cameraUp, zAxis);
+  let xAxis = xAxisRaw;
   let xLen = Math.hypot(xAxis.x, xAxis.y, xAxis.z);
   if (xLen < 1e-6) {
-    xAxis = cross(zAxis, { x: 0, y: 1, z: 0 });
+    xAxis = cross({ x: 0, y: 1, z: 0 }, zAxis);
     xLen = Math.hypot(xAxis.x, xAxis.y, xAxis.z);
     if (xLen < 1e-6) return;
   }
   xAxis = { x: xAxis.x / xLen, y: xAxis.y / xLen, z: xAxis.z / xLen };
 
-  // y = x × z（保证与 x、z 构成右手正交基，且 +Y 与相机 up 同向）
-  const yAxis = cross(xAxis, zAxis);
+  // y = z × x（右手系；同时因 z 与 x 都垂直于 up，y 自然与相机 up 同向）
+  const yAxis = cross(zAxis, xAxis);
 
   // 由三个基向量写进 rotation（Object3D.rotation 是欧拉角，故用矩阵反解）
   const m = (object as unknown as { matrixAutoUpdate?: boolean }).matrixAutoUpdate;

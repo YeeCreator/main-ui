@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { Object3D, Vector3 } from 'three/webgpu';
 import {
   DEFAULT_SUPER_SAMPLE,
   orientAxisBillboard,
@@ -221,4 +222,102 @@ describe('full 档朝向：局部 +Y 必须与相机 up 同向', () => {
     syncTextBillboard(o as never, { x: 100, y: 100, z: 100 }, { x: 0, y: 0, z: -1 });
     expect(JSON.stringify(o.cols())).toBe(before);
   });
+});
+
+/**
+ * full 档朝向必须产出**合法旋转**（右手正交基）。
+ *
+ * ## 为什么单列一节
+ *
+ * 上面那组测试用的是「只记矩阵列向量的假件」，它看不到真正的问题：
+ * 列向量可以「看起来对」（+Y 与 up 同向、+Z 指向相机），而整组基却是**左手系**。
+ * 左手系矩阵行列式为 -1，不是旋转矩阵，`Quaternion.setFromRotationMatrix`
+ * 会吐出一个**模长 0.708 的伪四元数**。
+ *
+ * 2026-11-07 实测后果：贴片被绕 Y 轴转 175°，几乎完全侧视，
+ * 181×99 世界单位的文字在屏幕上只剩一条 12×40 px 的细竖条；
+ * 而纹理（725×396、30808 个不透明像素）与几何尺寸一直是对的 ——
+ * 非常容易被误判成「文字纹理坏了」。
+ *
+ * 因此本节**必须用真的 `Quaternion`**，并直接断言：
+ * 1. `quaternion.length() === 1`（伪四元数会立刻露馅）；
+ * 2. 用四元数实际旋转局部轴，结果要落回期望方向。
+ */
+describe('full 档朝向：必须产出右手正交基（四元数模长 1）', () => {
+  /** 用真的 Object3D，让 `setFromRotationMatrix` 真正执行。 */
+  function makeRealObject(pos: { x: number; y: number; z: number }) {
+    const object = new Object3D();
+    object.position.set(pos.x, pos.y, pos.z);
+    return object;
+  }
+
+  const cases: Array<{
+    name: string;
+    camera: { x: number; y: number; z: number };
+    up: { x: number; y: number; z: number };
+    pos: { x: number; y: number; z: number };
+  }> = [
+    {
+      name: '俯视（polar 0.12，up=(0,0,-1)）—— 实机事故场景',
+      camera: { x: 256, y: 1016.6, z: 378.6 },
+      up: { x: 0, y: 0, z: -1 },
+      pos: { x: 160, y: 0.1, z: 420 },
+    },
+    {
+      name: '俯视但贴片在另一象限',
+      camera: { x: 256, y: 800, z: 256 },
+      up: { x: 0, y: 0, z: -1 },
+      pos: { x: 400, y: 0.1, z: 120 },
+    },
+    {
+      name: '侧视（up=(0,1,0)）',
+      camera: { x: 1000, y: 200, z: 256 },
+      up: { x: 0, y: 1, z: 0 },
+      pos: { x: 256, y: 0.1, z: 256 },
+    },
+  ];
+
+  for (const c of cases) {
+    test(`${c.name}：四元数为单位四元数`, () => {
+      const object = makeRealObject(c.pos);
+      orientFullBillboard(object, c.camera, c.up);
+      expect(object.quaternion.length()).toBeCloseTo(1, 5);
+    });
+
+    test(`${c.name}：局部 +Z 经旋转后指向相机`, () => {
+      const object = makeRealObject(c.pos);
+      orientFullBillboard(object, c.camera, c.up);
+      const z = new Vector3(0, 0, 1).applyQuaternion(object.quaternion);
+      const dir = new Vector3(
+        c.camera.x - c.pos.x,
+        c.camera.y - c.pos.y,
+        c.camera.z - c.pos.z,
+      ).normalize();
+      expect(z.dot(dir)).toBeGreaterThan(0.99);
+    });
+
+    test(`${c.name}：局部 +Y 经旋转后与相机 up 同向（字不倒）`, () => {
+      const object = makeRealObject(c.pos);
+      orientFullBillboard(object, c.camera, c.up);
+      const y = new Vector3(0, 1, 0).applyQuaternion(object.quaternion);
+
+      const up = new Vector3(c.up.x, c.up.y, c.up.z).normalize();
+      const z = new Vector3(
+        c.camera.x - c.pos.x,
+        c.camera.y - c.pos.y,
+        c.camera.z - c.pos.z,
+      ).normalize();
+
+      /**
+       * `+Y` 不可能完全等于 `up` —— 它必须同时垂直于 `+Z`。
+       * 严格解是「`up` 在垂直于 `+Z` 的平面上的投影」再归一化：
+       * `y = normalize(up - (up·z)·z)`。
+       *
+       * 用 `dot(up) > 0.99` 这种写法会误判：侧视相机下几何上限只有
+       * `cos(俯仰角)`（本例约 0.966），断言过严会产出假红灯。
+       */
+      const expectedY = up.clone().sub(z.clone().multiplyScalar(up.dot(z))).normalize();
+      expect(y.dot(expectedY)).toBeGreaterThan(0.999);
+    });
+  }
 });
