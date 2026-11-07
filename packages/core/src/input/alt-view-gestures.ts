@@ -68,22 +68,42 @@ export function altMouseGesture(event: AltMouseGestureEvent): CameraGestureInten
 /**
  * 由拖拽位移算出绕视口中心的**旋转角增量**（弧度）。
  *
- * 水平位移映射为绕竖轴旋转：向右拖 = 顺时针转。垂直位移当前不参与旋转
- * —— 绕水平轴的俯仰由三维档自行决定（二维档无俯仰可言），故此处只给方位角。
+ * ## 符号约定：跟手（drag-to-orbit）
+ *
+ * 使用者 2026-11-08 反馈「光标左移应左转」。这句描述的是**画面内容**的转动方向：
+ * 手指往左推，画面里的物体就跟着往左转过去。
+ *
+ * 由于我们转的是**相机**（不是物体），相机必须朝**相反**方向绕行，
+ * 才能让物体看起来同向转。所以这里的约定是：
+ *
+ * | 拖拽 | 相机绕 Y 轴 | 画面观感 |
+ * | --- | --- | --- |
+ * | 向右 | 负向（顺时针俯视） | 物体向右转 |
+ * | 向左 | 正向（逆时针俯视） | 物体向左转 |
+ *
+ * 这与 Blender 的轨道旋转手感一致（往左拖，模型朝左翻过去）。
+ *
+ * ⚠️ 历史：早前实现取 `+deltaX`，观感是「拖左、物体朝右跑」，
+ * 与 DCC 通例相反，使用者明确报告不习惯。
+ *
+ * 垂直位移当前不参与旋转 —— 绕水平轴的俯仰由三维档自行决定
+ * （二维档无俯仰可言），故此处只给方位角。
  *
  * @param deltaX 本次移动的水平屏幕位移（CSS 像素）。
  * @param radiansPerPixel 每像素对应的弧度（缺省 0.01，约 100px 转 57°）。
- * @returns 旋转角增量（弧度，正值 = 顺时针）。
+ * @returns 旋转角增量（弧度；正值 = 相机逆时针绕行 = 物体顺时针左转）。
  * @example
- * rotateDeltaFromDrag(100)   // → 1.0 rad（约 57°）
- * rotateDeltaFromDrag(-50)   // → -0.5 rad
+ * rotateDeltaFromDrag(100)   // → -1.0 rad（向右拖 = 物体向右转）
+ * rotateDeltaFromDrag(-50)   // →  0.5 rad（向左拖 = 物体向左转）
  */
 export function rotateDeltaFromDrag(
   deltaX: number,
   radiansPerPixel = 0.01,
 ): number {
-  if (!Number.isFinite(deltaX)) return 0;
-  return deltaX * radiansPerPixel;
+  if (!Number.isFinite(deltaX) || deltaX === 0) return 0;
+  // 取负：跟手（相机反向绕行，物体同向转动）
+  // 显式加 0 消掉 -0：`Object.is(-0, 0)` 为 false，会让「不转」的断言假红
+  return -deltaX * radiansPerPixel + 0;
 }
 
 /**

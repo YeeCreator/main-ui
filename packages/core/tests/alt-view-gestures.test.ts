@@ -31,19 +31,30 @@ describe('altMouseGesture（Alt + 三键 → 相机操作）', () => {
 });
 
 describe('rotateDeltaFromDrag（水平拖拽 → 旋转角）', () => {
-  test('向右拖为正（顺时针）', () => {
-    expect(rotateDeltaFromDrag(100)).toBeGreaterThan(0);
+  /**
+   * ## 为什么是「向右拖返回负值」
+   *
+   * 这里返回的是**相机**绕行角，不是物体的转动角。使用者 2026-11-08 要求
+   * 「光标左移则左转」，描述的是**画面内容**的方向。
+   *
+   * 转相机与转物体互为反操作：要让物体朝左转，相机就得朝右绕。
+   * 故「向右拖」⇒ 相机负向 ⇒ 物体向右转（跟手）。
+   *
+   * 这与 Blender 的轨道旋转手感一致（往左拖，模型朝左翻过去）。
+   */
+  test('向右拖 → 相机负向（物体向右转，跟手）', () => {
+    expect(rotateDeltaFromDrag(100)).toBeLessThan(0);
   });
 
-  test('向左拖为负', () => {
-    expect(rotateDeltaFromDrag(-100)).toBeLessThan(0);
+  test('向左拖 → 相机正向（物体向左转，跟手）', () => {
+    expect(rotateDeltaFromDrag(-100)).toBeGreaterThan(0);
   });
 
   test('等距左右拖拽角度互为相反数', () => {
     expect(rotateDeltaFromDrag(80)).toBeCloseTo(-rotateDeltaFromDrag(-80), 10);
   });
 
-  test('零位移不转', () => {
+  test('零位移不转（注意 -0 也算不转）', () => {
     expect(rotateDeltaFromDrag(0)).toBe(0);
   });
 

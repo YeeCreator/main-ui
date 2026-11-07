@@ -115,6 +115,28 @@ export interface WorldReadyApi {
   setCamera: (camera: Camera2D) => void;
   /** 以屏幕锚点旋转相机（缩放不变）。 */
   rotateAtScreenPoint: (deltaAngle: number, anchorScreen: Vec2) => void;
+  /**
+   * 三维档专属：绕视线轴自转（roll，弧度）。
+   *
+   * 这是 `azimuth/polar` 表达不出的自由度。二维档返回 `undefined`（无此能力），
+   * 宿主据此判断是否显示「复位地平线」一类按钮。
+   */
+  roll?: (angle: number) => void;
+  /** 三维档专属：清掉累积 roll，把地平线摆正（视线方向不变）。 */
+  resetRoll?: () => void;
+  /** 三维档专属：切换旋转模型（`'turntable'` 地平线水平 / `'trackball'` 万向）。 */
+  setRotationModel?: (model: 'turntable' | 'trackball') => void;
+  /**
+   * 三维档专属：世界三轴在屏幕平面上的投影（供缩略导航画坐标轴 gizmo）。
+   *
+   * 二维档返回 `null` —— 二维平面没有纵深，画三维轴是虚张声势，
+   * 宿主据此决定是否退化为指北线。
+   */
+  getOrbitAxes?: () => {
+    x: Vec2;
+    y: Vec2;
+    z: Vec2;
+  } | null;
   /** 当前后端实例（后端无关；供宿主读 `capabilities` 与专用出口）。 */
   getBackend: () => ViewportBackend | null;
 }

@@ -76,7 +76,7 @@
 }
 
 /**
- * 方位指示（指北线 + 可选坐标轴）。
+ * 坐标指示器（指北线 / 三维坐标轴 gizmo）。
  *
  * 三维档必备：相机一转画面全变，缩略图若无方位参考，
  * 使用者无法判断「现在朝哪」。
@@ -93,17 +93,84 @@
   pointer-events: none;
 }
 
+/**
+ * 三维坐标轴 gizmo。
+ *
+ * 配色取业界通例：**X 红 / Y 绿 / Z 蓝**（UE、Blender、Maya 的轴 gizmo 一致）。
+ * 不另行发明配色 —— 使用者已在别处学会这套映射，这里保持一致可省一次学习。
+ */
 .main-ui-minimap__axis {
-  stroke-width: 1.5;
-  stroke-dasharray: 3 2;
+  stroke-width: 1.8;
+  stroke-linecap: round;
   pointer-events: none;
-  opacity: 0.75;
 }
 
 .main-ui-minimap__axis--x {
-  stroke: #d9534f;
+  stroke: #e5484d;
 }
 
 .main-ui-minimap__axis--y {
-  stroke: #5cb85c;
+  stroke: #46a758;
+}
+
+.main-ui-minimap__axis--z {
+  stroke: #3e63dd;
+}
+
+/* 箭头头部（与轴同色实心三角） */
+.main-ui-minimap__axis-head {
+  stroke: none;
+  pointer-events: none;
+}
+
+.main-ui-minimap__axis-head.main-ui-minimap__axis--x {
+  fill: #e5484d;
+}
+
+.main-ui-minimap__axis-head.main-ui-minimap__axis--y {
+  fill: #46a758;
+}
+
+.main-ui-minimap__axis-head.main-ui-minimap__axis--z {
+  fill: #3e63dd;
+}
+
+/* 正对镜头的轴退化成一个圆点（提示「该轴朝你/背你」） */
+.main-ui-minimap__axis-dot {
+  pointer-events: none;
+}
+
+.main-ui-minimap__axis-dot.main-ui-minimap__axis--x {
+  fill: #e5484d;
+}
+
+.main-ui-minimap__axis-dot.main-ui-minimap__axis--y {
+  fill: #46a758;
+}
+
+.main-ui-minimap__axis-dot.main-ui-minimap__axis--z {
+  fill: #3e63dd;
+}
+
+/* 轴标签：白色描边打底，任何背景上都可读 */
+.main-ui-minimap__axis-label {
+  font-size: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2.5px;
+  pointer-events: none;
+}
+
+.main-ui-minimap__axis-label.main-ui-minimap__axis--x {
+  fill: #e5484d;
+}
+
+.main-ui-minimap__axis-label.main-ui-minimap__axis--y {
+  fill: #46a758;
+}
+
+.main-ui-minimap__axis-label.main-ui-minimap__axis--z {
+  fill: #3e63dd;
 }

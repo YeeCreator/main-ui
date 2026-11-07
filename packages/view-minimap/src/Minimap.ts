@@ -299,38 +299,103 @@ export const Minimap = defineComponent({
         }));
       }
 
-      // 方位指示：不受裁切（圆外贴近边界的指针也要可见）
+      // 坐标指示器：不受裁切（圆外贴近边界的箭头也要可见）
       if (props.compass) {
         const cx = props.width / 2;
         const cy = props.height / 2;
         const r = Math.min(props.width, props.height) / 2 - 4;
-        const az = props.compass.azimuth;
-        // 方位角 0 = 北朝上；正值逆时针。屏幕 Y 向下，故取负号。
-        const nx = cx + Math.sin(-az) * r;
-        const ny = cy - Math.cos(-az) * r;
-        children.push(h('line', {
-          class: 'main-ui-minimap__compass',
-          x1: cx,
-          y1: cy,
-          x2: nx,
-          y2: ny,
-        }));
-        children.push(h('circle', {
-          class: 'main-ui-minimap__compass-tip',
-          cx: nx,
-          cy: ny,
-          r: 3,
-        }));
-        if (props.compass.showAxes) {
-          // X 轴（红）/ Y 轴（绿）：世界坐标的两个正方向
+        const axes = props.compass.axes;
+
+        if (axes) {
+          /**
+           * **三维坐标轴 gizmo**：三根投影后的立体箭头，X 红 / Y 绿 / Z 蓝。
+           *
+           * 配色取业界通例（UE / Blender / Maya 的轴 gizmo 都是 RGB↔XYZ），
+           * 这样使用者不必重新学一遍。
+           *
+           * 每根轴按其在屏幕上的投影方向与长度画：长度已由宿主按
+           * `|投影分量|` 算好，因此**俯视时 Y 轴几乎消失**（正对镜头），
+           * **侧视时 Y 轴最长** —— 这正是「一眼看出我在俯视还是侧看」的来源。
+           *
+           * 轴长统一乘一个系数 `axisScale`，让小地图里三根轴占据合适比例。
+           */
+          const axisScale = r * 0.72;
+          const drawAxis = (
+            vec: { x: number; y: number },
+            colorClass: string,
+            label: string,
+          ): void => {
+            const len = Math.hypot(vec.x, vec.y);
+            // 近乎正对镜头的轴退化成一个点：画个小圆点示意「朝你/背你」
+            if (len < 0.06) {
+              children.push(h('circle', {
+                class: `main-ui-minimap__axis-dot ${colorClass}`,
+                cx: cx,
+                cy: cy,
+                r: 2.5,
+              }));
+              return;
+            }
+            const ex = cx + vec.x * axisScale;
+            const ey = cy + vec.y * axisScale;
+            const ux = vec.x / len;
+            const uy = vec.y / len;
+            // 箭头头部：沿轴反向回退出两条边
+            const head = Math.min(6, Math.max(3, len * axisScale * 0.35));
+            const px = -uy;
+            const py = ux;
+            const tip = `${ex},${ey}`;
+            const left = `${ex - ux * head + px * head * 0.5},${ey - uy * head + py * head * 0.5}`;
+            const right = `${ex - ux * head - px * head * 0.5},${ey - uy * head - py * head * 0.5}`;
+            children.push(h('line', {
+              class: `main-ui-minimap__axis ${colorClass}`,
+              x1: cx, y1: cy, x2: ex, y2: ey,
+            }));
+            children.push(h('polygon', {
+              class: `main-ui-minimap__axis-head ${colorClass}`,
+              points: `${tip} ${left} ${right}`,
+            }));
+            children.push(h('text', {
+              class: `main-ui-minimap__axis-label ${colorClass}`,
+              x: ex + ux * 6,
+              y: ey + uy * 6,
+              'text-anchor': 'middle',
+              'dominant-baseline': 'middle',
+            }, label));
+          };
+          // 先画 Z（通常朝下/朝里），再 X，最后 Y —— 让上方的轴压住下方的线
+          drawAxis(axes.z, 'main-ui-minimap__axis--z', 'Z');
+          drawAxis(axes.x, 'main-ui-minimap__axis--x', 'X');
+          drawAxis(axes.y, 'main-ui-minimap__axis--y', 'Y');
+        } else {
+          const az = props.compass.azimuth;
+          // 方位角 0 = 北朝上；正值逆时针。屏幕 Y 向下，故取负号。
+          const nx = cx + Math.sin(-az) * r;
+          const ny = cy - Math.cos(-az) * r;
           children.push(h('line', {
-            class: 'main-ui-minimap__axis main-ui-minimap__axis--x',
-            x1: cx, y1: cy, x2: cx + r * 0.55, y2: cy,
+            class: 'main-ui-minimap__compass',
+            x1: cx,
+            y1: cy,
+            x2: nx,
+            y2: ny,
           }));
-          children.push(h('line', {
-            class: 'main-ui-minimap__axis main-ui-minimap__axis--y',
-            x1: cx, y1: cy, x2: cx, y2: cy + r * 0.55,
+          children.push(h('circle', {
+            class: 'main-ui-minimap__compass-tip',
+            cx: nx,
+            cy: ny,
+            r: 3,
           }));
+          if (props.compass.showAxes) {
+            // 旧的「只有两条线」画法（二维档）：X 轴（红）/ Y 轴（绿）
+            children.push(h('line', {
+              class: 'main-ui-minimap__axis main-ui-minimap__axis--x',
+              x1: cx, y1: cy, x2: cx + r * 0.55, y2: cy,
+            }));
+            children.push(h('line', {
+              class: 'main-ui-minimap__axis main-ui-minimap__axis--y',
+              x1: cx, y1: cy, x2: cx, y2: cy + r * 0.55,
+            }));
+          }
         }
       }
 

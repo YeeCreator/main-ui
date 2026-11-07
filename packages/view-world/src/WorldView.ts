@@ -28,6 +28,7 @@ import {
   defaultBackendRegistry,
   defaultDpr,
   panBy,
+  projectWorldAxes,
   resolveTapTolerance,
   rotateAtScreenPoint,
   zoomAtScreenPoint,
@@ -128,6 +129,25 @@ export const WorldView = defineComponent({
      * 不必低头确认按对了哪个键。这是 DCC 类软件的通用范式。
      */
     altViewGestures: { type: Boolean, default: true },
+    /**
+     * 三维档的旋转模型。
+     *
+     * - `'turntable'`（缺省）：转盘。地平线永远水平、不累积 roll、有极点。
+     *   等效于 Blender / Maya 的默认轨道旋转。
+     * - `'trackball'`：虚拟轨迹球（使用者说的「棱角球」）。转轴垂直于拖拽方向，
+     *   **轨迹转弯时整个坐标系跟着转**，无极点，但会累积 roll。
+     *
+     * 为什么缺省 turntable：trackball 会累积 roll，转久了画面会歪，需配合复位。
+     * 它适合被显式选用，不适合作为无意识的默认值。
+     */
+    rotationModel: { type: String as PropType<'turntable' | 'trackball'>, default: 'turntable' },
+    /**
+     * 触控板双指扭转是否映射为 **roll 自转**（绕视线轴）。缺省 `true`。
+     *
+     * 详见 `alt-view-gestures.ts` 的两套操作体系说明。仅在三维档（有 `orbit` 能力的
+     * 后端）生效；二维档下双指扭转仍走画面旋转（`Camera2D.rotation`）。
+     */
+    trackpadRoll: { type: Boolean, default: true },
     /**
      * 内容层（**文字面**）：在 GPU 几何面之上叠加浏览器绘制的内容。
      *
@@ -399,6 +419,17 @@ export const WorldView = defineComponent({
     let altMode: CameraGestureIntent = 'none';
     /** 上一次旋转的屏幕 X（`applyRotate` 是增量式，需记账）。 */
     let lastRotateX = 0;
+    /**
+     * 本次旋转的枢轴（**按下时锁定**，世界平面坐标）。
+     *
+     * 为什么锁定而不是每帧重算：`screenToWorld` 依赖相机姿态，旋转过程中姿态在变，
+     * 每帧重算会让枢轴跟着漂 —— 表现为「转到一半中心跑掉了」。
+     * Blender 也是按下定枢轴、拖拽绕它转。
+     *
+     * `null` 表示光标射线与地面平行、交点不存在（视线水平时的退化情形）。
+     * 那时退回视口中心，并如实记录（不假装有枢轴）。
+     */
+    let rotateAnchorWorld: Vec2 | null = null;
 
     /** 双指旋转：记录/更新参与旋转的两个指针。 */
     const trackRotatePointer = (event: PointerEvent, local: Vec2): void => {
@@ -457,6 +488,17 @@ export const WorldView = defineComponent({
         drag.button = event.button;
         drag.lastX = event.clientX;
         drag.lastY = event.clientY;
+        /**
+         * 旋转枢轴：**在按下时锁定光标下的地面点**（见 `rotateAnchorWorld` 的说明）。
+         *
+         * 只在旋转模式下取，且只在三维档（有 orbit 能力）下有意义 ——
+         * 二维档的旋转始终绕视口中心（那是它唯一的合理解释）。
+         */
+        rotateAnchorWorld = null;
+        if (altIntent === 'rotate' && backend.orbit) {
+          const w = backend.screenToWorld(local);
+          if (Number.isFinite(w.x) && Number.isFinite(w.y)) rotateAnchorWorld = { x: w.x, y: w.y };
+        }
         // 捕获指针：拖出画布仍能收到 move/up，否则旋转到一半断掉。
         // 必须包 try：某些环境下（合成事件、指针已释放）会抛
         // `NotFoundError: No active pointer with the given id`，
@@ -496,29 +538,38 @@ export const WorldView = defineComponent({
 
         if (altMode === 'rotate') {
           /**
-           * 轨道档旋转：**围绕视口中心对应的地面点**，不是围绕可能已偏离的旧 target。
+           * 轨道档旋转：围绕**按下时光标下的地面点**转（不是视口中心）。
            *
-           * 为什么先对齐 target：`orbitRotate` 只改 az/投角、不动 target。
-           * 若 target 与「视口中心所见的地面点」不一致（例如上一轮近平移过、
-           * 或相机 fit 时留有偏移），旋转看起来就是「绕着画面外某点转」，
-           * 表现为画面大幅甩动而不是原地翻动。
+           * 使用者 2026-11-08 的诉求「旋转中心点改为以光标映射的方向为旋转中心」，
+           * 以及他同时提出的困惑「映射方向的距离多远才是旋转中心点」——
+           * 这个困惑问到点子上了：**屏幕上的一个像素对应一条射线**，
+           * 射线上有无穷多个点，所以「方向」本身定不出中心。
            *
-           * 做法：先把 target 挪到该点，再施加旋转。两步在同一帧完成，
-           * 中间态不会渲染，视觉上就是「绕中心转」。
+           * 但只要视线不水平，**射线与地面平面（y = 0）的交点唯一确定**。
+           * 故「旋转中心 = 光标下的地面点」在几何上成立，且与 Blender 的
+           * 3D Cursor 是同一思想（后者把它显式化为一个可放置的「点」，
+           * 从而连「视线水平」这种退化情形也能表达）。
+           *
+           * **中心在按下时锁定一次**（`rotateAnchorWorld`），而不是每帧重算：
+           * - 每帧重算会让 center 随旋转漂移（`screenToWorld` 本身依赖相机姿态），
+           *   表现为「转到一半中心跑了」；
+           * - 锁定后手感与 Blender 一致：按下定枢轴，拖拽绕它转。
            */
           const orbitApi = backend.orbit;
-          const deltaAzimuth = rotateDeltaFromDrag(event.clientX - lastRotateX);
+          const rotateDx = event.clientX - lastRotateX;
+          const deltaAzimuth = rotateDeltaFromDrag(rotateDx);
           const deltaPolar = rotateDeltaFromDrag(dy, 0.006);
           lastRotateX = event.clientX;
           if (orbitApi) {
             if (deltaAzimuth !== 0 || deltaPolar !== 0) {
-              const size = backend.getHandle().getSize();
-              const centerWorld = backend.screenToWorld({ x: size.width / 2, y: size.height / 2 });
-              const orbit = orbitApi.getOrbit();
-              const dxT = centerWorld.x - orbit.target.x;
-              const dzT = centerWorld.y - orbit.target.z;
-              if (dxT !== 0 || dzT !== 0) {
-                orbitApi.setOrbit({ ...orbit, target: { ...orbit.target, x: centerWorld.x, z: centerWorld.y } });
+              const pivot = rotateAnchorWorld;
+              if (pivot) {
+                const orbit = orbitApi.getOrbit();
+                const dxT = pivot.x - orbit.target.x;
+                const dzT = pivot.y - orbit.target.z;
+                if (dxT !== 0 || dzT !== 0) {
+                  orbitApi.setOrbit({ ...orbit, target: { ...orbit.target, x: pivot.x, z: pivot.y } });
+                }
               }
               orbitApi.rotateBy(deltaAzimuth, deltaPolar);
             }
@@ -564,7 +615,19 @@ export const WorldView = defineComponent({
           const factor = zoomFactorFromDrag(dy);
           const orbitApi = backend.orbit;
           if (orbitApi) {
-            if (factor !== 1) orbitApi.zoomBy(factor);
+            if (factor !== 1) {
+              /**
+               * 三维档：**以光标下的世界点为锤**缩放。
+               *
+               * 使用者 2026-11-08 的诉求「缩放中心点改为以光标映射的方向为中心点」。
+               *
+               * 锤点由后端 `screenToWorld` 给出（它已含极角/方位角/缩放的全部影响），
+               * 本层**不自己反推 target 位移** —— 那样必然漏掉 `cos(polar)` 一类的项。
+               */
+              const anchorWorld = backend.screenToWorld({ x: event.clientX, y: event.clientY });
+              if (orbitApi.zoomAt) orbitApi.zoomAt(factor, anchorWorld);
+              else orbitApi.zoomBy(factor);
+            }
           } else if (factor !== 1) {
             backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor, anchorScreen: anchor }));
           }
@@ -581,8 +644,24 @@ export const WorldView = defineComponent({
           const delta = pinchRotateDelta(rotate.lastAngle, angle);
           rotate.lastAngle = angle;
           if (delta !== 0) {
-            const anchor = { x: (rotate.ax + rotate.bx) / 2, y: (rotate.ay + rotate.by) / 2 };
-            backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: delta, anchorScreen: anchor }));
+            const orbitApi = backend.orbit;
+            /**
+             * 三维档：双指扭转 → **roll 自转**（绕视线轴）。
+             *
+             * 为什么三维档不适合用它做「水平转动」：双指扭转是**绕屏幕法线**的转动，
+             * 而水平转动是绕世界竖直轴 —— 相机一旦倾斜，两者就不再是同一回事，
+             * 强行映射会让手感随着视角变化而漂移。
+             * roll 恰好就是「绕屏幕法线」的自由度，语义严丝合缝。
+             *
+             * 这正是使用者 2026-11-08 提的对照：iPadOS 地图里把地球拉出来后，
+             * 双指扭转就是让地球自转（roll）。
+             */
+            if (orbitApi?.rollBy && props.trackpadRoll) {
+              orbitApi.rollBy(delta);
+            } else {
+              const anchor = { x: (rotate.ax + rotate.bx) / 2, y: (rotate.ay + rotate.by) / 2 };
+              backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: delta, anchorScreen: anchor }));
+            }
           }
         }
         return;
@@ -673,8 +752,20 @@ export const WorldView = defineComponent({
       const reading = readWheel(wheelEvent);
       const intent = classifyWheelIntent(wheelEvent, mode);
       if (intent === 'zoom') {
-        // 以锚点为中心缩放：用 core 的纯函数算新相机（喷点世界坐标保持不动）。
-        backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor: zoomFactorOf(reading, event.deltaY), anchorScreen: local }));
+        /**
+         * 以锚点为中心缩放（锚点 = 光标下的世界点，锚点屏幕坐标保持不动）。
+         *
+         * 三维档走 `zoomAt`：它是唯一能同时处理「正交档改 viewHeight」与
+         * 「锚点相对 target 的偏移」两件事的地方。模板在外反推 target 位移
+         * 必然漏项（例如 `cos(polar)`）。
+         */
+        const factor = zoomFactorOf(reading, event.deltaY);
+        const orbitApi = backend.orbit;
+        if (orbitApi?.zoomAt) {
+          if (factor !== 1) orbitApi.zoomAt(factor, backend.screenToWorld(local));
+        } else {
+          backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor, anchorScreen: local }));
+        }
       } else {
         const delta = wheelPanDelta(event);
         if (delta.x !== 0 || delta.y !== 0) backend.setCamera(panBy(backend.getCamera(), delta));
@@ -701,6 +792,17 @@ export const WorldView = defineComponent({
       rotateAtScreenPoint: (deltaAngle: number, anchorScreen: Vec2) => {
         if (!backend) return;
         backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle, anchorScreen }));
+      },
+      /** 三维档专属：绕视线轴自转（roll）。二维档为无副作用的空操作。 */
+      roll: (angle: number) => backend?.orbit?.rollBy?.(angle),
+      /** 三维档专属：清掉累积 roll，把地平线摆正（视线方向不变）。 */
+      resetRoll: () => backend?.orbit?.resetRoll?.(),
+      /** 三维档专属：切换旋转模型（转盘 / 轨迹球）。 */
+      setRotationModel: (model: 'turntable' | 'trackball') => backend?.orbit?.setRotationModel?.(model),
+      /** 三维档专属：世界三轴在屏幕平面的投影（供缩略导航画 gizmo）。 */
+      getOrbitAxes: () => {
+        const orbit = backend?.orbit?.getOrbit();
+        return orbit ? projectWorldAxes(orbit) : null;
       },
       getBackend: () => backend,
     });
@@ -755,6 +857,11 @@ export const WorldView = defineComponent({
       }
 
       next.onCameraChange(emitCamera);
+      /**
+       * 旋转模型必须在喂快照/相機之前同步：三维后端按它分派 `rotateBy`，
+       * 若等用户第一次拖拽才设置，首次旋转会按错误模型算。
+       */
+      next.orbit?.setRotationModel?.(props.rotationModel);
       next.applySnapshot({ snapshot: props.snapshot, grid: props.grid });
 
       // 后端挂载时用的容器尺寸可能与真实尺寸不符（三维档尤其如此：
@@ -876,6 +983,10 @@ export const WorldView = defineComponent({
         void syncBackend(false);
       },
     );
+
+    watch(() => props.rotationModel, (model) => {
+      backend?.orbit?.setRotationModel?.(model);
+    });
 
     watch(() => props.background, () => {
       // 背景色在 mount 时确定；运行期切换重建渲染器成本过高，暂不热更。
