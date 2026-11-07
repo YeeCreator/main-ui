@@ -68,6 +68,8 @@ demo 关键目录：`demo/src/runtime/`（hostProfiles fixture、createDemoRunti
 
 ## 常用命令
 
+> 三维后端的上屏诊断见后文「三维后端的冒烟诊断」一节（`pnpm smoke:dev` / `pnpm smoke:build`）。
+
 ```bash
 pnpm dev          # 主包 dev
 pnpm build        # workspace 构建（主包 + 2d-kit + core + 全部 view-* + preset-views）
@@ -281,3 +283,85 @@ Demo 中的 `external-mount-demo` 是原生 DOM smoke test，用于证明契约�
 6. 拖拽 tab 验证五向停靠指示器与 Esc 取消零残留。
 7. 拖出浮动窗口，验证拖动/缩放/拖回/持久化恢复。
 8. 打开七个模板编辑器，验证三态、意图回流与视图状态保存恢复。
+
+## 三维后端的冒烟诊断（`render-3d`）
+
+### 为什么需要这一层
+
+三维渲染的故障有一个**反直觉特征**：渲染统计可以完全正常，而画面上什么都没有。
+
+实测过的两种形态（2026-11-07）：
+
+| 故障 | `sceneObjectCount` | `drawCalls` | 三角面 | 实际画面 |
+| --- | --- | --- | --- | --- |
+| 多边形坐标翻转 | 3 | 6 | 169 | **全空** |
+| 视口单位用错 | 3 | 6 | 75 | **全空** |
+| 文字基向量左手系 | 5 | 6 | 177 | 文字缩成细竖条 |
+
+原因是这些统计来自「提交给 GPU 的数据」，与「落在屏幕哪个位置」无关。
+纯函数单测同样覆盖不到：规划算得对、装配把顶点搬到视锥外，单测照样全绿。
+
+因此 `render-3d` 有**两层**测试，缺一不可：
+
+| 层 | 位置 | 断言什么 | 能否抓装配错误 |
+| --- | --- | --- | --- |
+| 规划 | `tests/*.test.ts` | 算得对 | 否 |
+| 装配 | `tests/scene-bounds.test.ts` | 顶点在世界范围内 | **能** |
+| 上屏 | `tests/e2e/`（真浏览器） | 画得出来 | **能** |
+
+### 装配层：世界包围盒断言
+
+`tests/scene-bounds.test.ts` 直接量装配产物的 `Box3`，把「顶点跑到世界之外」变成硬断言：
+
+```ts
+const plan = buildScenePlan({ snapshot });
+const built = planToSceneObjects(plan, { projection: 'orthographic' });
+// 2D 的 y 正号必须映射到 3D 的 z 正号；掉进负 z 就是坐标系反了
+expect(box.min.z).toBeGreaterThanOrEqual(-1);
+expect(box.max.z).toBeLessThanOrEqual(512 + 1);
+```
+
+覆盖多边形、折线、网格、精灵、文字五类图元。回退任何一处坐标翻转，这里的断言会立刻变红。
+
+### 上屏层：浏览器诊断页
+
+```bash
+cd packages/render-3d
+pnpm smoke:dev      # 开发：http://127.0.0.1:4187，改源码热更新
+pnpm smoke:build    # 静态：产物在 tests/.smoke-dist，可 python3 -m http.server 预览
+```
+
+诊断页把「装配 → 喂快照 → 上屏」逐环节暴露成可读数字：
+
+| 读数 | 能回答的问题 |
+| --- | --- |
+| 后端装配 (mount) | 后端起没起来 |
+| canvas 绘图缓冲 / CSS 尺寸 / dpr | 尺寸链路对不对 |
+| 投影居中 | viewport 有没有偏（世界中心是否落在画面中心） |
+| 场景对象总数 | 几何有没有生成 |
+| 本帧 drawCalls / 三角面 | 有没有提交给 GPU |
+| 相机位置 / 注视点 / 视锥高度 / 极角 | 相机装得对不对 |
+| 分界：单独 `buildScenePlan` | 规划层是否正常（与后端内部对比，一眼分界） |
+| 独立几何明细 / 实例化组明细 | 每类图元的点数、抬升 z、填色 |
+| 投影：世界中心 / 四角 → 屏幕 | 屏幕↔世界换算是否吻合 |
+| 文字贴片探测 | 每块贴片的几何尺寸、纹理尺寸、不透明像素数 |
+
+`?backend=webgl` 可强制走 WebGL 后端，用来把「几何/相机算错」与
+「WebGPU 在该环境画不出来」两类原因分开。
+
+### 两条写代码时必须记住的纪律
+
+1. **诊断工具自身出错会伪装成被测对象的故障。**
+   首版诊断页在读取场景之前调了 `renderer.getViewport()`，而 WebGPU 的
+   `CanvasTarget` 在首帧提交前会抛 `Cannot read properties of undefined (reading 'copy')`。
+   异常打断了后面全部读数，于是「场景对象 0 / 规划实例 0」这些**初始值**
+   被误读成「真的没有几何」，白查了一整轮。
+   **因此：每项探测独立 try/catch，任何一项失败都不得中断后续读数。**
+
+2. **假件测试会掩盖装配错误。**
+   文字朝向的单测原先用「只记录矩阵列向量」的最小假件，它能通过
+   「+Y 与相机 up 同向」这类断言，却看不见整组基是**左手系**（行列式 -1）。
+   左手系矩阵交给 `Quaternion.setFromRotationMatrix` 会产出模长 0.708 的
+   伪四元数 —— 贴片被转到侧对相机。
+   **涉及旋转/矩阵的断言，一律用真的 `Object3D` / `Quaternion`，
+   并直接断言 `quaternion.length() === 1`。**
