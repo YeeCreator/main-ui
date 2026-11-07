@@ -44,6 +44,39 @@ export interface PerspectiveCameraPlan {
 export type CameraPlan = OrthoCameraPlan | PerspectiveCameraPlan;
 
 /**
+ * 求「让世界恰好贴边填满容器」的视锥高度（世界单位）。
+ *
+ * 正交相机满足 `halfHeight = viewHeight/2`、`halfWidth = halfHeight · aspect`。
+ * 要完整显示世界，视锥需同时满足两条约束：
+ * - `viewHeight >= world.height`（纵向装下）
+ * - `viewHeight · aspect >= world.width` ⇒ `viewHeight >= world.width / aspect`（横向装下）
+ *
+ * 取**较大值** ⇒ 世界恰好贴住较紧的那个边缘，另一维留白（等比不变形的必然代价）。
+ *
+ * **必须与 `fitToBounds` 使用同一份实现**：这两处一旦各写一份，
+ * 就会重现「后端算一套、测试断言另一套」的假绿灯。
+ *
+ * @param options 容器像素尺寸、世界尺寸与可选留白。
+ * @returns 视锥高度（世界单位）。
+ * @example
+ * fitViewHeightForWorld({ containerPx: { width: 960, height: 445 }, world: { width: 512, height: 512 } })
+ * // → 512（高度贴边，横向留白 —— 保持正方形不变形）
+ */
+export function fitViewHeightForWorld(options: {
+  containerPx: { width: number; height: number };
+  world: { width: number; height: number };
+  paddingPx?: number;
+}): number {
+  const pad = Math.max(0, options.paddingPx ?? 0);
+  const usableW = Math.max(1, options.containerPx.width - pad * 2);
+  const usableH = Math.max(1, options.containerPx.height - pad * 2);
+  const worldW = Math.max(1, options.world.width);
+  const worldH = Math.max(1, options.world.height);
+  const aspect = usableW / usableH;
+  return Math.max(worldH, worldW / aspect);
+}
+
+/**
  * 由轨道相机 + 视口尺寸生成相机装配参数。
  *
  * 关键换算（统一在此处，不散落）：
@@ -140,15 +173,25 @@ export function planToCamera2D(plan: CameraPlan, viewportPx: { width: number; he
   return orbitToCamera2D(orbit, viewportPx);
 }
 
-/** 屏幕点 → 世界平面点（正交俯视档的解析反算；不需要射线）。 */
+/**
+ * 屏幕点 → 世界平面点（正交档解析反算，含**极角补偿**）。
+ *
+ * 为什么需要 `polar`：相机绕目标点倾斜后，地面平面在屏幕上被
+ * `cos(polar)` 压缩（越倾斜，同样一段地面占的屏幕高度越小）。
+ * 只按俯视公式反算，会把屏幕点映射到**更远的地面点**，表现为：
+ * 「倾斜后点击的位置与实际落点不符」「平移量比手指移动的多」。
+ */
 export function screenToWorldOrtho(options: {
   screen: Vec2;
   plan: OrthoCameraPlan;
   viewportPx: { width: number; height: number };
   screenRotation?: number;
+  /** 相机极角（弧度，从 +Y 量起；0 = 正俯视）。缺省 0 = 俯视档。 */
+  polar?: number;
 }): Vec2 {
   const { screen, plan, viewportPx } = options;
   const rotation = options.screenRotation ?? 0;
+  const cosPolar = Math.max(0.05, Math.cos(options.polar ?? 0));
   const worldWidth = plan.right - plan.left;
   const worldHeight = plan.top - plan.bottom;
   // 屏幕像素 → 相机空间（中心为原点，Y 向上）
@@ -160,23 +203,28 @@ export function screenToWorldOrtho(options: {
   const ry = cx * sin + cy * cos;
   // 相机空间 → 世界平面（target 为原点）
   const wx = (rx / viewportPx.width) * worldWidth + plan.target.x;
-  const wz = (-ry / viewportPx.height) * worldHeight + plan.target.z;
+  // 纵向除以 cos(polar)：把「屏幕上被压缩的地面」还原回真实地面距离
+  const wz = (-ry / viewportPx.height) * (worldHeight / cosPolar) + plan.target.z;
   return { x: wx, y: wz };
 }
 
-/** 世界平面点 → 屏幕点（与 `screenToWorldOrtho` 互逆）。 */
+/** 世界平面点 → 屏幕点（与 `screenToWorldOrtho` 互逆，含极角补偿）。 */
 export function worldToScreenOrtho(options: {
   world: Vec2;
   plan: OrthoCameraPlan;
   viewportPx: { width: number; height: number };
   screenRotation?: number;
+  /** 相机极角（弧度，从 +Y 量起；0 = 正俯视）。缺省 0 = 俯视档。 */
+  polar?: number;
 }): Vec2 {
   const { world, plan, viewportPx } = options;
   const rotation = options.screenRotation ?? 0;
+  const cosPolar = Math.max(0.05, Math.cos(options.polar ?? 0));
   const worldWidth = plan.right - plan.left;
   const worldHeight = plan.top - plan.bottom;
   const nx = ((world.x - plan.target.x) / worldWidth) * viewportPx.width;
-  const ny = -((world.y - plan.target.z) / worldHeight) * viewportPx.height;
+  // 纵向乘 cos(polar)：地面距离在倾斜视角下按该系数压缩到屏幕
+  const ny = -((world.y - plan.target.z) / (worldHeight / cosPolar)) * viewportPx.height;
   const cos = Math.cos(rotation);
   const sin = Math.sin(rotation);
   const rx = nx * cos - ny * sin;

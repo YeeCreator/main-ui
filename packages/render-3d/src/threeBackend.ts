@@ -42,6 +42,7 @@ import type {
 } from '@main-ui/core/rendering';
 import { hitTestGrid } from '@main-ui/core/primitives';
 import {
+  fitViewHeightForWorld,
   planCamera,
   screenToWorldOrtho,
   worldToScreenOrtho,
@@ -144,9 +145,14 @@ export class ThreeViewportBackend implements ViewportBackend {
 
     // setSize(..., false) 只改绘图缓冲，不一定同步 viewport；而屏幕空间粗线
     // （webgpu 版 LineSegments2）在 onBeforeRender 里用 renderer.getViewport() 换算线宽，
-    // viewport 为 0 时线宽也变 0 → 线完全不可见（2026-10-27 实测）。故显式设置。
-    renderer.setSize(this.size.width, this.size.height, false);
-    renderer.setViewport(0, 0, this.size.width, this.size.height);
+    // viewport 为 0 时线宽也变 0 → 线完全不可见（2026-10-27 实测）。
+    //
+    // ⚠ **viewport 单位是物理像素**（= CSS 尺寸 × pixelRatio），不是 CSS 像素。
+    // 设成 CSS 尺寸时，高清屏（dpr=2）下只画到左下 1/4，表现为「内容缩在角落」。
+    // three 的 `setSize` 会自动把 viewport 设成 `size × pixelRatio`，故只需调它；
+    // 显式重设时也必须换单位。
+    renderer.setSize(this.size.width, this.size.height, true);
+    this.syncViewport();
     // 必须先按传入的 viewBox 适配一次：否则相机会停在构造默认值，
     // 表现为「画面空 + pickCell 全 null」（2026-10-27 保真对照实测踩到）。
     // 二维后端（PixiViewport.init）在装配时就 fit，两边语义必须一致。
@@ -212,6 +218,7 @@ export class ThreeViewportBackend implements ViewportBackend {
       plan: this.currentPlan as OrthoCameraPlan,
       viewportPx: this.size,
       screenRotation: -this.orbitState.azimuth,
+      polar: this.orbitState.polar,
     });
   }
 
@@ -222,6 +229,7 @@ export class ThreeViewportBackend implements ViewportBackend {
       plan: this.currentPlan as OrthoCameraPlan,
       viewportPx: this.size,
       screenRotation: -this.orbitState.azimuth,
+      polar: this.orbitState.polar,
     });
   }
 
@@ -235,11 +243,30 @@ export class ThreeViewportBackend implements ViewportBackend {
 
   resize(width: number, height: number): void {
     this.size = { width: Math.max(1, width), height: Math.max(1, height) };
-    this.renderer?.setSize(this.size.width, this.size.height, false);
-    this.renderer?.setViewport(0, 0, this.size.width, this.size.height);
+    this.renderer?.setSize(this.size.width, this.size.height, true);
+    this.syncViewport();
     this.applyCameraToThree();
     this.built?.syncLineResolution(this.size.width, this.size.height);
     this.renderOnce();
+  }
+
+  /**
+   * 把 viewport 同步到当前尺寸。
+   *
+   * **单位是 CSS 像素，不是绘图缓冲像素。**
+   *
+   * `WebGLRenderer.setViewport` 内部会自己做 `multiplyScalar(_pixelRatio)`
+   * （three r186 `WebGLRenderer.js` 的 `state.viewport(_currentViewport.copy(_viewport)
+   * .multiplyScalar(_pixelRatio).floor())`），因此这里传 CSS 像素才是对的。
+   *
+   * 若在这里先乘一遍 `devicePixelRatio`，视口会被放大成 2 倍：
+   * 视锥中心被推到 canvas 可见区之外，`drawCalls` 与三角面计数都正常，
+   * **但画面上一个像素都不出现** —— 2026-11-07 实测踩到，且极难从
+   * 「渲染统计正常」反推，因为统计来自提交给 GPU 的数据，与落在哪无关。
+   */
+  private syncViewport(): void {
+    if (!this.renderer) return;
+    this.renderer.setViewport(0, 0, Math.round(this.size.width), Math.round(this.size.height));
   }
 
   requestRender(): void {
@@ -277,19 +304,16 @@ export class ThreeViewportBackend implements ViewportBackend {
     const usableH = Math.max(1, H - pad * 2);
 
     /**
-     * 视锥高度按「两方向都装得下」来定，且**不引入屏幕比例因子**。
+     * 视锥高度：让世界**恰好贴边**填满容器（含 padding 留白）。
      *
-     * 正交相机的视锥由 `viewHeight` + `aspect` 共同决定：
-     * `halfHeight = viewHeight/2`、`halfWidth = halfHeight * aspect`。
-     * 宽度方向的约束因此反推为 `viewHeight >= boxW / aspect`。
-     * 取两者较大值即可同时容纳世界宽与高 —— **再乘任何屏幕比例都会破坏等比**，
-     * 表现为圆形世界被拉成椭圆。
-     *
-     * ⚠️ 原实现用 `scale = min(usableW/boxW, usableH/boxH)` 再 `viewHeight = H/scale`，
-     * 那个 `H/` 把屏幕高度混进了世界单位，竖长容器下会多算约 1/aspect 倍。
+     * 算法与单测共用同一份实现（`fitViewHeightForWorld`）—— 两处各写一份
+     * 会重现「后端算一套、测试断言另一套」的假绿灯。
      */
-    const aspect = W / H;
-    const viewHeight = Math.max(boxH, boxW / aspect) * (usableH > 0 && usableH < H ? H / usableH : 1);
+    const viewHeight = fitViewHeightForWorld({
+      containerPx: { width: W, height: H },
+      world: { width: boxW, height: boxH },
+      paddingPx: pad,
+    });
 
     const center = {
       x: this.viewBox.x + this.viewBox.width / 2,

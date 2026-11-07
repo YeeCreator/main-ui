@@ -176,8 +176,20 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
     });
     const mesh = new Mesh(geometry, material);
     mesh.position.y = item.z;
-    // ShapeGeometry 在 XY 平面，绕 X 轴 -90° 转到 XZ 地面平面（three Y 向上）。
-    mesh.rotation.x = -Math.PI / 2;
+    /**
+     * `ShapeGeometry` / `ExtrudeGeometry` 都建在 XY 平面，需转到 XZ 地面。
+     *
+     * **必须绕 X 轴 +90°，不是 -90°。** 约定是 2D 的 `y` 正号映射到 3D 的 `z`
+     * （与 `polylinePositions` 的 `push(pt.x, z, pt.y)` 一致）。
+     * `Rx(+π/2)` 把 `(x, y, 0)` 送到 `(x, 0, y)`；`Rx(-π/2)` 送到 `(x, 0, -y)`，
+     * 顶点整体翻到负 Z —— 世界中心在 `z = height / 2` 时，整个多边形落在视锥外，
+     * 表现为「场景对象数正常、drawCall 正常、画面上什么都没有」。
+     * 2026-11-07 实测：96 段圆盘 `z ∈ [-456, -56]`，而视锥只覆盖 `[0, 512]`。
+     *
+     * 挤出方向随之朝 -Y（下方）。多边形是最底层（`LAYER_Z.polygon = 0`），
+     * 下方无图元，故不影响观感。
+     */
+    mesh.rotation.x = Math.PI / 2;
     root.add(mesh);
     disposables.push(geometry, material);
   }

@@ -13,6 +13,9 @@ dist-ssr
 dist-desktop
 *.local
 
+# 冒烟诊断页的构建产物（tests/e2e 的 vite 输出）
+.smoke-dist
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
