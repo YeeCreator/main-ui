@@ -600,8 +600,10 @@ import '@main-ui/view-minimap/styles.css'; // 样式需宿主显式引入
 | Prop | 说明 |
 | --- | --- |
 | `items` | `MinimapItem[]`：`{ id, world, kind?, points?, group?, highlighted? }` |
+| `world` | **世界的固定范围**（世界坐标）。**强烈建议提供**：不给时范围退化为「内容包围盒 ∪ 视口」，内容为空（空场景、新建画布）时范围由视口决定，视口框会恒等于整块小图，看起来「框不动」 |
 | `viewport` | 当前视口矩形（世界坐标）。与 `camera` 二选一，**前者优先** |
 | `camera` / `viewportSize` | 不给 `viewport` 时由相机反算可见范围 |
+| `shape` | `'rect'`（缺省）或 `'circle'`。世界是圆形时用 `circle`：内容按 `clipPath` 裁成圆，四角不再显示「实际不存在的区域」。形状只影响可视裁切与边框，坐标映射恒按世界范围等比适配 |
 | `width` / `height` / `padding` | 缩略图尺寸与内留白（默认 180 / 120 / 6） |
 | `panOnClick` | 点击是否抛 `navigate`（默认 `true`） |
 | `renderContent` | 自定义内容绘制，回传 `{ transform, items, viewport }` |
@@ -614,6 +616,55 @@ import '@main-ui/view-minimap/styles.css'; // 样式需宿主显式引入
 **三种画法**：`point`（画圆，半径固定为像素值，缩放缩略图尺寸时点不变大）、
 `rect`（按比例画框）、`path`（折线）。缺省按 `world` 是否零宽高自动判为
 `point`。
+
+## 视口操作手势（v0.13）
+
+视口类模板内置两套并行的操作体系，**互不冲突**：
+
+### 鼠标 + 键盘：`Alt + 三键`
+
+| 组合 | 操作 |
+| --- | --- |
+| `Alt + 左键拖拽` | 旋转 |
+| `Alt + 中键拖拽` | 平移 |
+| `Alt + 右键拖拽` | 缩放 |
+
+`Alt` 在 macOS 上即 `Option`。**未按 Alt 时三键语义完全不变** —— 左键仍是选择、
+右键仍弹上下文菜单。按住 Alt 等于「临时进入视图操作模式」，松开即回到普通语义。
+
+**为什么是「修饰键 + 三键」而非「中键 + 三个修饰键」**：三个鼠标键物理并排，
+左中右 ↔ 旋转/平移/缩放 是**连续的空间映射**，靠本体感觉即可操作，不必低头
+确认按对了哪个键；修饰键是离散切换，每次都要目视确认。这是 DCC 类软件的通用范式。
+
+若宿主不需要这套（例如左键有强语义、不希望被 Alt 改写），设 `:alt-view-gestures="false"` 关闭。
+
+### 触控板：双指
+
+| 手势 | 操作 |
+| --- | --- |
+| 双指拖动 | 平移 |
+| 双指捏合 | 缩放 |
+| **双指扭转** | 旋转 |
+
+**触控板扭转与桌面 Alt 旋转共用同一个落点**：两者最终都调
+`rotateAtScreenPoint`，只是角度来源不同（前者取双指连线角度变化，后者取水平位移）。
+
+> **平台差异须知**：双指扭转在**触屏**（`TouchEvent` 有真实多点坐标）可用；
+> **macOS 触控板拿不到多指角度** —— 浏览器只给 `wheel` 的 `deltaX/deltaY`
+> 与修饰键，这是平台限制而非实现缺失。故桌面上请用 `Alt + 左键` 旋转。
+
+### `@main-ui/core/input` 的判定纯函数
+
+| 导出 | 说明 |
+| --- | --- |
+| `altMouseGesture({ button, altKey })` | 判定 Alt + 鼠标键 → `'rotate' \| 'pan' \| 'zoom' \| 'none'` |
+| `rotateDeltaFromDrag(deltaX, radiansPerPixel?)` | 水平位移 → 旋转弧度（缺省 0.01 rad/px） |
+| `zoomFactorFromDrag(deltaY, perPixel?)` | 垂直位移 → 缩放倍率（指数映射，缺省 0.005） |
+| `pinchRotateDelta(prevAngle, currAngle)` | 双指角度 → 旋转增量（±π 归一，避免跨界大跳） |
+| `CameraGestureIntent` | 意图类型 |
+
+三个换算函数都在 core 而非模板里，理由与 `panToMinimapPoint` 相同：
+**符号方向极易写反**，收敛到一处才能单测锁死。
 
 ## Persistence
 

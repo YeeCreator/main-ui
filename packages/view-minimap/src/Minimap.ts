@@ -53,6 +53,15 @@ export const Minimap = defineComponent({
   props: {
     /** 内容项（世界坐标）。 */
     items: { type: Array as PropType<readonly MinimapItem[]>, default: () => [] },
+    /**
+     * 世界的固定范围（世界坐标）。
+     *
+     * **强烈建议提供**：不给时范围退化为「内容包围盒 ∪ 视口矩形」，
+     * 而在内容为空（开局无实体、画布无单元）的场合，范围会完全由视口决定 ——
+     * 视口框恒等于整块小图，缩放平移时看起来「框不动」。
+     * 世界范围是世界的固有边界，不该随相机变化。
+     */
+    world: { type: Object as PropType<WorldRect | null>, default: null },
     /** 当前视口矩形（世界坐标）。与 `camera` 二选一，前者优先。 */
     viewport: { type: Object as PropType<WorldRect | null>, default: null },
     /** 当前相机；给了它且没给 `viewport` 时用于反算可见范围。 */
@@ -86,8 +95,20 @@ export const Minimap = defineComponent({
     const instanceClipSeq = ++clipSeq;
     const size = computed<MinimapSize>(() => ({ width: props.width, height: props.height }));
 
-    /** 参与「内容范围」的矩形：内容包围盒 ∪ 视口矩形。 */
+    /**
+     * 参与「内容范围」的矩形。
+     *
+     * **世界范围优先**：宿主给了 `world` 就用它，否则用「内容包围盒 ∪ 视口矩形」。
+     *
+     * 为什么必须让宿主能给 `world`：只用「内容 ∪ 视口」时，内容还没出现
+     * （开局空场景、新建画布）的场合，范围完全由视口决定 —— 于是视口框
+     * **恒等于整块小图**，缩放/平移时看起来「框不动」。那不是相机没连上，
+     * 是小图本身跟着相机一起缩放了，两个比例同步抵消。
+     *
+     * 世界范围是**世界的固有边界**，不该随相机变化。
+     */
     const worldBounds = computed<WorldRect | null>(() => {
+      if (props.world) return props.world;
       const rects: WorldRect[] = props.items.map((item) => item.world);
       const vp = currentViewport.value;
       if (vp) rects.push(vp);

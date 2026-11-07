@@ -6,10 +6,14 @@
 
 1. **缩略导航（小地图）**：新增 `@main-ui/view-minimap` 的 `Minimap` 组件与 `core/rendering` 的坐标数学（`minimapTransform` / `panToMinimapPoint` / `minimapViewportRect` / `contentWorldBounds` / `visibleWorldRectOfCamera`）。游戏小地图与画布导航**共用同一套坐标数学**，画法按 `kind` 分派（`point` / `rect` / `path`）——「点」在几何上就是零宽高矩形，故不建两套实现。
 2. **组件不重绘场景**：只画简化图元，不复用 GPU 后端、不复制 DOM 节点。把文字与节点缩小重画一遍会带来双份显存与双份 DOM，是白板类应用最常见的性能事故形态。
-3. **`view-canvas` 移除旧名**：删除插槽字段 `cameraTransform` 与函数 `cameraTransformOf`（0.11.0 起标 deprecated）。该名字歧义在于「同一字段装两套语法」——SVG 属性串放进 `style.transform` 会被浏览器静默丢弃整条声明。改用 `svgTransform` / `cssTransform`。
-4. **修 `cullContentLayer` 误裁**：缺 `size` 的项此前按「零尺寸点」判定，锚点刚出视口、内容仍大半可见时整条被裁掉（表现为缩放后部分文字莫名消失）。现改为**尺寸未知即保守保留**；需要裁剪收益的宿主应提供 `size`。
-5. **修 `view-formula` 缺 KaTeX 样式表**：包内只引 JS 时不引 CSS，则 `\frac` / `^{}` / `_{}` 全部退化为平铺文本，看起来像「公式功能没生效」。现由包内引入，并把 `sideEffects` 从 `false` 改为 `["*.css"]`（否则打包器会 tree-shake 掉它）。
-6. **修 PixiJS 销毁后回调崩溃**：容器在首帧前卸载时，`pixiViewport` 排入的 `requestAnimationFrame` 仍会执行并触发 `resize`，此时 `app.renderer` 已为 `null`。`destroy()` 现为幂等。
+3. **视口操作两套手势**：`Alt + 左/中/右键` = 旋转/平移/缩放（桌面），双指拖动/捏合/扭转 = 平移/缩放/旋转（触控）。判定与换算入 `@main-ui/core/input` 的 `altMouseGesture` / `rotateDeltaFromDrag` / `zoomFactorFromDrag` / `pinchRotateDelta`。`WorldView` 新增 `altViewGestures` prop（默认开）。
+4. **缩略图支持圆形外框**：`Minimap` 新增 `shape: 'rect' | 'circle'`。世界是圆形时用方形外框会在四角凭空造出「那里也有内容」的错觉。
+5. **缩略图支持固定世界范围**：`Minimap` 新增 `world` prop。不给时范围退化为「内容 ∪ 视口」，内容为空时视口框会恒等于整块小图（看起来「框不动」）。
+6. **`view-canvas` 移除旧名**：删除插槽字段 `cameraTransform` 与函数 `cameraTransformOf`（0.11.0 起标 deprecated）。该名字歧义在于「同一字段装两套语法」——SVG 属性串放进 `style.transform` 会被浏览器静默丢弃整条声明。改用 `svgTransform` / `cssTransform`。
+7. **修 `cullContentLayer` 误裁**：缺 `size` 的项此前按「零尺寸点」判定，锚点刚出视口、内容仍大半可见时整条被裁掉（表现为缩放后部分文字莫名消失）。现改为**尺寸未知即保守保留**；需要裁剪收益的宿主应提供 `size`。
+8. **修 `view-formula` 缺 KaTeX 样式表**：包内只引 JS 时不引 CSS，则 `\frac` / `^{}` / `_{}` 全部退化为平铺文本，看起来像「公式功能没生效」。现由包内引入，并把 `sideEffects` 从 `false` 改为 `["*.css"]`（否则打包器会 tree-shake 掉它）。
+9. **修 PixiJS 销毁后回调崩溃**：容器在首帧前卸载时，`pixiViewport` 排入的 `requestAnimationFrame` 仍会执行并触发 `resize`，此时 `app.renderer` 已为 `null`。`destroy()` 现为幂等。
+10. **修 `setPointerCapture` 抛错中断手势**：`setPointerCapture` 在合成事件或指针已释放时抛 `NotFoundError`，此前未捕获会**中断整个 `pointerdown` 处理**，导致视图操作彻底失效（表现为「按了没反应」）。现统一走 `capturePointer` 守卫。
 
 > 迁移细节见 `MIGRATION_GUIDE_0.13.0.md`。
 

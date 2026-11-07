@@ -2,7 +2,7 @@
 
 ## 当前版本与分发方式
 
-当前工程版本为 `main-ui 0.13.0` / `@main-ui/core 0.12.0`（仓库为 pnpm workspace monorepo，主包位于 `packages/main-ui/`，包名仍为 `main-ui`，开发分支 `dev-v0.5`）。共有 21 个包；单元测试 835 项全绿，构建与类型检查零错误。
+当前工程版本为 `main-ui 0.13.0` / `@main-ui/core 0.12.0`（仓库为 pnpm workspace monorepo，主包位于 `packages/main-ui/`，包名仍为 `main-ui`，开发分支 `dev-v0.5`）。共有 21 个包；单元测试 864 项全绿，构建与类型检查零错误。
 
 下游升级时使用 `pnpm add ../main-ui/main-ui-0.13.0.tgz` 或在 `package.json` 中更新对应 `file:` 路径；正在进行源码级联调时可保留 workspace 内链接。各版本升级说明见 `MIGRATION_GUIDE_*.md`。
 
@@ -215,6 +215,14 @@ View/panel descriptor 只声明 `rendererKey`/`providerKey`，不把 Vue 或业�
 13. **`pan` 只经 `panToMinimapPoint` 计算**。它的语义是「世界原点在屏幕上的偏移」，不是「视口中心的世界坐标」；自己推公式必写反符号。
 14. **相机归宿主**。缩略图只抛目标 `pan`，不改状态 —— 相机可能同时被主视口、多个缩略图、URL 恢复与撤销栈持有。
 15. **等比适配取两方向比例的较小值**。拉伸会让圆点变椭圆；宁可留白。
+
+### 视口操作手势的额外约束
+
+16. **「Alt + 三键」与「双指」必须共用同一个落点**。旋转都走 `rotateAtScreenPoint`、缩放都走 `zoomAtScreenPoint`、平移都走 `panBy` —— 只是角度/倍率的**来源**不同。分成两条处理链会让两条路的手感与边界逐渐分叉。
+17. **换算函数入 `core/input`，不入模板**。`rotateDeltaFromDrag` / `zoomFactorFromDrag` 的符号方向与映射形式极易写反（线性 vs 指数、正负号），收敛到一处才能单测锁死。
+18. **Alt 模式的判定只在 `pointerdown` 做一次**，拖拽全程沿用。中途松开 Alt 不该把一次旋转突变成选择操作 —— 那会把一次操作切成两段。
+19. **Alt 模式不产出点击语义**。旋转/平移/缩放结束后不该顺带触发 `world-click` 或上下文菜单。
+20. **`setPointerCapture` 必须包 try**。它在合成事件或指针已释放时抛 `NotFoundError`，不拦会中断整个 `pointerdown` 处理，表现为「按了没反应」且控制台只有一条看似无关的错误。
 
 ## Mount Adapter 开发规则
 

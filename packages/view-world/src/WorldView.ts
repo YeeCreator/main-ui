@@ -41,6 +41,13 @@ import {
 import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment';
 import { readWheel, wheelPanDelta, zoomFactorOf } from '@main-ui/core/input';
 import {
+  altMouseGesture,
+  pinchRotateDelta,
+  rotateDeltaFromDrag,
+  zoomFactorFromDrag,
+  type CameraGestureIntent,
+} from '@main-ui/core/input';
+import {
   prepareContentLayer,
   visibleWorldRect,
   type ContentLayerItem,
@@ -99,8 +106,27 @@ export const WorldView = defineComponent({
     clickButtonPolicy: { type: String as PropType<WorldClickButtonPolicy>, default: 'left' },
     /** 是否启用内置原生手势隔离（user-select / preventDefault / contextmenu 抑制）。缺省取环境 ShellPolicy。 */
     nativeGestureGuard: { type: Boolean as PropType<boolean | null>, default: null },
-    /** 是否启用双指旋转手势（“单指按住 + 另一指拖动”）。默认 false（相机模型已支持 rotation）。 */
+    /**
+     * 是否启用双指旋转手势（“单指按住 + 另一指拖动”）。默认 false（相机模型已支持 rotation）。
+     */
     rotateOnGesture: { type: Boolean, default: false },
+    /**
+     * 是否启用「Alt + 鼠标三键」视图操作体系。默认 `true`。
+     *
+     * | 组合 | 操作 |
+     * | --- | --- |
+     * | `Alt + 左键拖拽` | 旋转 |
+     * | `Alt + 中键拖拽` | 平移 |
+     * | `Alt + 右键拖拽` | 缩放 |
+     *
+     * **未按 Alt 时三键语义完全不变** —— 左键仍是选择、右键仍弹上下文菜单。
+     * 按住 Alt 等于「临时进入视图操作模式」，松开即回到普通语义。
+     *
+     * 为什么是「修饰键 + 三键」而非「中键 + 三个修饰键」：三个鼠标键物理并排，
+     * 左中右 ↔ 旋转/平移/缩放 是连续的空间映射，靠本体感觉即可操作，
+     * 不必低头确认按对了哪个键。这是 DCC 类软件的通用范式。
+     */
+    altViewGestures: { type: Boolean, default: true },
     /**
      * 内容层（**文字面**）：在 GPU 几何面之上叠加浏览器绘制的内容。
      *
@@ -347,6 +373,32 @@ export const WorldView = defineComponent({
     /** 是否允许该事件触发拖拽平移（仅左键）。 */
     const canStartDrag = (event: PointerEvent): boolean => event.button === 0;
 
+    /**
+     * 安全地捕获指针。
+     *
+     * `setPointerCapture` 在两类情形下会抛 `NotFoundError`：
+     * ① 合成事件（测试注入）没有真实活跃指针；② 指针在调用前已释放。
+     * 不拦会让 **整个 pointerdown 处理中断**，后续所有视图操作失效 ——
+     * 表现为「按了没反应」，且控制台只有一条与视图操作看似无关的错误。
+     */
+    const capturePointer = (pointerId: number): void => {
+      try {
+        overlayRef.value?.setPointerCapture(pointerId);
+      } catch {
+        // 捕获失败不影响操作本身：只是拖出画布后会丢事件，不做兜底重定向。
+      }
+    };
+
+    /**
+     * 本次拖拽处于哪个视图操作模式（`Alt + 三键`）。
+     *
+     * 按下时判定一次、拖拽全程沿用：中途松开 Alt 不该把「旋转」突变
+     * 成「选择」，否则一次操作会被切成两段。
+     */
+    let altMode: CameraGestureIntent = 'none';
+    /** 上一次旋转的屏幕 X（`applyRotate` 是增量式，需记账）。 */
+    let lastRotateX = 0;
+
     /** 双指旋转：记录/更新参与旋转的两个指针。 */
     const trackRotatePointer = (event: PointerEvent, local: Vec2): void => {
       if (!rotate.active) {
@@ -390,6 +442,29 @@ export const WorldView = defineComponent({
         event.preventDefault();
       }
 
+      // Alt + 三键：进入视图操作模式（旋转/平移/缩放）。
+      // 判定只在按下时做一次，拖拽全程沿用 —— 中途松开 Alt 不该把一次旋转
+      // 突变成选择操作。
+      const altIntent: CameraGestureIntent = props.altViewGestures
+        ? altMouseGesture({ button: event.button, altKey: event.altKey })
+        : 'none';
+      if (altIntent !== 'none') {
+        altMode = altIntent;
+        lastRotateX = event.clientX;
+        drag.pointerId = event.pointerId;
+        drag.active = true;
+        drag.button = event.button;
+        drag.lastX = event.clientX;
+        drag.lastY = event.clientY;
+        // 捕获指针：拖出画布仍能收到 move/up，否则旋转到一半断掉。
+        // 必须包 try：某些环境下（合成事件、指针已释放）会抛
+        // `NotFoundError: No active pointer with the given id`，
+        // 不拦会让整个 onPointerDown 中断，视图操作彻底失效。
+        capturePointer(event.pointerId);
+        return;
+      }
+      altMode = 'none';
+
       drag.pointerId = event.pointerId;
       drag.active = true;
       drag.button = event.button;
@@ -398,7 +473,7 @@ export const WorldView = defineComponent({
       gesture.down({ x: event.clientX, y: event.clientY });
       // 平移相机时捕获指针，保证拖出画布仍能收到 pointerup。
       // 本层没有 DOM 子元素，捕获导致的 click 重定向无副作用（宿主一律走 Emits）。
-      if (props.panOnDrag && canStartDrag(event)) overlayRef.value?.setPointerCapture(event.pointerId);
+      if (props.panOnDrag && canStartDrag(event)) capturePointer(event.pointerId);
       if (props.rotateOnGesture && canStartDrag(event)) trackRotatePointer(event, local);
 
       const wp = worldPayload(local, event);
@@ -410,15 +485,44 @@ export const WorldView = defineComponent({
     const onPointerMove = (event: PointerEvent): void => {
       if (!backend) return;
 
+      // Alt 视图操作模式：旋转 / 平移 / 缩放，按按下时的判定分派。
+      if (altMode !== 'none' && drag.pointerId === event.pointerId) {
+        const dx = event.clientX - drag.lastX;
+        const dy = event.clientY - drag.lastY;
+        drag.lastX = event.clientX;
+        drag.lastY = event.clientY;
+        const anchor = { x: event.clientX, y: event.clientY };
+
+        if (altMode === 'rotate') {
+          // 水平位移 → 绕竖轴旋转；以指针位置为锚点（旋转中心随指）
+          const delta = rotateDeltaFromDrag(event.clientX - lastRotateX);
+          lastRotateX = event.clientX;
+          if (delta !== 0) {
+            backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: delta, anchorScreen: anchor }));
+          }
+          return;
+        }
+        if (altMode === 'pan') {
+          if (dx !== 0 || dy !== 0) backend.setCamera(panBy(backend.getCamera(), { x: dx, y: dy }));
+          return;
+        }
+        if (altMode === 'zoom') {
+          // 垂直位移 → 指数缩放；以指针为锚点，缩放时指下内容不动
+          const factor = zoomFactorFromDrag(dy);
+          if (factor !== 1) {
+            backend.setCamera(zoomAtScreenPoint(backend.getCamera(), { factor, anchorScreen: anchor }));
+          }
+          return;
+        }
+      }
+
       // 双指旋转优先（rotateOnGesture）：两指都存在时仅做旋转，不触发平移。
       if (props.rotateOnGesture && rotate.active && rotate.bId !== -1 && (event.pointerId === rotate.aId || event.pointerId === rotate.bId)) {
         const local = toLocal(event);
         if (local) {
           trackRotatePointer(event, local);
           const angle = Math.atan2(rotate.by - rotate.ay, rotate.bx - rotate.ax);
-          let delta = angle - rotate.lastAngle;
-          if (delta > Math.PI) delta -= 2 * Math.PI;
-          if (delta < -Math.PI) delta += 2 * Math.PI;
+          const delta = pinchRotateDelta(rotate.lastAngle, angle);
           rotate.lastAngle = angle;
           if (delta !== 0) {
             const anchor = { x: (rotate.ax + rotate.bx) / 2, y: (rotate.ay + rotate.by) / 2 };
@@ -444,6 +548,15 @@ export const WorldView = defineComponent({
     const onPointerUp = (event: PointerEvent): void => {
       releaseRotatePointer(event.pointerId);
       if (drag.pointerId !== event.pointerId || !backend) return;
+
+      // Alt 视图操作不产出点击语义：旋转/平移/缩放结束后不该顺带触发点选或菜单。
+      if (altMode !== 'none') {
+        altMode = 'none';
+        drag.active = false;
+        drag.pointerId = -1;
+        return;
+      }
+
       const wasClick = gesture.up({ x: event.clientX, y: event.clientY }, tapTolerance.value) === 'tap';
       drag.active = false;
       drag.pointerId = -1;
@@ -476,6 +589,8 @@ export const WorldView = defineComponent({
     const onPointerCancel = (event: PointerEvent): void => {
       releaseRotatePointer(event.pointerId);
       if (drag.pointerId !== event.pointerId) return;
+      // Alt 视图操作中断：同样要清掉模式，否则下一次拖拽会沿用旧意图
+      altMode = 'none';
       drag.active = false;
       drag.pointerId = -1;
     };
@@ -512,7 +627,8 @@ export const WorldView = defineComponent({
 
     /** 右键原生菜单：缺省（gestureGuard 开）在交互层内抑制，宿主无需再兜底。 */
     const onContextMenu = (event: MouseEvent): void => {
-      if (gestureGuard.value) event.preventDefault();
+      // Alt + 右键是「缩放」，此时必须抑制原生菜单，否则一拖就弹菜单
+      if (gestureGuard.value || (props.altViewGestures && event.altKey)) event.preventDefault();
     };
 
     // ---------- 后端生命周期 ----------

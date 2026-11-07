@@ -20,6 +20,7 @@ export * from './when';
 export * from './binding-dsl';
 export * from './wheel-session';
 export * from './camera-gestures';
+export * from './alt-view-gestures';
 export * from './session';
 export * from './recognizer';
 export * from './matcher';
