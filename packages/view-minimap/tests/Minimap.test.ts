@@ -88,3 +88,85 @@ describe('Minimap · 由相机反算视口', () => {
     expect(explicit).not.toBe(cameraOnly);
   });
 });
+
+/**
+ * 外框 vs 世界轮廓 —— 两个**不同的**概念，不能混用。
+ *
+ * 2026-11-08 使用者报告：「小地图边框是圆形，但世界是圆形不代表小图也该圆 ——
+ * 小图理论上应与视口同形吗？」
+ *
+ * 判据纠正：小地图的外框表达的是**视口**（你正在看的那个窗口长什么样），
+ * 世界本身的轮廓是**画在图里面的内容**。把世界轮廓当外框会导致：
+ * 视口框一旦超出世界边界（缩小视野 / 平移出去）就被裁掉，使用者**看不到
+ * 自己缩放到多远** —— 丢失导航最关键的一条信息。
+ */
+describe('Minimap · 外框跟视口，轮廓跟世界', () => {
+  const WORLD = { x: 0, y: 0, width: 500, height: 500 };
+
+  test('外框为 rect 时，即使世界是圆的也不画圆形裁切', async () => {
+    const html = await renderMinimap({ items: ITEMS, world: WORLD, worldOutline: 'circle' });
+    // 外框是矩形 ⇒ 没有 clipPath
+    expect(html).not.toContain('clipPath');
+    expect(html).not.toContain('is-circle');
+  });
+
+  test('世界轮廓为 circle 时，图内画一个轮廓椭圆', async () => {
+    const html = await renderMinimap({ items: ITEMS, world: WORLD, worldOutline: 'circle' });
+    expect(html).toContain('main-ui-minimap__world');
+    expect(html).toContain('<ellipse');
+  });
+
+  test('世界轮廓为 rect 时画一个轮廓矩形', async () => {
+    const html = await renderMinimap({ items: ITEMS, world: WORLD, worldOutline: 'rect' });
+    expect(html).toContain('main-ui-minimap__world');
+  });
+
+  test('不给 worldOutline 时不画世界轮廓（世界本来就是矩形时外框已足够）', async () => {
+    const html = await renderMinimap({ items: ITEMS, world: WORLD });
+    expect(html).not.toContain('main-ui-minimap__world');
+  });
+
+  test('外框为 circle 时才裁切（此时外框与视口形状一致）', async () => {
+    const html = await renderMinimap({ items: ITEMS, world: WORLD, shape: 'circle' });
+    expect(html).toContain('clipPath');
+    expect(html).toContain('is-circle');
+  });
+
+  test('视口框画在裁切组之外（超出世界时仍可见）', async () => {
+    // 视口远大于世界 ⇒ 框会超出小图
+    const huge = { x: -5000, y: -5000, width: 20000, height: 20000 };
+    const html = await renderMinimap({
+      items: ITEMS,
+      world: WORLD,
+      worldOutline: 'circle',
+      shape: 'circle',
+      camera: { scale: 1, pan: { x: 0, y: 0 } },
+      viewportSize: { width: 20000, height: 20000 },
+      viewport: huge,
+    });
+    // 视口框必须出现在裁切组<b>之后</b>：说明它不受裁切影响
+    const clipEnd = html.indexOf('</g>');
+    const viewportIdx = html.indexOf('main-ui-minimap__viewport');
+    expect(clipEnd).toBeGreaterThan(-1);
+    expect(viewportIdx).toBeGreaterThan(clipEnd);
+  });
+
+  test('视口超出小图时根节点带 is-viewport-overflow 状态类', async () => {
+    const huge = { x: -5000, y: -5000, width: 20000, height: 20000 };
+    const html = await renderMinimap({
+      items: ITEMS,
+      world: WORLD,
+      viewport: huge,
+    });
+    expect(html).toContain('is-viewport-overflow');
+  });
+
+  test('视口在范围内时没有溢出状态类', async () => {
+    const html = await renderMinimap({
+      items: ITEMS,
+      world: WORLD,
+      viewport: { x: 100, y: 100, width: 100, height: 100 },
+    });
+    expect(html).not.toContain('is-viewport-overflow');
+  });
+});

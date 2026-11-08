@@ -15,7 +15,14 @@ import {
   type Vec2,
   type WorldRect,
 } from '@main-ui/core/rendering';
-import type { MinimapCompass, MinimapItem, MinimapItemKind, MinimapShape, MinimapViewportFrame } from './types';
+import type {
+  MinimapCompass,
+  MinimapItem,
+  MinimapItemKind,
+  MinimapShape,
+  MinimapViewportFrame,
+  MinimapWorldOutline,
+} from './types';
 
 /**
  * 实例级序号：`clipPath` 的 id 必须在整页唯一。
@@ -79,10 +86,23 @@ export const Minimap = defineComponent({
     /**
      * 外框形状：`rect`（缺省，方形）或 `circle`（圆形）。
      *
-     * 世界是圆盘时用 `circle`：内容按 `clipPath` 裁成圆，四角不再显示
-     * 「实际不存在的区域」。坐标映射不受影响（恒按世界范围等比适配）。
+     * **外框跟的是「视口」，不是「世界」** —— 缩略图的语义是
+     * 「从高处俯视：那块代表屏幕的框，落在世界的哪里」。
+     * 世界本身的轮廓应当用 `worldOutline` 画在图里面。
+     *
+     * 早期把世界轮廓当外框：视口框一旦超出世界边界（缩小视野或平移出去），
+     * 超出部分被裁掉，使用者**看不到自己缩放到多远** —— 丢失导航最关键的信息。
      */
     shape: { type: String as PropType<MinimapShape>, default: 'rect' },
+    /**
+     * 世界轮廓形状（**画在图里面的内容**，不是外框）。
+     *
+     * 给了它，组件会自动画一条轮廓线 + 一层淡填充，表达
+     * 「世界到这儿为止，再往外是空的」。
+     *
+     * 缺省 `null` = 不画轮廓（世界范围本身已是矩形时，外框已足够表达）。
+     */
+    worldOutline: { type: String as PropType<MinimapWorldOutline | null>, default: null },
     /**
      * 方位指示（指北线 / 坐标轴）。缺省不画。
      *
@@ -242,6 +262,8 @@ export const Minimap = defineComponent({
       const children: VNode[] = [];
       const isCircle = props.shape === 'circle';
       const clipId = `main-ui-minimap-clip-${instanceClipSeq}`;
+      /** 视口是否已超出整张小图（在绘制视口框时置位，供根节点加状态类）。 */
+      let hasViewportOverflow = false;
 
       if (isCircle) {
         // 圆形外框：内容按世界轮廓裁切，四角不再显示「实际不存在的区域」
@@ -260,6 +282,41 @@ export const Minimap = defineComponent({
       const contentChildren: VNode[] = [];
 
       if (t) {
+        /**
+         * **世界轮廓**（画在图里面的内容）。
+         *
+         * 与外框的分工：外框跟视口、轮廓跟世界。
+         * 世界是圆盘时这里画一个圆 —— 于是「圆盘之外是空的」在图上可见，
+         * 而外框仍是矩形的窗口形状，视口缩到比世界更大时也能完整看到。
+         */
+        const outline = props.worldOutline;
+        if (outline) {
+          const wb = worldBounds.value;
+          if (wb) {
+            const tl = t.worldToMinimap({ x: wb.x, y: wb.y });
+            const br = t.worldToMinimap({ x: wb.x + wb.width, y: wb.y + wb.height });
+            const ow = br.x - tl.x;
+            const oh = br.y - tl.y;
+            if (outline === 'circle') {
+              contentChildren.push(h('ellipse', {
+                class: 'main-ui-minimap__world',
+                cx: tl.x + ow / 2,
+                cy: tl.y + oh / 2,
+                rx: Math.abs(ow) / 2,
+                ry: Math.abs(oh) / 2,
+              }));
+            } else {
+              contentChildren.push(h('rect', {
+                class: 'main-ui-minimap__world',
+                x: tl.x,
+                y: tl.y,
+                width: Math.abs(ow),
+                height: Math.abs(oh),
+              }));
+            }
+          }
+        }
+
         if (props.renderContent) {
           const custom = props.renderContent({
             transform: t,
@@ -270,17 +327,6 @@ export const Minimap = defineComponent({
         } else {
           contentChildren.push(...props.items.map((item) => renderItem(item, t)));
         }
-
-        const vf = viewportFrame.value;
-        if (vf) {
-          contentChildren.push(h('rect', {
-            class: 'main-ui-minimap__viewport',
-            x: vf.frame.x,
-            y: vf.frame.y,
-            width: vf.frame.width,
-            height: vf.frame.height,
-          }));
-        }
       }
 
       children.push(h(
@@ -288,6 +334,43 @@ export const Minimap = defineComponent({
         isCircle ? { 'clip-path': `url(#${clipId})` } : {},
         contentChildren,
       ));
+
+      /**
+       * **视口框画在裁切之外**。
+       *
+       * 这条很关键：视口框表达的是「我正在看哪一块」。当视口比世界还大
+       * （缩远到能看见世界之外）或平移到世界外时，框的一部分会落在
+       * 世界轮廓之外 —— 那正是**最需要看见**的信息（「我已经缩这么远了」）。
+       * 若把它放进裁切组，这部分被裁掉，使用者就失去了唯一的距离感线索。
+       *
+       * 代价是框可以画到小图边缘之外一点，故外框本身用 `overflow: hidden`
+       * （SVG 天然裁到 viewBox）兜住，视觉上不会溢出。
+       */
+      const vf = viewportFrame.value;
+      if (vf) {
+        /**
+         * 视口是否已超出整张小图（即「缩到比世界还远 / 平移到世界之外」）。
+         *
+         * 这种情形下框本身会被 SVG 的 viewBox 裁到几乎看不见，使用者失去
+         * 「我缩到多远了」的线索。故给根节点加一个状态类，由 CSS 换成
+         * 「外圈高亮」的表达 —— 比画一个看不见的框有效。
+         */
+        const margin = 2;
+        const overflow =
+          vf.frame.x < -margin ||
+          vf.frame.y < -margin ||
+          vf.frame.x + vf.frame.width > props.width + margin ||
+          vf.frame.y + vf.frame.height > props.height + margin;
+        if (overflow) hasViewportOverflow = true;
+
+        children.push(h('rect', {
+          class: 'main-ui-minimap__viewport',
+          x: vf.frame.x,
+          y: vf.frame.y,
+          width: vf.frame.width,
+          height: vf.frame.height,
+        }));
+      }
 
       if (isCircle) {
         // 圆形描边：裁切只影响绘制，边界仍需要一圈可见的轮廓
@@ -410,6 +493,7 @@ export const Minimap = defineComponent({
           'main-ui-minimap',
           props.panOnClick ? 'is-interactive' : '',
           props.shape === 'circle' ? 'is-circle' : '',
+          hasViewportOverflow ? 'is-viewport-overflow' : '',
         ],
         width: props.width,
         height: props.height,
