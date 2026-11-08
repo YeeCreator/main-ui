@@ -145,6 +145,14 @@ export interface WorldReadyApi {
    * @param world 要聚焦的地面范围；缺省 = 当前 viewBox（即整个世界）。
    */
   focusOn?: (world?: ViewBox) => void;
+  /** 是否处于飞行模式。 */
+  isFlying?: () => boolean;
+  /** 进入飞行模式（从当前轨道姿态无缝接管）。 */
+  enterFly?: () => void;
+  /** 退出飞行模式（投影回轨道相机，画面不跳）。 */
+  exitFly?: () => void;
+  /** 切换飞行模式。 */
+  toggleFly?: () => void;
   /** 当前后端实例（后端无关；供宿主读 `capabilities` 与专用出口）。 */
   getBackend: () => ViewportBackend | null;
 }

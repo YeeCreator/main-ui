@@ -29,6 +29,7 @@ import {
   defaultDpr,
   panBy,
   projectWorldAxes,
+  flyLookDelta,
   resolveTapTolerance,
   rotateAtScreenPoint,
   zoomAtScreenPoint,
@@ -44,6 +45,9 @@ import { detectEnvironment, resolveShellPolicy } from '@main-ui/core/environment
 import { readWheel, wheelPanDelta, zoomFactorOf } from '@main-ui/core/input';
 import {
   altMouseGesture,
+  flyInputFromKeysToInput,
+  isFlyModifierKey,
+  isFlyMovementKey,
   pinchRotateDelta,
   rotateDeltaFromDrag,
   zoomFactorFromDrag,
@@ -431,6 +435,70 @@ export const WorldView = defineComponent({
      */
     let rotateAnchorWorld: Vec2 | null = null;
 
+    // ---------- 飞行模式（Fly / First-Person） ----------
+
+    /** 当前按住的飞行方向键（`KeyboardEvent.key`）。 */
+    const flyKeys = new Set<string>();
+    /** 飞行动画帧句柄。 */
+    let flyFrame: number | null = null;
+    /** 上一次飞行帧的时间戳（毫秒）。 */
+    let flyLastTime = 0;
+    /** 飞行模式下最近一次拖拽的屏幕位置（用于算转向增量）。 */
+    let flyDragLast: { x: number; y: number } | null = null;
+
+    /** 当前后端是否处于飞行模式。 */
+    const isFlying = (): boolean => Boolean(backend?.orbit?.isFlying?.());
+
+    /**
+     * 启动飞行循环（仅在按着方向键时跑）。
+     *
+     * ## 为什么只按着方向键时才跑
+     *
+     * 常驻 rAF 会让 GPU 与 CPU 一直忙 —— 笔记本上表现为风扇转、电池掉得快。
+     * 飞行模式只有「按住方向键」时才需要连续积分，其余时刻（只看不动）
+     * 完全可以停帧。这与三维后端的 `startLoop` 不同：那条是「持续渲染」
+     * （用于动画），这条是「有条件渲染」。
+     */
+    const startFlyLoop = (): void => {
+      if (flyFrame !== null) return;
+      if (typeof requestAnimationFrame === 'undefined') return;
+      flyLastTime = 0;
+      const tick = (now: number): void => {
+        if (destroyed || !isFlying() || flyKeys.size === 0) {
+          flyFrame = null;
+          return;
+        }
+        const dt = flyLastTime === 0 ? 0 : Math.min(0.1, (now - flyLastTime) / 1000);
+        flyLastTime = now;
+        const { input, speedScale } = flyInputFromKeysToInput(flyKeys);
+        if (dt > 0) {
+          /**
+           * 速度倍率：**乘在 `FlyInput` 的方向分量上**（等价于乘在位移上），
+           * 而不是改相机的 `speed` 字段 ——
+           * 后者要改两次状态（写入 + 还原），多一次状态跳变的机会。
+           *
+           * 只缩放移动分量，不缩放转向分量：`Shift` 加速只该让人走得快，
+           * 不该让人转得快。
+           */
+          const scaled = {
+            ...input,
+            forward: (input.forward ?? 0) * speedScale,
+            strafe: (input.strafe ?? 0) * speedScale,
+            elevate: (input.elevate ?? 0) * speedScale,
+          };
+          backend?.orbit?.flyBy?.(scaled, dt);
+        }
+        flyFrame = requestAnimationFrame(tick);
+      };
+      flyFrame = requestAnimationFrame(tick);
+    };
+
+    const stopFlyLoop = (): void => {
+      if (flyFrame !== null && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(flyFrame);
+      flyFrame = null;
+      flyLastTime = 0;
+    };
+
     /** 双指旋转：记录/更新参与旋转的两个指针。 */
     const trackRotatePointer = (event: PointerEvent, local: Vec2): void => {
       if (!rotate.active) {
@@ -483,6 +551,27 @@ export const WorldView = defineComponent({
         } catch {
           /* 某些环境不支持 options 参数；失败不影响交互 */
         }
+      }
+
+      /**
+       * **飞行模式：拖拽 = Look Around**（转向），不产出点击语义。
+       *
+       * 这与 UE 的视口一致：`RMB` 拖动即环顾。用左键也能转，
+       * 是因为我们的视图在飞行模式下不承载「选择」语义（没有选中概念）。
+       *
+       * 注意这里**不用 Alt**：飞行本身就意味着「进入视图操作状态」，
+       * 再要求按 Alt 是多余的。
+       */
+      if (isFlying()) {
+        event.preventDefault();
+        flyDragLast = { x: event.clientX, y: event.clientY };
+        drag.pointerId = event.pointerId;
+        drag.active = true;
+        drag.button = event.button;
+        drag.lastX = event.clientX;
+        drag.lastY = event.clientY;
+        capturePointer(event.pointerId);
+        return;
       }
 
       if (gestureGuard.value) {
@@ -543,6 +632,24 @@ export const WorldView = defineComponent({
 
     const onPointerMove = (event: PointerEvent): void => {
       if (!backend) return;
+
+      /**
+       * **飞行模式：拖拽转向**（Look Around）。
+       *
+       * `flyLookDelta` 把屏幕位移换算成 yaw/pitch 增量；
+       * 转向**不按 dt 积分** —— 鼠标位移本身即增量，
+       * 乘 dt 会让「拖同样距离，慢拖比快拖转得少」，手感很怪。
+       */
+      if (isFlying() && flyDragLast && drag.active && drag.pointerId === event.pointerId) {
+        const dx = event.clientX - flyDragLast.x;
+        const dy = event.clientY - flyDragLast.y;
+        flyDragLast = { x: event.clientX, y: event.clientY };
+        if (dx !== 0 || dy !== 0) {
+          const { yawDelta, pitchDelta } = flyLookDelta(dx, dy);
+          backend.orbit?.flyBy?.({ yawDelta, pitchDelta }, 0);
+        }
+        return;
+      }
 
       // Alt 视图操作模式：旋转 / 平移 / 缩放，按按下时的判定分派。
       if (altMode !== 'none' && drag.pointerId === event.pointerId) {
@@ -709,6 +816,14 @@ export const WorldView = defineComponent({
       releaseRotatePointer(event.pointerId);
       if (drag.pointerId !== event.pointerId || !backend) return;
 
+      // 飞行模式：拖拽只用于转向，结束时不产出点击语义
+      if (flyDragLast) {
+        flyDragLast = null;
+        drag.active = false;
+        drag.pointerId = -1;
+        return;
+      }
+
       // Alt 视图操作不产出点击语义：旋转/平移/缩放结束后不该顺带触发点选或菜单。
       if (altMode !== 'none') {
         altMode = 'none';
@@ -821,17 +936,33 @@ export const WorldView = defineComponent({
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!props.interactive) return;
       // 带修饰键的组合交给浏览器 / 宿主（⌘F、Ctrl+F 是查找）
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.ctrlKey || event.metaKey) return;
 
+      /**
+       * **飞行模式的按键优先**：飞行时 `WASDQE` 是移动，不该被宿主当成
+       * 业务快捷键。同理 `Shift` / `Alt` 是飞行加减速 ——
+       * 但 `Alt` 在非飞行模式是视图操作修饰键，故只在飞行时拦。
+       */
+      if (isFlying()) {
+        if (isFlyMovementKey(event.key) || isFlyModifierKey(event.key)) {
+          event.preventDefault();
+          flyKeys.add(event.key);
+          startFlyLoop();
+          return;
+        }
+        // 飞行模式下的 `Esc` / `F` / `Home` 仍可用（退出与聚焦）
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          backend?.orbit?.exitFly?.();
+          flyKeys.clear();
+          stopFlyLoop();
+          return;
+        }
+      }
+
+      // Alt 在非飞行模式是视图操作修饰键，不在这里拦
       const key = event.key;
       if (key === 'f' || key === 'F') {
-        /**
-         * F 聚焦。
-         *
-         * 现在还没有「选中」概念，故默认聚焦整个世界范围（`viewBox`）。
-         * 将来接入选择后，宿主应在 `selection-change` 时把选中范围记下来，
-         * 这里改为优先取选中范围。
-         */
         event.preventDefault();
         backend?.orbit?.focusOn?.();
         return;
@@ -840,6 +971,24 @@ export const WorldView = defineComponent({
         event.preventDefault();
         backend?.orbit?.resetView?.();
       }
+    };
+
+    /** 松键：移出飞行按键集合。 */
+    const onKeyUp = (event: KeyboardEvent): void => {
+      if (flyKeys.delete(event.key)) {
+        if (flyKeys.size === 0) stopFlyLoop();
+      }
+    };
+
+    /**
+     * 失焦时清空按键状态。
+     *
+     * 没有这一步，`Cmd+Tab` 切走再回来时键会「卡住」——
+     * 相机自己一直往前飞，使用者只能刷新页面。
+     */
+    const onWindowBlur = (): void => {
+      flyKeys.clear();
+      stopFlyLoop();
     };
 
     // ---------- 后端生命周期 ----------
@@ -872,6 +1021,22 @@ export const WorldView = defineComponent({
       resetView: () => backend?.orbit?.resetView?.(),
       /** 三维档专属：聚焦到世界范围（只改平移与缩放，保留朝向）。 */
       focusOn: (world?: ViewBox) => backend?.orbit?.focusOn?.(world),
+      /** 是否处于飞行模式。 */
+      isFlying: () => Boolean(backend?.orbit?.isFlying?.()),
+      /** 进入飞行模式（从当前轨道姿态无缝接管）。 */
+      enterFly: () => {
+        backend?.orbit?.enterFly?.();
+        // 进入后同步一次相机给内容层，避免内容层停在旧变换
+        const next = backend?.getCamera();
+        if (next) cameraForContent.value = next;
+      },
+      /** 退出飞行模式（投影回轨道相机）。 */
+      exitFly: () => backend?.orbit?.exitFly?.(),
+      /** 切换飞行模式。 */
+      toggleFly: () => {
+        if (backend?.orbit?.isFlying?.()) backend?.orbit?.exitFly?.();
+        else backend?.orbit?.enterFly?.();
+      },
       getBackend: () => backend,
     });
 
@@ -1017,6 +1182,17 @@ export const WorldView = defineComponent({
 
     onMounted(async () => {
       if (!containerRef.value) return;
+      /**
+       * 飞行键位的 `keyup` 与失焦清理挂到 `window` 上。
+       *
+       * 为什么不用组件内的 `onKeyup`：鼠标拖拽中或焦点偶然移出视图时，
+       * `keyup` 仍会派发到 `window`，但不会派发到已失去焦点的元素 ——
+       * 那会导致「键一直按着」的卡死。宁可多监听一处，也不能让相机自己飞走。
+       */
+      if (typeof window !== 'undefined') {
+        window.addEventListener('keyup', onKeyUp as EventListener);
+        window.addEventListener('blur', onWindowBlur);
+      }
       syncContentSize();
       // 相机初值：把当前后端相机喂给内容层，避免首帧内容层停在恒等变换。
       const initial = backend?.getCamera();
@@ -1062,6 +1238,12 @@ export const WorldView = defineComponent({
 
     onBeforeUnmount(() => {
       destroyed = true;
+      stopFlyLoop();
+      flyKeys.clear();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('keyup', onKeyUp as EventListener);
+        window.removeEventListener('blur', onWindowBlur);
+      }
       contentResizeObserver?.disconnect();
       contentResizeObserver = null;
       teardownBackend();
