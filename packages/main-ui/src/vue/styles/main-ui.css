@@ -1638,3 +1638,14 @@
   border-color: var(--mui-color-accent);
   color: var(--mui-color-accent);
 }
+
+/* ---------------------------------------------------------------
+ * ViewportOverlay —— 视口叠加控件容器
+ *
+ * 容器自身 `pointer-events: none`（见组件注释：否则会变成隐形挡板），
+ * 故每个直接子项必须显式恢复 `pointer-events: auto`。
+ * 用 `> *` 而不是逐个类名，是为了让宿主任意塞控件都不必额外写样式。
+ * --------------------------------------------------------------- */
+.main-ui-viewport-overlay > * {
+  pointer-events: auto;
+}

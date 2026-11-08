@@ -16,6 +16,7 @@ export * from './components/LayoutNodeRenderer';
 export * from './components/LeafGroupRenderer';
 export * from './components/MissingViewSurface';
 export * from './components/OverlayLayer';
+export * from './components/ViewportOverlay';
 export * from './components/StatusBar';
 export * from './components/ToolbarEditor';
 export * from './components/TreeEditor';

@@ -1073,6 +1073,12 @@ export const WorldView = defineComponent({
       background: 'var(--mui-color-panel)', color: 'var(--mui-color-text)',
     };
     const layerStyle: CSSProperties = { position: 'absolute', inset: '0' };
+    /** 叠加层容器：铺满视口，但自身不吃指针事件（子项由 `ViewportOverlay` 恢复）。 */
+    const overlayLayerStyle: CSSProperties = {
+      position: 'absolute',
+      inset: '0',
+      pointerEvents: 'none',
+    };
     const overlayStyle: CSSProperties = {
       position: 'absolute', inset: '0',
       pointerEvents: props.interactive ? 'auto' : 'none',
@@ -1170,6 +1176,22 @@ export const WorldView = defineComponent({
           onContextmenu: onContextMenu,
           onKeydown: onKeyDown,
         }),
+        /**
+         * **视口叠加层插槽**。
+         *
+         * 宿主把「小地图、视角按钮」一类浮层塞进这里，而不是自己在外面
+         * 绝对定位 —— 三件好处：
+         *
+         * 1. 位置由 `WorldView` 决定（它是视口本身，知道自己的边界）；
+         * 2. 叠加层天然位于交互层之上、且在内容层之后，不会再出现
+         *    「按钮被画布盖住」或「浮层吞掉画布点击」；
+         * 3. 宿主换布局（上下分栏、全屏）时浮层自动跟随，不必逐个改数值。
+         *
+         * 容器带 `pointer-events: none`、子项 `auto`，故不会挡到画布。
+         */
+        slots.overlay
+          ? h('div', { class: 'main-ui-view-world__overlay-layer', style: overlayLayerStyle }, slots.overlay())
+          : null,
         contentLayer,
       ]);
     };
