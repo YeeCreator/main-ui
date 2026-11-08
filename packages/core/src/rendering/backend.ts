@@ -176,6 +176,30 @@ export interface OrbitBackendApi {
   /** 绕目标点旋转（弧度增量；`deltaPolar` 缺省 0）。 */
   rotateBy(deltaAzimuth: number, deltaPolar?: number): void;
   /**
+   * 按**屏幕像素位移**旋转（推荐入口；模板层应优先用它）。
+   *
+   * ## 为什么不再让模板传角度
+   *
+   * 两种旋转模型的天然输入不同：
+   * - **转盘**按「方位角/极角增量」理解拖拽，角度是原生单位；
+   * - **轨迹球**按「拖拽方向本身」定转轴（`轴 = 屏幕法线 × 位移`），
+   *   **像素位移**才是原生单位。
+   *
+   * 早期让模板统一传角度，backend 在轨迹球档下把角度「折算回像素」，
+   * 这一趟来回需要用两个不同的灵敏度系数（0.01 rad/px 与极角 0.006 rad/px），
+   * 极易错配 —— 2026-11-08 实测就出现了「轨迹球方向与光标相反」
+   * 与「纵向灵敏度不对」两个症状。
+   *
+   * 改由本方法接收原始像素，backend 按自己的 `rotationModel` 分派，
+   * 模板层**完全不必知道自己接的是哪种模型**。
+   *
+   * @param deltaX 水平屏幕位移（CSS 像素，向右为正）。
+   * @param deltaY 垂直屏幕位移（CSS 像素，**向下为正**）。
+   * @param pivot 枢轴（世界地面点）。给了就绕它转，且不预先改写 target
+   *   —— 后者会让画面在按下瞬间跳一下。
+   */
+  rotateByPixels?(deltaX: number, deltaY: number, pivot?: Vec2): void;
+  /**
    * 绕**视线轴**自转（roll，弧度增量）。
    *
    * 这是 turntable 模式表达不出的自由度：`azimuth/polar` 只描述「往哪看」，
@@ -211,6 +235,22 @@ export interface OrbitBackendApi {
   zoomAt?(factor: number, anchorWorld: Vec2): void;
   /** 切换旋转模型（`'turntable'` 地平线水平 / `'trackball'` 万向）。 */
   setRotationModel?(model: 'turntable' | 'trackball'): void;
+  /**
+   * **完整复位**：朝向、平移、缩放全部回到默认（等价于「刚打开时」）。
+   *
+   * 与 `resetRoll`（只清自转）和 `zoomBy`（只改缩放）都不同 ——
+   * 使用者 2026-11-08 要的是「一键回到初始状态」。
+   */
+  resetView?(): void;
+  /**
+   * **聚焦**到世界范围：只改平移与缩放，**保留当前朝向**。
+   *
+   * 与 `fitToBounds` 的区别：`fitToBounds` 是「把整个世界装进视口」，
+   * 而聚焦可以指向**局部范围**（比如选中的对象），且会按当前极角补偿纵向压缩。
+   *
+   * @param world 要聚焦的地面范围（缺省 = 当前 viewBox）。
+   */
+  focusOn?(world?: { x: number; y: number; width: number; height: number }): void;
 }
 
 /**

@@ -26,13 +26,19 @@ import {
   camera2DToOrbit,
   cameraUpForPolar,
   clampPolar,
+  defaultOrbitCamera,
+  groundToScreenOrtho,
+  orbitBasis,
+  orbitFocus,
   orbitPan,
   orbitResetRoll,
   orbitRoll,
   orbitRotate,
+  orbitRotatePixels,
   orbitToCamera2D,
   orbitZoom,
   orbitZoomAtPoint,
+  screenToGroundOrtho,
 } from '@main-ui/core/rendering';
 import type {
   BackendCapabilities,
@@ -47,8 +53,6 @@ import { hitTestGrid } from '@main-ui/core/primitives';
 import {
   fitViewHeightForWorld,
   planCamera,
-  screenToWorldOrtho,
-  worldToScreenOrtho,
   type CameraPlan,
   type OrthoCameraPlan,
 } from './camera-plan';
@@ -211,29 +215,60 @@ export class ThreeViewportBackend implements ViewportBackend {
     };
   }
 
+  /**
+   * 屏幕像素 → 地面世界坐标。
+   *
+   * **用相机的真实基向量做正交反投影**，而不是「屏幕旋转 + `cos(polar)`」的简化模型。
+   *
+   * 简化模型隐含「相机 up 与世界 Y 同向」的假设，一旦姿态带 roll
+   * （轨迹球 / 绕视线自转）就失效 —— 表现为「平移方向错乱」
+   * 与「旋转按下瞬间定位偏移」。两者都是同一个根因：
+   * `screenToWorld` 与真实相机姿态不自洽。
+   */
   screenToWorld(point: Vec2): Vec2 {
-    if (!this.currentPlan || this.currentPlan.kind !== 'orthographic') {
-      // 透视档：以平面映射近似（二维档语义只在正交档下精确；透视档由三维交互自行处理）
-      return { x: point.x, y: point.y };
-    }
-    return screenToWorldOrtho({
+    const frame = this.groundFrame();
+    if (!frame) return { x: point.x, y: point.y };
+    return screenToGroundOrtho({
       screen: point,
-      plan: this.currentPlan as OrthoCameraPlan,
+      basis: frame.basis,
+      target: this.orbitState.target,
+      halfWidth: frame.halfWidth,
+      halfHeight: frame.halfHeight,
       viewportPx: this.size,
-      screenRotation: -this.orbitState.azimuth,
-      polar: this.orbitState.polar,
     });
   }
 
   worldToScreen(point: Vec2): Vec2 {
-    if (!this.currentPlan || this.currentPlan.kind !== 'orthographic') return { x: point.x, y: point.y };
-    return worldToScreenOrtho({
+    const frame = this.groundFrame();
+    if (!frame) return { x: point.x, y: point.y };
+    return groundToScreenOrtho({
       world: point,
-      plan: this.currentPlan as OrthoCameraPlan,
+      basis: frame.basis,
+      target: this.orbitState.target,
+      halfWidth: frame.halfWidth,
+      halfHeight: frame.halfHeight,
       viewportPx: this.size,
-      screenRotation: -this.orbitState.azimuth,
-      polar: this.orbitState.polar,
     });
+  }
+
+  /**
+   * 取当前视锥的「地面换算框架」：相机基向量 + 视锥半宽/半高。
+   *
+   * 正交档下才有精确的地面投影语义（透视档一个像素对应一条**不同方向**的射线，
+   * 不能整体反投影），故透视档返回 `null`，调用方退回恒等映射。
+   */
+  private groundFrame(): {
+    basis: { forward: { x: number; y: number; z: number }; up: { x: number; y: number; z: number }; right: { x: number; y: number; z: number } };
+    halfWidth: number;
+    halfHeight: number;
+  } | null {
+    if (!this.currentPlan || this.currentPlan.kind !== 'orthographic') return null;
+    const plan = this.currentPlan as OrthoCameraPlan;
+    return {
+      basis: orbitBasis(this.orbitState),
+      halfWidth: (plan.right - plan.left) / 2,
+      halfHeight: (plan.top - plan.bottom) / 2,
+    };
   }
 
   /** 网格命中保留 `col`/`row` 语义（设计 §十九 8 第 5 条：不用射线打几何）。 */
@@ -397,8 +432,52 @@ export class ThreeViewportBackend implements ViewportBackend {
     this.notifyCamera();
   }
 
+  /**
+   * 完整复位：朝向、平移、缩放全部回到默认。
+   *
+   * 用 `defaultOrbitCamera` 而不是「记快照再恢复」：后者会把
+   * 「第一次 fit 时的偶然值」当成默认值，跟着世界尺寸变化就失准。
+   */
+  resetView(): void {
+    this.orbitState = defaultOrbitCamera({ world: this.viewBox, paddingPx: 0 });
+    // 复位后按视口宽高比重新求视锥高度，保证内容不溢出
+    const aspect = this.size.height > 0 ? this.size.width / this.size.height : 1;
+    this.orbitState = orbitFocus(this.orbitState, this.viewBox, { aspect, padding: 0 });
+    this.applyCameraToThree();
+    this.notifyCamera();
+  }
+
+  /** 聚焦到世界范围：只改平移与缩放，保留当前朝向。 */
+  focusOn(world?: { x: number; y: number; width: number; height: number }): void {
+    const target = world ?? this.viewBox;
+    const aspect = this.size.height > 0 ? this.size.width / this.size.height : 1;
+    this.orbitState = orbitFocus(this.orbitState, target, { aspect, padding: 0.05 });
+    this.applyCameraToThree();
+    this.notifyCamera();
+  }
+
   orbitRotateBy(deltaAzimuth: number, deltaPolar = 0): void {
     this.orbitState = orbitRotate(this.orbitState, deltaAzimuth, deltaPolar);
+    this.applyCameraToThree();
+    this.notifyCamera();
+  }
+
+  /**
+   * 按屏幕像素位移旋转（模板层的推荐入口）。
+   *
+   * **枢轴一经传入就固定**：绕「按下时光标下的地面点」转，且**不预先改写 target**
+   * ——早期实现先把 target 挪到枢轴、再旋转，那一步会让画面在按下瞬间跳一下。
+   * 现在由 `orbitRotatePixels` 直接做「绕枢轴旋转 + 补偿 target」的等价变换，
+   * 枢轴点的屏幕位置保持不变，其余点绕它转动。
+   *
+   * 两种模型各走各的原生单位，**不做角度 ↔ 像素的来回折算**：
+   * - 转盘：横向像素 → 方位角，纵向像素 → 绕相机右轴的俯仰；
+   * - 轨迹球：像素位移直送，按「轴 = 屏幕法线 × 位移」求转轴。
+   */
+  orbitRotateByPixels(deltaX: number, deltaY: number, pivot?: Vec2): void {
+    const next = orbitRotatePixels(this.orbitState, deltaX, deltaY, pivot);
+    if (next === this.orbitState) return;
+    this.orbitState = next;
     this.applyCameraToThree();
     this.notifyCamera();
   }
@@ -421,12 +500,15 @@ export class ThreeViewportBackend implements ViewportBackend {
     getOrbit: () => this.getOrbit(),
     setOrbit: (orbit) => this.setOrbit(orbit),
     rotateBy: (deltaAzimuth, deltaPolar = 0) => this.orbitRotateBy(deltaAzimuth, deltaPolar),
+    rotateByPixels: (deltaX, deltaY, pivot) => this.orbitRotateByPixels(deltaX, deltaY, pivot),
     rollBy: (angle) => this.orbitRollBy(angle),
     resetRoll: () => this.orbitResetRoll(),
     panBy: (deltaWorld) => this.orbitPanBy(deltaWorld),
     zoomBy: (factor) => this.orbitZoomBy(factor),
     zoomAt: (factor, anchorWorld) => this.orbitZoomAt(factor, anchorWorld),
     setRotationModel: (model) => this.orbitSetRotationModel(model),
+    resetView: () => this.resetView(),
+    focusOn: (world) => this.focusOn(world),
   };
 
   private rebuildScene(): void {
