@@ -21,6 +21,7 @@ export * from './camera';
 export * from './camera-bridge';
 export * from './camera-orientation';
 export * from './coordinate-system';
+export * from './free-camera';
 export * from './content-layer';
 export * from './text-resolution';
 export * from './minimap';
