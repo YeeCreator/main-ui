@@ -21,10 +21,12 @@ import type { Quat } from './camera-orientation';
 import {
   length3,
   normalize3,
+  quatConjugate,
   quatFromAxisAngle,
   quatFromForward,
   quatMultiply,
   quatNormalize,
+  quatRotate,
   quatToBasis,
   trackballDeltaQuat,
 } from './camera-orientation';
@@ -366,6 +368,302 @@ export function projectWorldAxes(orbit: OrbitCamera): {
     x: proj({ x: 1, y: 0, z: 0 }),
     y: proj({ x: 0, y: 1, z: 0 }),
     z: proj({ x: 0, y: 0, z: 1 }),
+  };
+}
+
+/**
+ * 正交投影下「屏幕像素 → 地面世界坐标」的**通用**反投影。
+ *
+ * ## 为什么需要它（与简化版的区别）
+ *
+ * 早期实现用的是「屏幕旋转 + `cos(polar)` 纵向压缩」的简化模型：
+ *
+ * ```
+ * rx = R(-rotation) · (screen − center)
+ * world = target + (rx / width) · worldWidth,  (−ry / height) · worldHeight / cos(polar)
+ * ```
+ *
+ * 那个模型隐含两个假设：**相机 up 与世界 Y 同向**、**屏幕纵向位移只被地面压缩**。
+ * 俯视与常规倾斜下近似成立，但一旦姿态带 roll（轨迹球 / 绕视线自转），
+ * 两个假设同时失效 —— 表现为「平移方向错乱」「旋转按下瞬间定位偏移」。
+ *
+ * ## 本函数的做法
+ *
+ * 直接用相机的真实基向量做正交反投影，对**任意姿态**精确成立：
+ *
+ * 1. 屏幕点换算成相机平面内的偏移：`u = 沿 right`、`v = 沿 up`；
+ * 2. 射线起点 = `target + u·right + v·up`（正交投影下所有射线平行于 forward）；
+ * 3. 沿 `forward` 走到地面平面 `y = 0`，交点即世界坐标。
+ *
+ * @param options 屏幕点、相机基向量、视锥尺寸与经纬度范围。
+ * @returns 地面平面上的世界坐标（`y` 恒为 0）。
+ * @example
+ * ```ts
+ * const { forward, up, right } = orbitBasis(orbit);
+ * const world = screenToGroundOrtho({
+ *   screen: { x: 300, y: 200 },
+ *   basis: { forward, up, right },
+ *   target: orbit.target,
+ *   halfWidth: orbit.viewHeight / 2 * aspect,
+ *   halfHeight: orbit.viewHeight / 2,
+ *   viewportPx: { width: 800, height: 600 },
+ * });
+ * ```
+ */
+export function screenToGroundOrtho(options: {
+  screen: Vec2;
+  basis: { forward: Vec3Like; up: Vec3Like; right: Vec3Like };
+  target: Vec3Like;
+  /** 视锥半宽（世界单位）。 */
+  halfWidth: number;
+  /** 视锥半高（世界单位）。 */
+  halfHeight: number;
+  viewportPx: { width: number; height: number };
+}): Vec2 {
+  const { screen, basis, target, halfWidth, halfHeight, viewportPx } = options;
+  const { forward, up, right } = basis;
+
+  // 屏幕像素 → 相机平面偏移（屏幕中心为原点，Y 向上为正）
+  const ndcX = viewportPx.width > 0 ? (screen.x - viewportPx.width / 2) / viewportPx.width : 0;
+  const ndcY = viewportPx.height > 0 ? (viewportPx.height / 2 - screen.y) / viewportPx.height : 0;
+  const u = ndcX * 2 * halfWidth;
+  const v = ndcY * 2 * halfHeight;
+
+  // 射线起点（正交投影：所有射线都平行于 forward）
+  const origin = {
+    x: target.x + right.x * u + up.x * v,
+    y: target.y + right.y * u + up.y * v,
+    z: target.z + right.z * u + up.z * v,
+  };
+
+  /**
+   * 视线几乎与地面平行时，射线与地面无交点（或交点在无穷远）。
+   * 此时退回 target 的地面投影 —— 宁可给一个稳定的近似值，
+   * 也不要返回 NaN/Infinity 污染相机状态。
+   */
+  if (Math.abs(forward.y) < 1e-6) return { x: target.x, y: target.z };
+
+  const t = -origin.y / forward.y;
+  return { x: origin.x + forward.x * t, y: origin.z + forward.z * t };
+}
+
+/**
+ * `screenToGroundOrtho` 的逆运算：地面世界坐标 → 屏幕像素。
+ *
+ * 与 `screenToWorldOrtho` 的区别同 `screenToGroundOrtho` 的说明（用真实基向量，
+ * 对任意姿态精确）。两个函数互为逆，是本库「屏幕↔世界」的唯一权威换算。
+ *
+ * @param options 世界点、相机基向量、视锥尺寸与视口像素。
+ * @returns 屏幕像素坐标。
+ */
+export function groundToScreenOrtho(options: {
+  world: Vec2;
+  basis: { forward: Vec3Like; up: Vec3Like; right: Vec3Like };
+  target: Vec3Like;
+  halfWidth: number;
+  halfHeight: number;
+  viewportPx: { width: number; height: number };
+}): Vec2 {
+  const { world, basis, target, halfWidth, halfHeight, viewportPx } = options;
+  const { up, right } = basis;
+
+  // 世界点相对 target 的偏移，投影到相机平面
+  const d = { x: world.x - target.x, y: -target.y, z: world.y - target.z };
+  const u = d.x * right.x + d.y * right.y + d.z * right.z;
+  const v = d.x * up.x + d.y * up.y + d.z * up.z;
+
+  const ndcX = halfWidth > 0 ? u / (2 * halfWidth) : 0;
+  const ndcY = halfHeight > 0 ? v / (2 * halfHeight) : 0;
+  return {
+    x: viewportPx.width / 2 + ndcX * viewportPx.width,
+    // 屏幕 Y 向下，相机 up 向上 ⇒ 取负
+    y: viewportPx.height / 2 - ndcY * viewportPx.height,
+  };
+}
+
+/**
+ * 绕**任意世界点**旋转（不改变 target 的屏幕位置）。
+ *
+ * ## 为什么需要它
+ *
+ * 使用者 2026-11-08 要求「旋转中心改为光标下的点」。最直观的实现是「先把
+ * `target` 挪到该点、旋转、再挪回来」——但**先挪那一步会立刻改变画面**
+ * （target 是视口中心对应的世界点），表现为「按下左键的瞬间画面跳一下」。
+ *
+ * 正确做法是只旋转**姿态**，同时按旋转量补偿 target 的位置，使枢轴点
+ * 的屏幕位置保持不动：
+ *
+ * ```
+ * 枢轴相对 target 的偏移 d = pivot − target
+ * 旋转后应有：pivot 不动 ⇒ target' = pivot − R·d
+ * ```
+ *
+ * 于是 target 确实会移动 —— 但**画面不跳**，因为枢轴点本身没动，
+ * 其他点绕它转动。这正是「绕光标转」应有的观感。
+ *
+ * @param orbit 原相机。
+ * @param delta 世界空间下的增量旋转四元数。
+ * @param pivot 枢轴（世界地面点；`y` 取 `target.y`）。
+ * @returns 新相机。
+ */
+export function orbitRotateAboutPivot(orbit: OrbitCamera, delta: Quat, pivot: Vec2): OrbitCamera {
+  const q = quatNormalize(orbitQuat(orbit));
+  const qNext = quatNormalize(quatMultiply(delta, q));
+
+  /**
+   * 姿态变化量 `ΔR = qNext · q⁻¹`（世界空间下的「净转动」）。
+   *
+   * 注意不是直接用 `qNext`：`q` 与 `qNext` 都是「相机朝向」的绝对姿态，
+   * 而我们要的是两者之间的**相对转动**。
+   */
+  const deltaR = quatNormalize(quatMultiply(qNext, quatConjugate(q)));
+
+  /**
+   * 枢轴的三维坐标（地面点：高度取 0）。
+   *
+   * 补偿必须**三维全量**，不能只管 x/z —— 旋转后 `ΔR·d` 会产生垂直分量，
+   * 若把 target 的 `y` 钉死在 0，`P − target'` 的垂直分量就对不上，
+   * 枢轴仍会沿屏幕纵向漂移（实测偏差 0.03–2.9px，正是这个漏项）。
+   */
+  const pivot3 = { x: pivot.x, y: 0, z: pivot.y };
+  const d = {
+    x: pivot3.x - orbit.target.x,
+    y: pivot3.y - orbit.target.y,
+    z: pivot3.z - orbit.target.z,
+  };
+  const dRotated = quatRotate(deltaR, d);
+
+  const nextTarget = {
+    x: pivot3.x - dRotated.x,
+    y: pivot3.y - dRotated.y,
+    z: pivot3.z - dRotated.z,
+  };
+
+  return withOrientation({ ...orbit, target: nextTarget }, qNext);
+}
+
+/**
+ * 按屏幕像素位移绕枢轴旋转（转盘 / 轨迹球通吃）。
+ *
+ * @param orbit 原相机。
+ * @param deltaX 水平像素位移（向右为正）。
+ * @param deltaY 垂直像素位移（向下为正）。
+ * @param pivot 枢轴（世界地面点）。缺省时绕 target 转。
+ * @param params 可调参数。
+ * @returns 新相机。
+ */
+export function orbitRotatePixels(
+  orbit: OrbitCamera,
+  deltaX: number,
+  deltaY: number,
+  pivot?: Vec2,
+  params: TrackballParams = {},
+): OrbitCamera {
+  if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return orbit;
+  if (deltaX === 0 && deltaY === 0) return orbit;
+
+  const pivotPoint = pivot ?? { x: orbit.target.x, y: orbit.target.z };
+  const { right, up } = orbitBasis(orbit);
+
+  /** 按模型求增量四元数。 */
+  let delta: Quat;
+  if (orbit.rotationModel === 'trackball') {
+    /**
+     * 轨迹球：轴 = 屏幕法线 × 位移方向。
+     * **直接吃像素**，不做任何角度折算 —— 这是「跟手」的天然定义：
+     * 往左拖，球就朝左滚。
+     */
+    delta = trackballDeltaQuat({
+      deltaX,
+      deltaY,
+      radiansPerPixel: params.radiansPerPixel,
+      viewRight: right,
+      viewUp: up,
+    });
+  } else {
+    /**
+     * 转盘：横向像素 → 绕世界竖直轴，纵向像素 → 俯仰。
+     * **取负**使「拖向哪、内容转向哪」（跟手）：返回的是相机绕行角，
+     * 转相机与转物体互为反操作。
+     */
+    const azimuth = -deltaX * 0.01;
+    const polar = -deltaY * 0.006;
+    const yaw = quatFromAxisAngle({ x: 0, y: 1, z: 0 }, azimuth);
+    // 俯仰绕相机自身右轴（这样倾斜后纵向拖仍符合直觉）
+    const pitch = quatFromAxisAngle(right, polar);
+    delta = quatMultiply(pitch, yaw);
+  }
+
+  return orbitRotateAboutPivot(orbit, delta, pivotPoint);
+}
+
+/**
+ * 复位到「默认视角」：清姿态、绕回俯视、重置目标与视锥。
+ *
+ * 使用者 2026-11-08 提的「复位就是恢复到默认的方向、平移和缩放状态」。
+ *
+ * 与 `orbitResetRoll` 的区别：
+ * - `orbitResetRoll` 只清 roll，**保留**当前方位角/极角/目标/缩放；
+ * - 本函数是**完整复位**，回到「刚打开时」的样子。
+ *
+ * @param options 世界范围（决定默认 target、viewHeight 与 distance）。
+ * @returns 默认相机。
+ */
+export function defaultOrbitCamera(options: {
+  world: { x: number; y: number; width: number; height: number };
+  preset?: number;
+  paddingPx?: number;
+}): OrbitCamera {
+  const { world } = options;
+  const pad = Math.max(0, options.paddingPx ?? 0);
+  const viewHeight = Math.max(1, world.height + pad * 2);
+  return {
+    target: { x: world.x + world.width / 2, y: 0, z: world.y + world.height / 2 },
+    azimuth: 0,
+    polar: clampPolar(options.preset ?? DEFAULT_TOP_POLAR),
+    distance: viewHeight * 2,
+    viewHeight,
+  };
+}
+
+/**
+ * 聚焦到指定世界范围：**只改平移与缩放，不改朝向**。
+ *
+ * 使用者 2026-11-08 提的 F 键聚焦。与「复位」的区别：
+ * - 复位会连朝向一起归位；
+ * - 聚焦保留当前视角（你可能正斜着看），只把画面挪到目标上并缩放到合适大小。
+ *
+ * 这与 DCC 惯例一致：Blender 的 `Numpad .`（View Selected）就是
+ * 「保持视角、把选中物体框满画面」。
+ *
+ * @param orbit 原相机。
+ * @param world 要聚焦的世界范围（地面平面）。
+ * @param options 视口宽高比（决定高度是否够装）与留白比例。
+ * @returns 新相机。
+ */
+export function orbitFocus(
+  orbit: OrbitCamera,
+  world: { x: number; y: number; width: number; height: number },
+  options: { aspect?: number; padding?: number } = {},
+): OrbitCamera {
+  const pad = Math.max(0, options.padding ?? 0.1);
+  const aspect = options.aspect && options.aspect > 0 ? options.aspect : 1;
+  const worldW = Math.max(1e-6, world.width) * (1 + pad * 2);
+  const worldH = Math.max(1e-6, world.height) * (1 + pad * 2);
+
+  /**
+   * 与 `fitViewHeightForWorld` 同一判据：视锥需同时装下宽与高，取较大者。
+   * 倾斜时纵向被 `cos(polar)` 压缩，故按极角补偿，否则倾斜聚焦后仍会溢出。
+   */
+  const cosPolar = Math.max(0.05, Math.cos(orbit.polar));
+  const viewHeight = Math.max(worldH, worldW / aspect) / cosPolar;
+
+  return {
+    ...orbit,
+    target: { x: world.x + world.width / 2, y: orbit.target.y, z: world.y + world.height / 2 },
+    viewHeight,
+    /** `distance` 保证相机站在场景外（正交档下只影响裁剪面）。 */
+    distance: Math.max(orbit.distance, viewHeight * 2),
   };
 }
 

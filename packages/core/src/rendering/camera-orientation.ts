@@ -181,11 +181,23 @@ export function trackballDeltaQuat(options: {
   );
 
   /**
-   * 旋转轴 = 屏幕法线 × 位移方向（等价于「位移方向的垂线」）。
-   * 屏幕法线 = right × up（右手系）。用叉积可直接得到垂直于位移的轴。
+   * 旋转轴 = **位移方向 × 屏幕法线**（垂直于位移，落在屏幕平面内）。
+   *
+   * ## 符号为什么是这个顺序
+   *
+   * 屏幕法线 `normal = right × up`。在右手系里，three 的相机看向自身 −Z，
+   * 因此 `right × up = −forward`，即法线指向**观察者**（背离场景）。
+   *
+   * 球面上从 A 划到 B 的测地线，其旋转轴是 `move × normal`。
+   * 若写成 `normal × move`（早期实现），轴恰好反向 180°，
+   * 于是**拖拽方向与转动方向相反** —— 使用者两次报告「不跟手」正是这个。
+   *
+   * 2026-11-08 实测数据（polar=0.6，向右拖 80px）：
+   * - `normal × move` 得轴 ≈ `up`，绕它正转使点**向左**走（反向）
+   * - `move × normal` 得轴 ≈ `−up`，绕它正转使点**向右**走（跟手）
    */
   const normal = normalize3(cross3(options.viewRight, options.viewUp));
-  const axis = cross3(normal, move);
+  const axis = cross3(move, normal);
 
   return quatFromAxisAngle(axis, dist * perPixel);
 }
