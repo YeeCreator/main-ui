@@ -137,6 +137,14 @@ export interface WorldReadyApi {
     y: Vec2;
     z: Vec2;
   } | null;
+  /** 三维档专属：完整复位（朝向 / 平移 / 缩放全部回到默认）。 */
+  resetView?: () => void;
+  /**
+   * 三维档专属：聚焦到世界范围（只改平移与缩放，保留朝向）。
+   *
+   * @param world 要聚焦的地面范围；缺省 = 当前 viewBox（即整个世界）。
+   */
+  focusOn?: (world?: ViewBox) => void;
   /** 当前后端实例（后端无关；供宿主读 `capabilities` 与专用出口）。 */
   getBackend: () => ViewportBackend | null;
 }

@@ -469,6 +469,22 @@ export const WorldView = defineComponent({
       const local = toLocal(event);
       if (!local) return;
 
+      /**
+       * 点击即取得键盘焦点。
+       *
+       * 没有这一步，宿主页面里「点一下视图再按 F」会没反应 ——
+       * 键盘事件只在焦点位于视图内时才派发。用 `preventScroll` 避免
+       * 移动端聚焦时把页面滚到视图顶部。
+       */
+      const overlay = overlayRef.value;
+      if (overlay && typeof overlay.focus === 'function') {
+        try {
+          overlay.focus({ preventScroll: true });
+        } catch {
+          /* 某些环境不支持 options 参数；失败不影响交互 */
+        }
+      }
+
       if (gestureGuard.value) {
         // 抑制原生文本选区 / 图片拖拽（拖拽期间浏览器默认行为会抢焦点）。
         event.preventDefault();
@@ -556,26 +572,35 @@ export const WorldView = defineComponent({
            * - 锁定后手感与 Blender 一致：按下定枢轴，拖拽绕它转。
            */
           const orbitApi = backend.orbit;
-          const rotateDx = event.clientX - lastRotateX;
-          const deltaAzimuth = rotateDeltaFromDrag(rotateDx);
-          const deltaPolar = rotateDeltaFromDrag(dy, 0.006);
           lastRotateX = event.clientX;
           if (orbitApi) {
-            if (deltaAzimuth !== 0 || deltaPolar !== 0) {
-              const pivot = rotateAnchorWorld;
-              if (pivot) {
-                const orbit = orbitApi.getOrbit();
-                const dxT = pivot.x - orbit.target.x;
-                const dzT = pivot.y - orbit.target.z;
-                if (dxT !== 0 || dzT !== 0) {
-                  orbitApi.setOrbit({ ...orbit, target: { ...orbit.target, x: pivot.x, z: pivot.y } });
-                }
+            if (dx !== 0 || dy !== 0) {
+              /**
+               * 交给后端按自己的旋转模型分派 —— **传原始像素 + 枢轴**。
+               *
+               * 两处关键：
+               *
+               * 1. **传像素而非角度**。两种模型的原生单位不同：转盘按角度理解拖拽，
+               *    轨迹球按「拖拽方向」定转轴（轴 = 屏幕法线 × 位移），像素才是它的
+               *    原生单位。早期统一传角度、后端再折算回像素，两个灵敏度系数极易
+               *    错配，导致「轨迹球方向与光标相反」。
+               *
+               * 2. **枢轴只传不改 target**。早期实现先把 target 挪到枢轴再旋转，
+               *    那一步会让画面在按下瞬间跳一下（target 是视口中心对应的世界点）。
+               *    现在后端做「绕枢轴旋转 + 补偿 target」的等价变换，枢轴点屏幕位置
+               *    保持不变，其余点绕它转 —— 这才是「绕光标转」的观感。
+               */
+              if (orbitApi.rotateByPixels) {
+                orbitApi.rotateByPixels(dx, dy, rotateAnchorWorld ?? undefined);
+              } else {
+                orbitApi.rotateBy(rotateDeltaFromDrag(dx), rotateDeltaFromDrag(dy, 0.006));
               }
-              orbitApi.rotateBy(deltaAzimuth, deltaPolar);
             }
-          } else if (deltaAzimuth !== 0) {
+          } else if (dx !== 0) {
             // 无轨道能力（二维档）：退回画面旋转
-            backend.setCamera(rotateAtScreenPoint(backend.getCamera(), { deltaAngle: deltaAzimuth, anchorScreen: anchor }));
+            backend.setCamera(
+              rotateAtScreenPoint(backend.getCamera(), { deltaAngle: rotateDeltaFromDrag(dx), anchorScreen: anchor }),
+            );
           }
           return;
         }
@@ -778,6 +803,45 @@ export const WorldView = defineComponent({
       if (gestureGuard.value || (props.altViewGestures && event.altKey)) event.preventDefault();
     };
 
+    /**
+     * 视图键盘快捷键。
+     *
+     * | 键 | 操作 | 说明 |
+     * | --- | --- | --- |
+     * | `F` | 聚焦 | 保持视角，把世界框满画面（DCC 的 View Selected） |
+     * | `Home` | 复位 | 朝向 / 平移 / 缩放全部回到默认 |
+     *
+     * ## 三条纪律
+     *
+     * 1. **只在焦点落于视图内时生效** —— 交互层带 `tabindex`，否则会抢走
+     *    页面上输入框的按键（`F` 是很常见的打字字母）。
+     * 2. **带修饰键一律放过** —— `Cmd+F` / `Ctrl+F` 是浏览器查找，不能劫持。
+     * 3. **不 preventDefault 无关键** —— 只处理自己认的键，其余原样放行。
+     */
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!props.interactive) return;
+      // 带修饰键的组合交给浏览器 / 宿主（⌘F、Ctrl+F 是查找）
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      const key = event.key;
+      if (key === 'f' || key === 'F') {
+        /**
+         * F 聚焦。
+         *
+         * 现在还没有「选中」概念，故默认聚焦整个世界范围（`viewBox`）。
+         * 将来接入选择后，宿主应在 `selection-change` 时把选中范围记下来，
+         * 这里改为优先取选中范围。
+         */
+        event.preventDefault();
+        backend?.orbit?.focusOn?.();
+        return;
+      }
+      if (key === 'Home') {
+        event.preventDefault();
+        backend?.orbit?.resetView?.();
+      }
+    };
+
     // ---------- 后端生命周期 ----------
     /** 最小句柄（后端无关）：尺寸 / 世界根对象 / 请求重绘。 */
     const buildReadyApi = (): WorldReadyApi => ({
@@ -804,6 +868,10 @@ export const WorldView = defineComponent({
         const orbit = backend?.orbit?.getOrbit();
         return orbit ? projectWorldAxes(orbit) : null;
       },
+      /** 三维档专属：完整复位（朝向 / 平移 / 缩放全部回到默认）。 */
+      resetView: () => backend?.orbit?.resetView?.(),
+      /** 三维档专属：聚焦到世界范围（只改平移与缩放，保留朝向）。 */
+      focusOn: (world?: ViewBox) => backend?.orbit?.focusOn?.(world),
       getBackend: () => backend,
     });
 
@@ -1013,6 +1081,14 @@ export const WorldView = defineComponent({
       WebkitUserSelect: gestureGuard.value ? 'none' : 'auto',
       WebkitTouchCallout: gestureGuard.value ? 'none' : 'auto',
       WebkitTapHighlightColor: 'transparent',
+      /**
+       * 键盘焦点环：只在 `:focus-visible`（键盘导航）时显示。
+       *
+       * 鼠标点击也会让视图获得焦点（为了接收 F / Home），但那时不该画焦点环
+       * —— 否则每次点一下画面就多一个蓝框。`outline: none` 配合
+       * `focus-visible` 的 CSS 规则由宿主主题决定，这里只清掉默认轮廓。
+       */
+      outline: 'none',
     } as CSSProperties;
 
     /**
@@ -1077,12 +1153,22 @@ export const WorldView = defineComponent({
           ref: overlayRef,
           class: 'main-ui-view-world__interaction',
           style: overlayStyle,
+          /**
+           * `tabindex="0"`：让视图能接收键盘事件。
+           *
+           * 键盘快捷键（F 聚焦 / Home 复位）是**视图自身的操作**，不该由每个宿主
+           * 各绑一遍 —— 那样「同一手势在不同宿主行为不同」的故障会重演。
+           * 但键盘事件只在**焦点落在视图内**时才该生效，否则会抢走输入框的按键，
+           * 所以必须配合 `tabindex` + `:focus-visible` 的可见焦点环。
+           */
+          tabindex: '0',
           onPointerdown: onPointerDown,
           onPointermove: onPointerMove,
           onPointerup: onPointerUp,
           onPointercancel: onPointerCancel,
           onWheel: onWheel,
           onContextmenu: onContextMenu,
+          onKeydown: onKeyDown,
         }),
         contentLayer,
       ]);
