@@ -16,6 +16,7 @@
 import type { EntitySnapshot, GridSpec } from '../primitives/types';
 import type { Camera2D, Vec2, ViewBox } from './camera';
 import type { OrbitCamera } from './camera-bridge';
+import type { FlyInput, FreeCamera } from './free-camera';
 
 /** 后端支持的视图维度。 */
 export type BackendDimension = 2 | 3;
@@ -251,6 +252,30 @@ export interface OrbitBackendApi {
    * @param world 要聚焦的地面范围（缺省 = 当前 viewBox）。
    */
   focusOn?(world?: { x: number; y: number; width: number; height: number }): void;
+
+  // ---------- 自由相机（飞行模式） ----------
+
+  /** 当前是否处于飞行模式。 */
+  isFlying?(): boolean;
+  /** 读取自由相机（飞行模式外返回 `null`）。 */
+  getFreeCamera?(): FreeCamera | null;
+  /** 直接设置自由相机。 */
+  setFreeCamera?(camera: FreeCamera): void;
+  /**
+   * 进入飞行模式：从当前轨道姿态**无缝接管**（位置与朝向连续，画面不跳）。
+   *
+   * 飞行模式下：`W`/`S` 沿视线前后、`A`/`D` 横移、`Q`/`E` 世界竖直升降、
+   * 鼠标拖动转向。它与轨道模式的本质差别是**没有注视点**，因此能仰头看天。
+   */
+  enterFly?(): void;
+  /**
+   * 退出飞行模式：把当前自由姿态**投影回轨道相机**（画面不跳）。
+   *
+   * 注视点取「相机前方 `distance` 处」，`distance` 沿用进入前的轨道半径。
+   */
+  exitFly?(): void;
+  /** 施加飞行输入（按 `dtSeconds` 积分；不要传固定值，否则帧率不同速度不同）。 */
+  flyBy?(input: FlyInput, dtSeconds: number): void;
 }
 
 /**

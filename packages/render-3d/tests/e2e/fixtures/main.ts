@@ -116,6 +116,10 @@ interface Diag {
   projectionCorners: string;
   /** 文字贴片探测：几何尺寸 / 纹理尺寸 / 不透明像素数 / 位置。 */
   textProbe: string[];
+  /** 是否进入了飞行模式（`?fly=1`）。 */
+  flyEntered: boolean;
+  flyCamera: string;
+  flyPersp: string;
   errors: string[];
   /** 单项探测失败（不影响其它读数）。 */
   probeErrors: string[];
@@ -147,6 +151,9 @@ const diag: Diag = {
   projectionCenter: '—',
   projectionCorners: '—',
   textProbe: [],
+  flyEntered: false,
+  flyCamera: '—',
+  flyPersp: '—',
   errors: [],
   probeErrors: [],
 };
@@ -195,6 +202,9 @@ function render(): void {
     row('极角 polar', `${diag.polar.toFixed(3)} rad（${((diag.polar * 180) / Math.PI).toFixed(1)}°）`),
     row('快照批次数', String(diag.snapshotBatchCount)),
     row('渲染后端', diag.backend),
+    row('飞行模式', diag.flyEntered ? '✅ 已进入' : '未启用'),
+    row('自由相机', diag.flyCamera),
+    row('透视相机参数', diag.flyPersp),
     row(
       '分界：单独 buildScenePlan',
       `实例 ${diag.standalonePlanInstanceCount} · 唯一几何 ${diag.standalonePlanUniqueCount} · 文字 ${diag.standalonePlanTextCount} · 实例化组 ${diag.standalonePlanInstancedGroups}`,
@@ -270,6 +280,23 @@ async function main(): Promise<void> {
     backend.applySnapshot({ snapshot });
 
     /**
+     * **飞行模式探针**（`?fly=1`）。
+     *
+     * 用来分界「飞行模式的相机会不会渲染」：
+     * - `进入飞行` 之后仍能出图 ⇒ 装配正常
+     * - 出图变空 ⇒ 在自由相机装配路径上（位置 / 姿态 / near-far / 投影）
+     */
+    const wantFly = new URLSearchParams(location.search).get('fly') === '1';
+    if (wantFly) {
+      try {
+        backend.enterFly();
+        diag.flyEntered = true;
+      } catch (error) {
+        diag.errors.push(`enterFly: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    /**
      * 取诊断读数。
      *
      * **每一项独立 try/catch**：任何一项探测失败都不得中断后续读数。
@@ -341,6 +368,18 @@ async function main(): Promise<void> {
         diag.polar = orbit.polar;
       }
     });
+    probe(() => {
+      const free = (backend as unknown as { freeState?: { position: {x:number;y:number;z:number}; yaw: number; pitch: number; speed?: number } }).freeState;
+      if (!free) { diag.flyCamera = '（无自由相机）'; return; }
+      const p = free.position;
+      diag.flyCamera = `pos=(${p.x.toFixed(0)},${p.y.toFixed(0)},${p.z.toFixed(0)}) yaw=${free.yaw.toFixed(2)} pitch=${free.pitch.toFixed(2)} speed=${(free.speed ?? 0).toFixed(0)}`;
+    });
+    probe(() => {
+      const cam = (backend as unknown as { perspCamera?: { near: number; far: number; fov: number; aspect: number; position: {x:number;y:number;z:number} } }).perspCamera;
+      if (!cam) { diag.flyPersp = '（无）'; return; }
+      diag.flyPersp = `near=${cam.near.toFixed(2)} far=${cam.far.toFixed(0)} fov=${cam.fov} aspect=${cam.aspect.toFixed(2)} pos=(${cam.position.x.toFixed(0)},${cam.position.y.toFixed(0)},${cam.position.z.toFixed(0)})`;
+    });
+
     probe(() => {
       diag.planInstanceCount = anyBackend.getScenePlan?.()?.instanceCount ?? 0;
       const plan = anyBackend.getScenePlan?.() as unknown as
