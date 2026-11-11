@@ -1302,12 +1302,32 @@ export const WorldView = defineComponent({
       background: 'var(--mui-color-panel)', color: 'var(--mui-color-text)',
     };
     const layerStyle: CSSProperties = { position: 'absolute', inset: '0' };
-    /** 叠加层容器：铺满视口，但自身不吃指针事件（子项由 `ViewportOverlay` 恢复）。 */
+    /**
+     * 叠加层容器：铺满视口，但自身不吃指针事件。
+     *
+     * 容器必须 `none`（否则会变成隐形挡板，吞掉整块画布的点击）；
+     * 直接子项则由 {@link overlayPointerFixStyle} 恢复 `auto`。
+     */
     const overlayLayerStyle: CSSProperties = {
       position: 'absolute',
       inset: '0',
       pointerEvents: 'none',
     };
+    /**
+     * 恢复叠加层**直接子项**的指针事件。
+     *
+     * ## 为什么本层必须自己兜底，而不是指望宿主或 CSS
+     *
+     * 宿主塞进 `#overlay` 插槽的控件，若继承了容器的 `pointer-events: none`，
+     * 会**看得见但点不动** —— 按钮画在屏幕上，点击却穿透到下面的画布，
+     * 且没有任何报错。这类失效极难从「按钮存在」反推。
+     *
+     * 既有的 `ViewportOverlay` 组件自带这条规则，但它只是**可选**的便捷件：
+     * 宿主直接用插槽、不套它时就会漏。本层注入 `<style>` 让两种情况都成立。
+     *
+     * 2026-11-11 实测：宿主直接使用 `#overlay` 插槽，2D/3D 切换按钮完全点不动。
+     */
+    const overlayPointerFixStyle = '.main-ui-view-world__overlay-layer > *{pointer-events:auto}';
     const overlayStyle: CSSProperties = {
       position: 'absolute', inset: '0',
       pointerEvents: props.interactive ? 'auto' : 'none',
@@ -1417,9 +1437,14 @@ export const WorldView = defineComponent({
          * 3. 宿主换布局（上下分栏、全屏）时浮层自动跟随，不必逐个改数值。
          *
          * 容器带 `pointer-events: none`、子项 `auto`，故不会挡到画布。
+         * 「子项 auto」由本层注入的 `<style>` 兜底 —— 宿主直接用插槽
+         * （不套 `ViewportOverlay`）时也照样可点。
          */
         slots.overlay
-          ? h('div', { class: 'main-ui-view-world__overlay-layer', style: overlayLayerStyle }, slots.overlay())
+          ? h('div', { class: 'main-ui-view-world__overlay-layer', style: overlayLayerStyle }, [
+              h('style', overlayPointerFixStyle),
+              slots.overlay(),
+            ])
           : null,
         contentLayer,
       ]);
