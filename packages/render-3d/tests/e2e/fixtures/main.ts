@@ -78,9 +78,50 @@ function makeSnapshot(): EntitySnapshot {
           fontSize: [64, 9, 9],
         },
       },
+      /**
+       * 离屏纹理面片探针（`?quad=1`）。
+       *
+       * 用一块**程序生成的棋盘格画布**当图像源 —— 真实的二维栅格内容形态。
+       * 若这条渲染不出来，说明「电视机」链路（画布 → 纹理 → 面片）有问题。
+       */
+      raster: {
+        kind: 'raster',
+        count: 1,
+        geometry: 'texture-quad',
+        columns: {
+          x: [256],
+          y: [256],
+          width: [320],
+          height: [320],
+          texture: ['diag-grid'],
+          billboard: [false],
+        },
+      },
     },
     dimensions: 2,
   };
+}
+
+/**
+ * 生成一块棋盘格画布（模拟「二维栅格内容」）。
+ *
+ * 用代码画而不是加载图片：诊断页必须**零外部依赖**，否则
+ * 「图加载失败」与「纹理链路坏了」两种故障分不开。
+ */
+function makeRasterCanvas(): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 8; x += 1) {
+        ctx.fillStyle = (x + y) % 2 === 0 ? '#2f6f4f' : '#c9d8b6';
+        ctx.fillRect(x * 8, y * 8, 8, 8);
+      }
+    }
+  }
+  return canvas;
 }
 
 interface Diag {
@@ -252,7 +293,18 @@ async function main(): Promise<void> {
   diag.backend = forceWebGL ? 'webgl-forced' : 'webgpu(default)';
 
   try {
-    const backend = createThreeBackend({ forceWebGL }) as ThreeViewportBackend;
+    const rasterCanvas = makeRasterCanvas();
+    const showQuad = new URLSearchParams(location.search).get('quad') === '1';
+    const backend = createThreeBackend({
+      forceWebGL,
+      /**
+       * 纹理解析器：把 `diag-grid` 解析成那块棋盘格画布。
+       *
+       * `?quad=1` 时才提供解析器 —— 让它成为一个**可开关的变量**，
+       * 于是能对比「有解析器 / 无解析器」两种情形（后者应当不画面片）。
+       */
+      textureResolver: showQuad ? (key: string) => (key === 'diag-grid' ? rasterCanvas : null) : null,
+    }) as ThreeViewportBackend;
     await backend.mount(stage, {
       viewBox: { x: 0, y: 0, width: 512, height: 512 },
       devicePixelRatio: diag.dpr,
