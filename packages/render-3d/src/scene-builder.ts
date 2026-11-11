@@ -23,6 +23,7 @@ import {
   Quaternion,
   Vector3,
   type Object3D,
+  type Texture,
 } from 'three';
 import type { InstancePlan, ScenePlan } from './primitive-plan';
 import {
@@ -57,6 +58,20 @@ export interface BuiltScene {
     cameraPosition: { x: number; y: number; z: number },
     cameraUp?: { x: number; y: number; z: number },
   ): void;
+  /**
+   * 按纹理键刷新该键已绑定的纹理（不重建场景）。
+   *
+   * ## 为什么需要这条通道
+   *
+   * 离屏纹理的典型用法是**实时更新**（元胞自动机下一代、实时游戏逐帧刷新）。
+   * 若每次都走 `applySnapshot`，整棵树会被销毁重建 —— 几何/材质/实例矩阵
+   * 全部重来一遍，60fps 下必然崩。而纹理内容变了这件事，本质只要求
+   * 「重新上传一次像素」，与场景结构无关。
+   *
+   * @param textureKey 纹理键（与快照里的 `texture` 列同值）。
+   * @returns 是否命中并刷新（键不存在时返回 `false`，不抛错）。
+   */
+  refreshTexture(textureKey: string): boolean;
 }
 
 /** 构建选项。 */
@@ -276,6 +291,14 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
   // 若未给 `textureResolver`，这些面片**不渲染** —— 与其画一块纯色板
   // （会让宿主以为「内容加载了但显示不对」），不如不画。
   const textureBillboards: Object3D[] = [];
+  /**
+   * 纹理键 → 已绑定纹理。
+   *
+   * 用于「就地刷新」：同一键的纹理只需重传像素，不必重建对象。
+   * 若同一键被多个面片使用，只保留首个 —— 它们共享同一张图，刷新任一即全部生效
+   * （画面不会分歧）；反过来，若宿主希望两个面片各自独立变化，应当用**两个不同的键**。
+   */
+  const texturesByKey = new Map<string, Texture>();
   if (options.textureResolver) {
     for (const quad of plan.textureQuads) {
       if (!Number.isFinite(quad.x) || !Number.isFinite(quad.y) || !Number.isFinite(quad.z)) continue;
@@ -290,6 +313,7 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
       });
       built.object.position.set(quad.x, quad.z, quad.y);
       built.object.renderOrder = LAYER_ORDER.polygon;
+      if (!texturesByKey.has(quad.texture)) texturesByKey.set(quad.texture, built.texture);
       if (quad.billboard) {
         textureBillboards.push(built.object);
       } else {
@@ -381,11 +405,25 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
       for (const item of disposables) item.dispose();
       billboards.length = 0;
       textureBillboards.length = 0;
+      texturesByKey.clear();
       // 文字与线段的几何/材质由 three 的 dispose 链路处理；这里清空引用即可。
       root.clear();
     },
     syncLineResolution,
     syncBillboards,
+    /**
+     * 就地刷新纹理像素。
+     *
+     * `CanvasTexture` 的 `needsUpdate = true` 会在下次渲染时重新上传像素，
+     * 而不重建几何/材质/场景节点 —— 实时内容（逐帧重画的画布）靠这条
+     * 才能维持帧率。
+     */
+    refreshTexture(textureKey: string): boolean {
+      const texture = texturesByKey.get(textureKey);
+      if (!texture) return false;
+      texture.needsUpdate = true;
+      return true;
+    },
   };
 }
 

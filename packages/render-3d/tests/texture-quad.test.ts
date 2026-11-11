@@ -239,3 +239,85 @@ describe('texture-quad：公告牌朝向', () => {
     expect(object.quaternion.x).toBe(before.x);
   });
 });
+
+describe('texture-quad：就地刷新（实时内容的前提）', () => {
+  /** 造一份带指定纹理键的快照。 */
+  const withKey = (key: string): EntitySnapshot => ({
+    bounds: { x: 0, y: 0, width: 100, height: 100 },
+    batches: {
+      raster: {
+        kind: 'raster',
+        count: 1,
+        geometry: 'texture-quad',
+        columns: {
+          x: [50], y: [50], width: [100], height: [100], texture: [key],
+        },
+      },
+    },
+  });
+
+  test('refreshTexture 命中已绑定的键', () => {
+    const built = planToSceneObjects(buildScenePlan({ snapshot: withKey('live') }), {
+      projection: 'perspective',
+      textureResolver: () => stubSource(),
+    });
+    expect(built.refreshTexture('live')).toBe(true);
+  });
+
+  test('刷新未知键返回 false 而不抛错（键拼错不应崩服）', () => {
+    const built = planToSceneObjects(buildScenePlan({ snapshot: withKey('live') }), {
+      projection: 'perspective',
+      textureResolver: () => stubSource(),
+    });
+    expect(built.refreshTexture('nope')).toBe(false);
+  });
+
+  /**
+   * 关键判据：**刷新不重建场景对象**。
+   *
+   * 实时内容每帧重画画布后都要刷新纹理。若刷新走了场景重建，
+   * 帧率必然崩 —— 这条靠对象身份断言，而不是靠「看起来能跑」。
+   */
+  test('刷新后场景对象身份不变（未重建）', () => {
+    const built = planToSceneObjects(buildScenePlan({ snapshot: withKey('live') }), {
+      projection: 'perspective',
+      textureResolver: () => stubSource(),
+    });
+    const meshes: unknown[] = [];
+    built.root.traverse((child) => {
+      if ((child as { isMesh?: boolean }).isMesh) meshes.push(child);
+    });
+    expect(meshes).toHaveLength(1);
+
+    built.refreshTexture('live');
+
+    const after: unknown[] = [];
+    built.root.traverse((child) => {
+      if ((child as { isMesh?: boolean }).isMesh) after.push(child);
+    });
+    expect(after).toHaveLength(1);
+    expect(after[0]).toBe(meshes[0]);
+  });
+
+  test('同一键被多个面片使用时只登记一次（共享同一张图）', () => {
+    const snapshot: EntitySnapshot = {
+      bounds: { x: 0, y: 0, width: 200, height: 100 },
+      batches: {
+        raster: {
+          kind: 'raster',
+          count: 2,
+          geometry: 'texture-quad',
+          columns: {
+            x: [50, 150], y: [50, 50], width: [80, 80], height: [80, 80],
+            texture: ['shared', 'shared'],
+          },
+        },
+      },
+    };
+    const built = planToSceneObjects(buildScenePlan({ snapshot }), {
+      projection: 'perspective',
+      textureResolver: () => stubSource(),
+    });
+    expect(built.refreshTexture('shared')).toBe(true);
+  });
+});

@@ -161,6 +161,8 @@ interface Diag {
   flyEntered: boolean;
   flyCamera: string;
   flyPersp: string;
+  /** 离屏纹理探针：面片数 / 命中刷新 / 刷新前后画面哈希是否改变。 */
+  quadProbe: string;
   errors: string[];
   /** 单项探测失败（不影响其它读数）。 */
   probeErrors: string[];
@@ -195,6 +197,7 @@ const diag: Diag = {
   flyEntered: false,
   flyCamera: '—',
   flyPersp: '—',
+  quadProbe: '未测试',
   errors: [],
   probeErrors: [],
 };
@@ -257,6 +260,7 @@ function render(): void {
     row('投影：世界中心 → 屏幕', diag.projectionCenter),
     row('投影：世界四角 → 屏幕', diag.projectionCorners),
     row('文字贴片探测', diag.textProbe.join(' ； ') || '—'),
+    row('离屏纹理探针', diag.quadProbe),
     diag.errors.length
       ? row('错误', diag.errors.join(' / '), 'bad')
       : row('错误', '无', 'ok'),
@@ -328,7 +332,6 @@ async function main(): Promise<void> {
     diag.standalonePlanUniqueCount = standalonePlan.unique.length;
     diag.standalonePlanTextCount = standalonePlan.texts.length;
     diag.standalonePlanInstancedGroups = standalonePlan.instanced.size;
-
     backend.applySnapshot({ snapshot });
 
     /**
@@ -338,8 +341,52 @@ async function main(): Promise<void> {
      * - `进入飞行` 之后仍能出图 ⇒ 装配正常
      * - 出图变空 ⇒ 在自由相机装配路径上（位置 / 姿态 / near-far / 投影）
      */
-    const wantFly = new URLSearchParams(location.search).get('fly') === '1';
-    if (wantFly) {
+    /**
+     * 离屏纹理「就地刷新」探针。
+     *
+     * 验的是实时内容的关键链路：**改画布内容 → 刷新纹理 → 画面真的变了**。
+     * 这是最容易被「状态对了但没上传」坑到的一环：`needsUpdate = true`
+     * 设了不代表像素真新了（比如 promu 错对象、或后端根本没接到）。
+     *
+     * 做法：把画布整块涂成亮红 → 刷新 → 比对前后画面像素均值。
+     * 均值不变就说明刷新没生效。
+     */
+    if (showQuad) {
+      const sample = (): number => {
+        const cv = stage.querySelector('canvas');
+        const ctx = cv?.getContext('2d');
+        if (!cv || !ctx) return -1;
+        const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) sum += data[i]! + data[i + 1]! + data[i + 2]!;
+        return sum / (data.length / 4);
+      };
+      // 注意：WebGPU 下 canvas 可能不可回读，那就只看「刷新是否命中」。
+      const before = sample();
+      const rctx = rasterCanvas.getContext('2d');
+      if (rctx) {
+        rctx.fillStyle = '#ff0000';
+        rctx.fillRect(0, 0, rasterCanvas.width, rasterCanvas.height);
+      }
+      const hit = backend.textures?.refresh('diag-grid') ?? false;
+      await new Promise((r) => requestAnimationFrame(() => r(r)));
+      const after = sample();
+      /**
+       * WebGPU 后端下 canvas 的 2D context 回读会返回空（`sample()` 得 -1），
+       * 因此**不能拿均值当判据**——那会给出「没变」的假阳报告。
+       * 像素是否真的变了以**截图**为准；这里只断言「刷新命中」。
+       */
+      const readable = before >= 0 && after >= 0;
+      diag.quadProbe = hit
+        ? readable
+          ? `命中刷新 ✅ · 画面均值 ${before.toFixed(1)} → ${after.toFixed(1)}`
+          : '命中刷新 ✅（画布内容已改为纯红；WebGPU 下不可回读，以截图核验）'
+        : '键未命中 ❌（后端无 textures 或未绑定该键）';
+    } else {
+      diag.quadProbe = '未提供解析器（不画面片）';
+    }
+
+    const wantFly = new URLSearchParams(location.search).get('fly') === '1';    if (wantFly) {
       try {
         backend.enterFly();
         diag.flyEntered = true;

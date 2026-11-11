@@ -52,6 +52,7 @@ import type {
   BackendCapabilities,
   BackendCellHit,
   OrbitBackendApi,
+  TextureRefreshApi,
   ViewportApplySnapshotOptions,
   ViewportBackend,
   ViewportBackendMountOptions,
@@ -431,6 +432,21 @@ export class ThreeViewportBackend implements ViewportBackend {
   requestRender(): void {
     this.renderOnce();
   }
+
+  /**
+   * 离屏纹理就地刷新入口。
+   *
+   * 实时内容（逐帧重画的画布）靠它维持帧率：`applySnapshot` 是全量重建，
+   * 每帧调用会销毁并重建整棵树。
+   */
+  readonly textures: TextureRefreshApi = {
+    refresh: (key: string): boolean => {
+      const ok = this.built?.refreshTexture(key) ?? false;
+      // 命中则立即重绘一帧，避免宿主还需额外调 requestRender。
+      if (ok) this.renderOnce();
+      return ok;
+    },
+  };
 
   getHandle(): ViewportHandle {
     return {
