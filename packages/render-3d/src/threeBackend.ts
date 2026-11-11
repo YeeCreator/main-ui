@@ -68,6 +68,7 @@ import { buildScenePlan, type ScenePlan } from './primitive-plan';
 import { createRenderer } from './renderer-factory';
 import { disposePrototypeGeometries } from './geometry-factory';
 import { planToSceneObjects, type BuiltScene } from './scene-builder';
+import type { QuadTextureResolver } from './texture-quad';
 import { DEFAULT_BACKGROUND, ORTHO_PRESET, colorToCss } from './units';
 
 /**
@@ -86,6 +87,14 @@ export interface ThreeBackendOptions {
   antialias?: boolean;
   /** 三维档缺省投影（缺省 `orthographic`：二维档预设必须正交）。 */
   projection?: 'orthographic' | 'perspective';
+  /**
+   * 纹理键 → 图像源（离屏纹理面片用）。
+   *
+   * 宿主把一块离屏 canvas 注册进解析器，就能用「一个面片」呈现
+   * 整幅二维栅格内容（元胞自动机、像素场、位图）。
+   * 缺省时这类图元**不渲染**（不画纯色占位板，避免让宿主误以为内容已加载）。
+   */
+  textureResolver?: QuadTextureResolver | null;
 }
 
 /**
@@ -764,7 +773,10 @@ export class ThreeViewportBackend implements ViewportBackend {
 
     const plan = buildScenePlan({ snapshot: this.snapshot, grid: this.grid });
     this.lastPlan = plan;
-    const built = planToSceneObjects(plan, { projection: this.projection });
+    const built = planToSceneObjects(plan, {
+      projection: this.projection,
+      textureResolver: this.options.textureResolver ?? null,
+    });
     this.world.add(built.root);
     this.built = built;
     built.syncLineResolution(this.size.width, this.size.height);

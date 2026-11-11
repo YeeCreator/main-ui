@@ -22,6 +22,7 @@ import {
   MeshBasicMaterial,
   Quaternion,
   Vector3,
+  type Object3D,
 } from 'three';
 import type { InstancePlan, ScenePlan } from './primitive-plan';
 import {
@@ -37,6 +38,11 @@ import {
 } from './geometry-factory';
 import { createWideLine, createWideSegments, wideLinesAvailable } from './wide-lines';
 import { createSpriteText, syncTextBillboard } from './text-sprite';
+import {
+  createTextureQuad,
+  orientQuadToBillboard,
+  type QuadTextureResolver,
+} from './texture-quad';
 import { LAYER_ORDER, LAYER_Z } from './units';
 
 /** 构建结果：根对象 + 显式销毁 + 线宽分辨率同步。 */
@@ -57,6 +63,14 @@ export interface BuiltScene {
 export interface BuildSceneOptions {
   /** 投影类型（仅用于决定是否启用受光材质；二维档正交 + 无光照）。 */
   projection: 'orthographic' | 'perspective';
+  /**
+   * 纹理键 → 图像源（离屏纹理面片用）。
+   *
+   * 缺省时纹理面片**不渲染** —— 与其画一块纯色板（会让宿主以为
+   * 「内容加载了但显示不对」），不如不画，由调用方从 `textureQuads` 数量
+   * 与渲染结果对比自行发现问题。
+   */
+  textureResolver?: QuadTextureResolver | null;
 }
 
 /**
@@ -252,6 +266,49 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
     disposables.push(instanced.material);
   }
 
+  // ---- 离屏纹理面片（「电视机」） ----
+  //
+  // 判据：**大量实体、本质是一张二维栅格** 的内容走这条，而不是逐格图元。
+  // 例：64×64 元胞自动机有 4096 格 —— 逐格要提交 4096 组实例矩阵，
+  // 而它的语义本就是「一张会变的位图」，拆成 4096 个独立 3D 物体是过度建模。
+  // 用一张离屏纹理贴在单个面片上，**开销与格数无关**。
+  //
+  // 若未给 `textureResolver`，这些面片**不渲染** —— 与其画一块纯色板
+  // （会让宿主以为「内容加载了但显示不对」），不如不画。
+  const textureBillboards: Object3D[] = [];
+  if (options.textureResolver) {
+    for (const quad of plan.textureQuads) {
+      if (!Number.isFinite(quad.x) || !Number.isFinite(quad.y) || !Number.isFinite(quad.z)) continue;
+      const source = options.textureResolver(quad.texture);
+      if (!source) continue;
+      const built = createTextureQuad({
+        width: quad.width,
+        height: quad.height,
+        source,
+        opacity: quad.opacity,
+        billboard: quad.billboard,
+      });
+      built.object.position.set(quad.x, quad.z, quad.y);
+      built.object.renderOrder = LAYER_ORDER.polygon;
+      if (quad.billboard) {
+        textureBillboards.push(built.object);
+      } else {
+        /**
+         * 非公告牌面片**躺平**在地面（与 polygon / sprite 同姿态）。
+         *
+         * `PlaneGeometry` 原生在 XY 平面、法线朝 +Z。本项目的坐标约定是
+         * 「二维世界 `(x, y)` → 三维地面 `(x, 0, z = y)`」，故须绕 X 轴 +90°：
+         * 局部 +Y（图像的上方）落到世界 +Z（世界 y 方向），法线落到 ±Y。
+         * 漏了这一步面片会**立着**，俯视相机只能看到它的一条顶边 ——
+         * 表现为「画面里出现一条扁扁的横条」，而不是一块内容。
+         */
+        built.object.rotation.x = Math.PI / 2;
+      }
+      root.add(built.object);
+      disposables.push(built.texture, { dispose: () => built.object.parent?.remove(built.object) });
+    }
+  }
+
   // ---- 文字（公告牌贴片） ----
   //
   // 设计 §十九 7：**三维档文字一律走公告牌二维贴片**（Canvas 2D → CanvasTexture
@@ -309,6 +366,13 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
     cameraUp: { x: number; y: number; z: number } = { x: 0, y: 1, z: 0 },
   ): void => {
     for (const object of billboards) syncTextBillboard(object, cameraPosition, cameraUp);
+    /**
+     * 离屏纹理面片的公告牌对齐。
+     *
+     * 与文字贴片共用「每帧对齐」这条必经路径（`renderOnce` 里唯一被调用的地方），
+     * 所以只要登记到 `textureBillboards`，就不会漏帧。
+     */
+    for (const object of textureBillboards) orientQuadToBillboard(object, cameraPosition, cameraUp);
   };
 
   return {
@@ -316,6 +380,7 @@ export function planToSceneObjects(plan: ScenePlan, options: BuildSceneOptions):
     dispose() {
       for (const item of disposables) item.dispose();
       billboards.length = 0;
+      textureBillboards.length = 0;
       // 文字与线段的几何/材质由 three 的 dispose 链路处理；这里清空引用即可。
       root.clear();
     },

@@ -24,6 +24,7 @@ import {
   batchToPolylineItems,
   batchToSpriteItems,
   batchToTextItems,
+  batchToTextureQuadItems,
 } from '@main-ui/core/primitives';
 import { LAYER_Z, colorToCss } from './units';
 
@@ -81,6 +82,31 @@ export interface TextPlan {
   billboard?: TextBillboard;
 }
 
+/**
+ * 离屏纹理面片（「电视机」）。
+ *
+ * 与 `TextPlan` / `InstancePlan` 并列的独立图元类别：它承载的是
+ * **一整幅二维内容的快照**，而不是单个实体。
+ */
+export interface TextureQuadPlan {
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  height: number;
+  /** 纹理键（由渲染后端的 textureResolver 解析成图像源）。 */
+  texture: string;
+  /**
+   * 是否始终面向相机。
+   *
+   * `true`（缺省）：像悬在空中的屏幕，转到哪儿都正着看。
+   * `false`：固定朝向，可贴在地面上当「地面显示」——
+   * 此时俯视是正的、斜看有透视，保留了「它就在地上」的空间感。
+   */
+  billboard: boolean;
+  opacity: number;
+}
+
 /** 网格图元（程序化距离函数或平面贴图）。 */
 export interface GridPlan {
   x: number;
@@ -102,6 +128,13 @@ export interface ScenePlan {
   unique: UniqueGeometryPlan[];
   /** 文字。 */
   texts: TextPlan[];
+  /**
+   * 离屏纹理面片（「电视机」）。
+   *
+   * 与 `instanced` 分开存放：面片**不按原型合并**（每个面片通常是一块独立画布，
+   * 合并会把不同画布错绑到同一纹理上），且需要单独的纹理加载/刷新链路。
+   */
+  textureQuads: TextureQuadPlan[];
   /** 网格（可选）。 */
   grid: GridPlan | null;
   /** 原型几何数量（实例化判据的分子）。 */
@@ -137,6 +170,7 @@ export function buildScenePlan(options: {
     instanced: new Map(),
     unique: [],
     texts: [],
+    textureQuads: [],
     grid: null,
     prototypeCount: 0,
     instanceCount: 0,
@@ -173,6 +207,9 @@ export function buildScenePlan(options: {
         break;
       case 'polyline':
         addPolylineBatch(plan, batch);
+        break;
+      case 'texture-quad':
+        addTextureQuadBatch(plan, batch);
         break;
       default:
         break;
@@ -247,6 +284,37 @@ function addPolygonBatch(plan: ScenePlan, batch: EntityBatch): void {
     });
     plan.instanceCount += 1;
   });
+}
+
+/**
+ * 处理 `texture-quad` 批次（离屏纹理面片）。
+ *
+ * 与 `addSpriteBatch` 的两处关键差别：
+ *
+ * 1. **不按原型合并**。`sprite` 会把「同纹理 + 同尺寸」的实体并进一个原型组，
+ *    因为它们是同类实体（一批同类个体共用一张贴图）。而 `texture-quad` 的每个面片
+ *    通常挂一块**独立的画布**（各自的内容在变），合并会把它们错绑到同一纹理上。
+ * 2. **计入 `instanceCount` 但不计入 `prototypeCount`**。它是实体（影响总数统计），
+ *    但不参与「实例化合规」判据 —— 那判据针对的是「大量同类实体是否共享几何」，
+ *    而面片本就该各用各的纹理。
+ */
+function addTextureQuadBatch(plan: ScenePlan, batch: EntityBatch): void {
+  const items = batchToTextureQuadItems(batch);
+  for (const item of items) {
+    const width = item.width > 0 ? item.width : 256;
+    const height = item.height > 0 ? item.height : 256;
+    plan.textureQuads.push({
+      x: item.x,
+      y: item.y,
+      z: (item.z ?? 0) + LAYER_Z.polygon,
+      width,
+      height,
+      texture: item.texture,
+      billboard: item.billboard !== false,
+      opacity: item.opacity ?? 1,
+    });
+    plan.instanceCount += 1;
+  }
 }
 
 function addPolylineBatch(plan: ScenePlan, batch: EntityBatch): void {
