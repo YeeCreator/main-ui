@@ -155,6 +155,25 @@ export interface ViewportBackend {
    * `orbitRotateBy`（含俯仰），而不是二维的 `rotateAtScreenPoint`（只转画面）。
    */
   readonly orbit?: OrbitBackendApi;
+
+  /**
+   * 离屏纹理的**就地刷新**接口（**可选**，仅实现了 `texture-quad` 的后端提供）。
+   *
+   * ## 为什么不能靠重跑 `applySnapshot`
+   *
+   * `applySnapshot` 是**全量重建**：销毁并重建几何、材质、实例矩阵与场景节点。
+   * 这对「结构变了」是正确的，但对「结构没变、只有纹理像素变了」极度浪费 ——
+   * 实时内容（元胞自动机逐代、实时游戏逐帧）每帧重建一次树，帧率必然崩。
+   *
+   * 本接口只做一件事：**让已绑定的纹理重新上传像素**，场景结构完全不动。
+   *
+   * @example
+   * ```ts
+   * // 宿主每帧重画 canvas 后：
+   * canvasBackend.textures?.refresh('automaton');
+   * ```
+   */
+  readonly textures?: TextureRefreshApi;
 }
 
 /**
@@ -169,6 +188,23 @@ export interface ViewportBackend {
  *
  * 即：**有轨道走轨道，没轨道退回二维旋转** —— 同一套手势在两种后端下都成立。
  */
+/**
+ * 离屏纹理就地刷新接口。
+ *
+ * 只登记「已经绑定到场景的纹理键」，不负责创建/销毁场景对象 ——
+ * 增删面片仍然是 `applySnapshot` 的职责。
+ */
+export interface TextureRefreshApi {
+  /**
+   * 让指定纹理键重新上传像素。
+   *
+   * @param key 纹理键（与快照 `texture` 列同值）。
+   * @returns 是否命中。键不存在时返回 `false`，**不抛错** ——
+   *   宿主在「面片还没建好」或「键拼错」时不应崩服。
+   */
+  refresh(key: string): boolean;
+}
+
 export interface OrbitBackendApi {
   /** 读取轨道相机（可序列化纯值）。 */
   getOrbit(): OrbitCamera;
