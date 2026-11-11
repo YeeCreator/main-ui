@@ -13,17 +13,26 @@ import type {
   GridSpec,
   PolygonItem,
   PolylineItem,
+  QuadTextureResolver,
   SpriteItem,
   TextItem,
+  TextureQuadItem,
 } from '../primitives/types';
 import type { TextureResolver } from '../primitives/sprite';
 import { hitTestGrid } from '../primitives/hitTest';
 import { createGrid } from '../primitives/grid';
 import { createPolygonLayer } from '../primitives/polygon';
+import { createTextureQuadLayer, refreshTextureQuad } from '../primitives/texture-quad-2d';
 import { createPolylineLayer } from '../primitives/polyline';
 import { createSpriteLayer } from '../primitives/sprite';
 import { createTextLayer } from '../primitives/text';
-import { batchToPolygonItems, batchToPolylineItems, batchToSpriteItems, batchToTextItems } from '../primitives/snapshot';
+import {
+  batchToPolygonItems,
+  batchToPolylineItems,
+  batchToSpriteItems,
+  batchToTextItems,
+  batchToTextureQuadItems,
+} from '../primitives/snapshot';
 import { nextTextResolution, textResolutionFor } from './text-resolution';
 import type { Camera2D, Vec2, ViewBox } from './camera';
 import type {
@@ -37,8 +46,16 @@ import type {
 import { PixiViewport } from './pixiViewport';
 
 export interface PixiBackendOptions {
-  /** 纹理键解析器（可选）。 */
+  /** 纹理键解析器（可选；供 sprite 图元用）。 */
   textureResolver?: TextureResolver;
+  /**
+   * 离屏纹理面片的图像源解析器（可选）。
+   *
+   * 与 `textureResolver` 语义不同：后者返回 Pixi `Texture`（供 sprite 用），
+   * 本项返回**图像源**（`HTMLCanvasElement` 等），由本后端自己包装成纹理。
+   * 混用会让「同一份快照在二维/三维下取到不同对象」。
+   */
+  quadTextureResolver?: QuadTextureResolver | null;
   /** 是否开启 MSAA（缺省 false，与 PixiViewport 既有缺省一致）。 */
   antialias?: boolean;
   /** 内部分辨率倍数（缺省对齐 `devicePixelRatio`，二维档保真预设第 4 条）。 */
@@ -66,6 +83,7 @@ export class PixiViewportBackend implements ViewportBackend {
   private viewport: PixiViewport | null = null;
   private sceneLayer: Container | null = null;
   private textureResolver: TextureResolver | undefined;
+  private quadTextureResolver: QuadTextureResolver | null | undefined;
   private antialias: boolean;
   private resolutionOverride: number | undefined;
   private grid: GridSpec | null = null;
@@ -80,6 +98,7 @@ export class PixiViewportBackend implements ViewportBackend {
 
   constructor(options: PixiBackendOptions = {}) {
     this.textureResolver = options.textureResolver;
+    this.quadTextureResolver = options.quadTextureResolver;
     this.antialias = options.antialias ?? false;
     this.resolutionOverride = options.resolution;
   }
@@ -135,6 +154,7 @@ export class PixiViewportBackend implements ViewportBackend {
     const polylines: PolylineItem[] = [];
     const sprites: SpriteItem[] = [];
     const texts: TextItem[] = [];
+    const quads: TextureQuadItem[] = [];
     for (const batch of Object.values(snapshot.batches)) {
       switch (batch.geometry) {
         case 'text': texts.push(...batchToTextItems(batch)); break;
@@ -142,10 +162,14 @@ export class PixiViewportBackend implements ViewportBackend {
         case 'point': sprites.push(...batchToSpriteItems(batch)); break;
         case 'polygon': polygons.push(...batchToPolygonItems(batch)); break;
         case 'polyline': polylines.push(...batchToPolylineItems(batch)); break;
+        // 离屏纹理面片：大网格（元胞自动机等）的唯一正确路径。
+        // 早期这里落到 `default` 被静默丢弃，表现为「画面全白、无报错」。
+        case 'texture-quad': quads.push(...batchToTextureQuadItems(batch)); break;
         default: break;
       }
     }
     if (polygons.length) scene.addChild(createPolygonLayer(polygons));
+    if (quads.length) scene.addChild(createTextureQuadLayer(quads, this.quadTextureResolver).layer);
     if (polylines.length) scene.addChild(createPolylineLayer(polylines));
     if (sprites.length) scene.addChild(createSpriteLayer(sprites, this.textureResolver));
     if (texts.length) {
@@ -231,6 +255,14 @@ export class PixiViewportBackend implements ViewportBackend {
   resize(width: number, height: number): void {
     this.viewport?.resize(width, height);
   }
+
+  /**
+   * 离屏纹理就地刷新（与三维后端同语义）。
+   *
+   * 二维档的纹理由本后端用 `Texture.from(canvas)` 建立；画布内容变化后
+   * 需调 `texture.source.update()` 才会重新上传 —— 否则画面永远是首帧内容。
+   */
+  readonly textures = { refresh: (key: string): boolean => refreshTextureQuad(key) };
 
   requestRender(): void {
     // Pixi 默认每帧自动渲染；此调用只用于对齐契约语义（手动模式下的显式重绘请求）。
