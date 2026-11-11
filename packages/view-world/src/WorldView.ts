@@ -60,7 +60,7 @@ import {
   type ProjectedContentItem,
   type WorldRect,
 } from '@main-ui/core/rendering';
-import type { EntitySnapshot, GridSpec, TextureResolver } from '@main-ui/core/primitives';
+import type { EntitySnapshot, GridSpec, QuadTextureResolver, TextureResolver } from '@main-ui/core/primitives';
 import {
   DEFAULT_WORLD_VIEWBOX,
   type WorldCameraState,
@@ -89,6 +89,29 @@ export const WorldView = defineComponent({
     grid: { type: Object as PropType<GridSpec | null>, default: null },
     /** 精灵纹理键解析器（可选）。 */
     textureResolver: { type: Function as PropType<TextureResolver>, default: null },
+    /**
+     * **离屏纹理面片**的图像源解析器（可选，仅三维档）。
+     *
+     * ## 为什么不复用 `textureResolver`
+     *
+     * 两者语义不同：
+     * - `textureResolver`：纹理键 → 二维后端的**纹理资源**（Pixi 的 `Texture`）
+     * - `quadTextureResolver`：纹理键 → three 能接受的**图像源**
+     *   （`HTMLCanvasElement` / `HTMLImageElement` / `ImageBitmap`）
+     *
+     * 混用会让「同一份快照在二维/三维下取到不同对象」，那是隐蔽的错源。
+     *
+     * ## 典型用法（动态二维栅格内容）
+     *
+     * 宿主维护一块离屏 canvas，解析器**始终返回同一块 canvas**：
+     *
+     * ```ts
+     * const buffer = document.createElement('canvas');
+     * const resolver = (key: string) => (key === 'automaton' ? buffer : null);
+     * // 每帧/每代：重画 buffer → 重新 applySnapshot → 后端据此重传纹理
+     * ```
+     */
+    quadTextureResolver: { type: Function as PropType<QuadTextureResolver>, default: null },
     /** 世界范围（相机 fit 目标）；缺省时从 grid/snapshot 推导，再兜底默认值。 */
     viewBox: { type: Object as PropType<ViewBox | null>, default: null },
     minScale: { type: Number, default: 0.2 },
@@ -1061,7 +1084,18 @@ export const WorldView = defineComponent({
       const previousCamera = backend?.getCamera() ?? null;
       teardownBackend();
 
-      const next = factory();
+      /**
+       * 把「宿主侧配置」注入后端工厂。
+       *
+       * 为什么在这里注入而不是让宿主自己包一层工厂：这些配置是**视图契约的一部分**
+       * （`textureResolver` / `quadTextureResolver` 都是本组件的 prop），
+       * 宿主不该为了传它们而重写工厂。工厂签名本来就接受 `options`，正好承接。
+       */
+      const next = factory({
+        textureResolver: props.textureResolver ?? null,
+        quadTextureResolver: props.quadTextureResolver ?? null,
+        antialias: props.antialias,
+      });
       backend = next;
       activeBackendKey = key;
 
