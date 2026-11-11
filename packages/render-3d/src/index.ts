@@ -59,6 +59,14 @@ export {
   type TextRenderingConfig,
 } from './text-config';
 export { isGeometryFinite } from './text-factory';
+export {
+  createTextureQuad,
+  orientQuadToBillboard,
+  textureFromSource,
+  type BuiltTextureQuad,
+  type QuadTextureResolver,
+  type QuadTextureSource,
+} from './texture-quad';
 export { planToSceneObjects, type BuiltScene, type BuildSceneOptions } from './scene-builder';
 export {
   FIDELITY_CRITERIA,
