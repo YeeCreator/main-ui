@@ -754,6 +754,26 @@ const backend = createThreeBackend({
 改完画布内容后重新 `applySnapshot` 即可。渲染层按「源对象标识」判断是否复用纹理，
 故不要每帧新建 canvas —— 那会让纹理持续重传。
 
+#### 实时内容必须走「就地刷新」，不能每帧 `applySnapshot`
+
+`applySnapshot` 是**全量重建**：销毁并重建几何、材质、实例矩阵与场景节点。
+这对「结构变了」是正确的，但对「结构没变、只有纹理像素变了」极度浪费 ——
+实时内容（逐帧重画的画布）每帧重建一次整棵树，帧率必然崩。
+
+为此后端提供可选能力 `backend.textures`（`TextureRefreshApi`）：
+
+```ts
+// 宿主每帧重画 canvas 之后：
+backend.textures?.refresh('automaton');   // 只重传像素，场景结构不动
+```
+
+`view-world` 侧可用 `ready` 事件拿到的 `refreshTexture(key)` 便捷方法
+（内部同样走 `backend.textures`）。
+
+判据：**增删面片走 `applySnapshot`，只改像素走 `refresh`。**
+误用后者的典型症状是「画面正常但帧率随刷新次数下降」；
+误用前者是「帧率极低且 GC 频繁」。
+
 ## Menu、Command Palette 与 Quick Open
 
 通过 `registerMenu` 注册 `menubar`、`editor/tab`、`workspace`、`view`、`panel` 或 `context` 入口；菜单项的 `when` 和 command enablement 与输入绑定共享同一上下文。Vue 层导出 `MenuBar`、`CommandPalette`、`QuickOpen`、`ContextMenu` 与 `ShortcutEditor`。`WorkbenchShell` 通过**默认绑定**提供 `⌘/Ctrl+Shift+P` 命令面板与 `⌘/Ctrl+P` Quick Open（不再是硬编码键位，用户可在快捷键面板改绑或解绑）。宿主只需注册 command/menu contribution 即可获得入口。`menubar` 顶层项若未配置 `submenu` 而是直接挂 `commandId`，会渲染为可直接点击执行的命令按钮（点击即触发命令）；配置 `submenu` 的项则展开为下拉子菜单。

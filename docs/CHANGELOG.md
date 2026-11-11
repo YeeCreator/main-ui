@@ -14,6 +14,10 @@
 3. **修面片姿态**：非公告牌（`billboard: false`）的面片须绕 X 轴 +90° 躺平贴地。
    漏这一步会立在竖直平面里，俯视相机只能看到一条顶边（表现为「画面里出现一条扁横条」）。
    该缺陷属「状态对了但没落到渲染对象上」，故配单元测试守护姿态。
+4. **离屏纹理可就地刷新**：新增可选能力 `backend.textures`（`TextureRefreshApi`）
+   与 `view-world` 的 `refreshTexture(key)`。`applySnapshot` 是**全量重建**，
+   实时内容（逐帧重画的画布）每帧调它会帧率崩；`refresh` 只重传像素、场景结构不动。
+   判据：**增删面片走 `applySnapshot`，只改像素走 `refresh`。**
 
 ## 0.13.0（`@main-ui/core` 0.12.0，`view-canvas` 0.10.0，`view-formula` 0.2.0，`preset-views` 0.13.0）
 
