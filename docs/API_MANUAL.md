@@ -694,6 +694,7 @@ import '@main-ui/view-minimap/styles.css'; // 样式需宿主显式引入
 | `'text'` | `TextItem` | 文字 |
 | `'polygon'` | `PolygonItem` | **面**（闭合填充） |
 | `'polyline'` | `PolylineItem` | **线 / 网络**（开放描边） |
+| `'texture-quad'` | `TextureQuadItem` | **离屏纹理面片**（图像贴片，见下节） |
 
 **`polygon` 与 `polyline` 不可混用**：前者用于区域/范围，后者用于折线网络与路径。
 `polyline` 的填充只对 `closed === true` 生效——开放折线刻意只描边，避免把网络连成一片。
@@ -710,6 +711,48 @@ const items = snapshotToItems(snapshot);   // → {texts, sprites, polygons, pol
 
 > 结构网络（位置列是弧长 `t` 而非 `x/y`）的宿主适配层需先解析出折线点列，
 > 再按 `polyline` 批次交付；**不要**按「有 label 无坐标 → 文本」推断几何。
+
+### 离屏纹理面片（`'texture-quad'`）：把二维栅格内容搬进三维视口
+
+一张**二维图像**贴到三维空间的一个平面上。用于「大量实体、本质是一张二维栅格」的内容。
+
+| 场景 | 策略 |
+| --- | --- |
+| 少量实体，需要真的立体感（个体有厚度、可各自倾斜） | 逐格图元 |
+| **大量实体，本质是一张二维栅格**（元胞自动机、像素场、位图、大网格） | **`texture-quad`** |
+
+判据是**开销与格数是否解耦**：64×64 元胞自动机有 4096 格，逐格提交 4096 组实例矩阵；
+而它的语义本就是「一张会变的位图」，拆成 4096 个独立 3D 物体是过度建模。
+用一个面片贴一张整图，**开销与格数无关**。
+
+`TextureQuadItem` 字段：
+
+| 字段 | 必填 | 语义 |
+| --- | --- | --- |
+| `x` · `y` | 是 | 世界平面坐标（中心点） |
+| `width` · `height` | 是 | 面片尺寸（世界单位） |
+| `texture` | 是 | **纹理键字符串**，由宿主解析器解析成图像源；空串视为无内容、整项跳过 |
+| `z` | 否 | 离地高度，用于避免与地面图元共面闪烁 |
+| `opacity` | 否 | 不透明度，缺省 `1` |
+| `billboard` | 否 | 是否始终面向相机，缺省 `true`（悬空屏幕）；`false` 时**躺平贴地** |
+
+**纹理源由宿主提供**，经 `createThreeBackend({ textureResolver })` 注入
+（`@main-ui/view-world` 对应 prop 为 `quadTextureResolver`）。解析器签名
+`(key: string) => QuadTextureSource | null`，源可为 `HTMLCanvasElement` /
+`HTMLImageElement` / `ImageBitmap`。
+
+**未提供解析器时不渲染任何面片** —— 宁可不出，也不画一块纯色板：
+后者会让宿主误判为「内容已加载但显示不对」，而真实原因只是缺了图像源。
+
+```ts
+const backend = createThreeBackend({
+  textureResolver: (key) => (key === 'board' ? boardCanvas : null),
+});
+```
+
+动态内容（元胞自动机下一代）的约定：**解析器始终返回同一块 canvas 对象**，
+改完画布内容后重新 `applySnapshot` 即可。渲染层按「源对象标识」判断是否复用纹理，
+故不要每帧新建 canvas —— 那会让纹理持续重传。
 
 ## Menu、Command Palette 与 Quick Open
 

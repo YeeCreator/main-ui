@@ -2,6 +2,19 @@
 
 按版本归并的对外变更记录。每版本只列**使用者可见**的契约变化。
 
+## 未发布（`render-3d` 0.1.x）
+
+1. **新增 `texture-quad` 图元（离屏纹理面片）**：把一张二维图像贴到三维空间的平面上，
+   用于「大量实体、本质是一张二维栅格」的内容（元胞自动机、像素场、位图、大网格）。
+   判据是**开销与格数解耦**：64×64 元胞自动机有 4096 格，逐格提交 4096 组实例矩阵是
+   过度建模；贴一张整图则开销与格数无关。
+2. **纹理源由宿主注入**：`createThreeBackend({ textureResolver })`
+   （`view-world` 对应 prop `quadTextureResolver`）。**未提供解析器时不渲染任何面片**
+   —— 宁可不出，也不画一块纯色板：后者会让宿主误判为「内容已加载但显示不对」。
+3. **修面片姿态**：非公告牌（`billboard: false`）的面片须绕 X 轴 +90° 躺平贴地。
+   漏这一步会立在竖直平面里，俯视相机只能看到一条顶边（表现为「画面里出现一条扁横条」）。
+   该缺陷属「状态对了但没落到渲染对象上」，故配单元测试守护姿态。
+
 ## 0.13.0（`@main-ui/core` 0.12.0，`view-canvas` 0.10.0，`view-formula` 0.2.0，`preset-views` 0.13.0）
 
 1. **缩略导航（小地图）**：新增 `@main-ui/view-minimap` 的 `Minimap` 组件与 `core/rendering` 的坐标数学（`minimapTransform` / `panToMinimapPoint` / `minimapViewportRect` / `contentWorldBounds` / `visibleWorldRectOfCamera`）。游戏小地图与画布导航**共用同一套坐标数学**，画法按 `kind` 分派（`point` / `rect` / `path`）——「点」在几何上就是零宽高矩形，故不建两套实现。
