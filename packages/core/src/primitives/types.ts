@@ -5,8 +5,33 @@
  * 映射为 `EntitySnapshot`，view-world 据此自动渲染图元。
  */
 
-/** 图元几何类型。 */
-export type EntityGeometry = 'point' | 'sprite' | 'text' | 'polygon' | 'polyline';
+/**
+ * 图元几何类型。
+ *
+ * | 值 | 语义 | 典型用途 |
+ * --- | --- | --- |
+ * | `point` | 点/质点 | 离散个体、单位、标记 |
+ * | `sprite` | 精灵（可带纹理） | 带图的实体 |
+ * | `text` | 文字 | 标签、数字 |
+ * | `polygon` | 闭合填充面 | 区域、范围 |
+ * | `polyline` | 开放描边 | 连线、路径 |
+ * | `texture-quad` | **离屏纹理面片**（「电视机」） | 大量二维栅格内容的整体呈现 |
+ *
+ * ## 为什么需要 `texture-quad`
+ *
+ * 实体数量决定呈现策略，这是**性能与需求的分界**，不是风格选择：
+ *
+ * - **少量实体、需要真的立体感**（个体有厚度、能各自倾斜）→ 逐格图元
+ * - **大量实体、本质是一张二维栅格**（元胞自动机、像素场、位图）→ `texture-quad`
+ *
+ * 例：64×64 的元胞自动机有 4096 格。逐格图元要提交 4096 组实例矩阵；
+ * 而它的语义本来就是「一张会变的位图」，拆成 4096 个独立 3D 物体是**过度建模**
+ * —— 如同把一张照片拆成 400 万个方块来渲染。用一张离屏纹理贴在单个面片上，
+ * **开销与格数无关**。
+ *
+ * 判据一句话：**该像电视机的就当电视机，该像独立个体的就当独立个体。**
+ */
+export type EntityGeometry = 'point' | 'sprite' | 'text' | 'polygon' | 'polyline' | 'texture-quad';
 
 /** 世界坐标下的矩形范围。 */
 export interface WorldBounds {
@@ -28,6 +53,10 @@ export type SnapshotDimensions = 2 | 3;
  *
  * **升维约定**：`z` 列与 `extrude` 列均为**可选列**，缺省 0。二维后端忽略二者，
  * 因此带 `z` 的快照在二维后端下的渲染结果与不带 `z` 逐像素一致。
+ *
+ * **`texture-quad` 批次的列**：
+ * - 必需：`x` / `y` / `width` / `height` / `texture`
+ * - 可选：`z` / `opacity` / `billboard`（布尔列）
  */
 export interface EntityBatch {
   kind: string;
@@ -180,3 +209,90 @@ export interface PolygonItem {
   /** 挤出厚度（可选，缺省 0 = 无厚度；二维后端忽略）。 */
   extrude?: number;
 }
+
+/**
+ * 离屏纹理面片（「电视机」）。
+ *
+ * ## 它解决什么
+ *
+ * 把一张**二维图像**贴到三维空间里的一个平面上。于是「大量二维栅格内容」
+ * 可以只用一个图元呈现，而不是拆成成千上万个独立 3D 物体。
+ *
+ * 与 `SpriteItem` 的分工：
+ *
+ * | | `SpriteItem.texture` | `TextureQuadItem` |
+ * | --- | --- | --- |
+ * | 用途 | 单个实体的小图（图标、头像） | **一整幅二维内容的整体呈现** |
+ * | 实例化 | 按纹理键合并成原型组（同类实体共享） | 每个面片独立（通常只有一个） |
+ * | 二维档 | 画小图 | 画整幅内容 |
+ *
+ * ## `texture` 列的取值
+ *
+ * 与 `SpriteItem.texture` 同一套机制：**纹理键字符串**，由宿主的
+ * `textureResolver` 解析成图像源（`HTMLImageElement` / `ImageBitmap` /
+ * `HTMLCanvasElement` 均可）。
+ *
+ * 因此宿主若想动态更新内容（元胞自动机的下一代），做法是：
+ * **把离屏 canvas 作为纹理源，改完内容后让解析器返回同一 canvas**。
+ * 后端据此判定需重新上传。
+ */
+export interface TextureQuadItem {
+  /** 面片中心的世界坐标。 */
+  x: number;
+  y: number;
+  /** 深度（可选，缺省 0；二维后端忽略）。 */
+  z?: number;
+  /** 面片尺寸（世界单位）。 */
+  width: number;
+  height: number;
+  /** 纹理键（由 `textureResolver` 解析为图像源）。 */
+  texture: string;
+  /**
+   * 是否**始终面向相机**（公告牌）。缺省 `true`。
+   *
+   * - `true`：像悬在空中的电视屏幕，转到哪儿都正着看。
+   *   这是「二维内容走进三维」的默认语义 —— 内容本身是平的，
+   *   倾斜看会变形，那通常不是宿主想要的。
+   * - `false`：固定朝向（由场景层级决定），可以贴在地面上当「地面显示」。
+   *   元胞自动机铺在地面上时用它 —— 俯视看是正的，斜着看有透视，
+   *   保留了「它就在地上」的空间感。
+   */
+  billboard?: boolean;
+  /** 不透明度（缺省 1）。 */
+  opacity?: number;
+  /**
+   * 图像内容的取样区域（可选，相对值 0..1）。
+   *
+   * 用于「一张大图里取一块」（图集）。缺省 = 整张图。
+   */
+  uv?: { u0: number; v0: number; u1: number; v1: number };
+}
+
+/**
+ * 离屏纹理面片的**图像源**。
+ *
+ * 三种都支持，覆盖不同使用场景：
+ *
+ * | 类型 | 场景 |
+ * | --- | --- |
+ * | `HTMLCanvasElement` | **动态内容首选** —— 宿主重画同一块画布 |
+ * | `HTMLImageElement` | 静态图（`<img>` 或已解码的图） |
+ * | `ImageBitmap` | 已解码位图（`createImageBitmap` 的结果，传输成本最低） |
+ * | `{ width, height }` | 仅需尺寸的场合（测试桩件） |
+ */
+export type QuadTextureSource =
+  | HTMLCanvasElement
+  | HTMLImageElement
+  | ImageBitmap
+  | { width: number; height: number };
+
+/**
+ * 离屏纹理面片的图像源解析器（**仅三维档使用**）。
+ *
+ * 与 `TextureResolver`（纹理键 → 二维后端的纹理资源）语义不同，两者不可混用：
+ * 混用会让「同一份快照在二维/三维下取到不同对象」，那是隐蔽的错源。
+ *
+ * 返回 `null` 表示当前拿不到该图像 —— 后端会**跳过该面片**而不是画纯色占位板
+ * （后者会让宿主误以为「内容已加载但显示不对」）。
+ */
+export type QuadTextureResolver = (key: string) => QuadTextureSource | null;

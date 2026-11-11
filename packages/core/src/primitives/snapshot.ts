@@ -11,6 +11,7 @@ import type {
   PolylineItem,
   SpriteItem,
   TextItem,
+  TextureQuadItem,
 } from './types';
 
 function numColumn(batch: EntityBatch, key: string, index: number, fallback = 0): number {
@@ -23,6 +24,19 @@ function strColumn(batch: EntityBatch, key: string, index: number, fallback = ''
   const col = batch.columns[key];
   const v = col ? col[index] : undefined;
   return typeof v === 'string' ? v : fallback;
+}
+
+/**
+ * 读布尔列。
+ *
+ * 只认真正的 `boolean`；其它值（含 `0`/`1`）回落到 `fallback`。
+ * 理由是「列类型必须明确」—— 把 `0/1` 也接受会让宿主的类型错误被静默吞掉，
+ * 而这正是「看起来能跑、行为却不对」那类缺陷的来源。
+ */
+function boolColumn(batch: EntityBatch, key: string, index: number, fallback: boolean): boolean {
+  const col = batch.columns[key];
+  const v = col ? col[index] : undefined;
+  return typeof v === 'boolean' ? v : fallback;
 }
 
 /** 从 text 几何批次解析文字项。 */
@@ -180,4 +194,59 @@ export function snapshotToItems(snapshot: EntitySnapshot): SnapshotItems {
     }
   }
   return result;
+}
+
+/**
+ * 从 `texture-quad` 几何批次解析离屏纹理面片项。
+ *
+ * ## 与 `batchToSpriteItems` 的关键差别
+ *
+ * `sprite` 批次会按「纹理键 + 尺寸 + 形状」合并成原型组（同类实体共享几何）。
+ * `texture-quad` 批次**不合并** —— 它的语义是「一整幅二维内容的整体呈现」，
+ * 每个面片通常是一块独立的画布；合并会把不同画布错绑到同一纹理上。
+ *
+ * ## 必需列与缺省值
+ *
+ * | 列 | 缺省 | 说明 |
+ * | --- | --- | --- |
+ * | `x` / `y` | 0 | 面片中心 |
+ * | `width` / `height` | 256 | 面片尺寸（世界单位） |
+ * | `texture` | `''` | 纹理键；**空串会被跳过**（没有内容可贴） |
+ * | `z` | 0 | 深度 |
+ * | `opacity` | 1 | 不透明度 |
+ * | `billboard` | `true` | 是否始终面向相机 |
+ *
+ * @param batch `texture-quad` 几何的批次。
+ * @returns 面片项数组（跳过无纹理键的项）。
+ * @example
+ * ```ts
+ * const quads = batchToTextureQuadItems(snapshot.batches.automaton);
+ * // [{ x: 0, y: 0, width: 512, height: 512, texture: 'life-canvas' }]
+ * ```
+ */
+export function batchToTextureQuadItems(batch: EntityBatch): TextureQuadItem[] {
+  const items: TextureQuadItem[] = [];
+  const hasZ = Boolean(batch.columns.z);
+  const hasOpacity = Boolean(batch.columns.opacity);
+  const hasBillboard = Boolean(batch.columns.billboard);
+  for (let i = 0; i < batch.count; i++) {
+    const texture = strColumn(batch, 'texture', i);
+    /**
+     * 没有纹理键就没有可贴的内容 —— 跳过而不是画一个空面片。
+     * 空面片在三维下会成为一个可见的纯色板，比「不出现」更容易误导。
+     */
+    if (!texture) continue;
+    const item: TextureQuadItem = {
+      x: numColumn(batch, 'x', i),
+      y: numColumn(batch, 'y', i),
+      width: numColumn(batch, 'width', i, 256),
+      height: numColumn(batch, 'height', i, 256),
+      texture,
+    };
+    if (hasZ) item.z = numColumn(batch, 'z', i);
+    if (hasOpacity) item.opacity = numColumn(batch, 'opacity', i, 1);
+    if (hasBillboard) item.billboard = boolColumn(batch, 'billboard', i, true);
+    items.push(item);
+  }
+  return items;
 }
