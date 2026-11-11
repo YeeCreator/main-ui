@@ -1061,6 +1061,8 @@ export const WorldView = defineComponent({
         else backend?.orbit?.enterFly?.();
       },
       getBackend: () => backend,
+      /** 让离屏纹理重新上传像素（不重建场景）。 */
+      refreshTexture: (key: string) => backend?.textures?.refresh(key) ?? false,
     });
 
     /** 销毁当前后端（幂等）。 */

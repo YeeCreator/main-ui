@@ -155,4 +155,14 @@ export interface WorldReadyApi {
   toggleFly?: () => void;
   /** 当前后端实例（后端无关；供宿主读 `capabilities` 与专用出口）。 */
   getBackend: () => ViewportBackend | null;
+  /**
+   * 让一块离屏纹理重新上传像素（不重建场景）。
+   *
+   * 实时内容（逐帧重画的画布）的必备入口：`snapshot` 变动走 vue 更新是
+   * **全量重建**，每帧一次会让帧率崩。画完画布后调本方法即可。
+   *
+   * @param key 纹理键（与快照 `texture` 列同值）。
+   * @returns 是否命中（键未绑定/后端无此能力时 `false`，不抛错）。
+   */
+  refreshTexture: (key: string) => boolean;
 }
