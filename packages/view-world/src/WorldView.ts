@@ -278,7 +278,18 @@ export const WorldView = defineComponent({
      * 三维档找不到三维后端时**降级二维**并抛 `backend-change`（不空白、不抛错）。
      */
     const builtinPixiFactory: ViewportBackendFactory = () =>
-      new PixiViewportBackend({ textureResolver: props.textureResolver ?? undefined, antialias: props.antialias });
+      new PixiViewportBackend({
+        textureResolver: props.textureResolver ?? undefined,
+        /**
+         * 离屏纹理面片的解析器**必须一并下传**。
+         *
+         * 遗漏的后果很隐蔽：二维后端里 `texture-quad` 分支拿到 `undefined`
+         * 解析器后按「无图像源」跳过，于是**面片一个都不画、也不报错** ——
+         * 表现为「画面空白，但场景统计正常」。2026-11-11 实测踩到。
+         */
+        quadTextureResolver: props.quadTextureResolver ?? null,
+        antialias: props.antialias,
+      });
 
     const lookupFactory = (key: string): ViewportBackendFactory | null => {
       if (props.backends && props.backends[key]) return props.backends[key];
